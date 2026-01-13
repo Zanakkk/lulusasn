@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "975581006036",
+    "project_id": "lulusasn-e15a3",
+    "storage_bucket": "lulusasn-e15a3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:975581006036:android:d8ece2f8bfbb002b22d341",
+        "android_client_info": {
+          "package_name": "lulus.asn.lulusasn"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "975581006036-5pisb0t9ro9qpjfln11ibnee7s8r2jik.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1qZVHe4pFPrpfdnXZBYCkUKcrQj5ge-I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "975581006036-5pisb0t9ro9qpjfln11ibnee7s8r2jik.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "975581006036-5a4tn96raa722h5473cvel2evsdo72i5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "lulus.asn.lulusasn"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
