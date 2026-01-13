@@ -10,6 +10,9 @@ import 'package:lulusasn/features/auth/screens/login_screen.dart'
 import 'package:lulusasn/features/home/screens/home_screen.dart'
     deferred as home;
 
+import '../features/auth/screens/goal_setting_screen.dart';
+import '../features/auth/screens/onboarding_screen.dart';
+
 // ============================================================================
 // ROUTE NAMES
 // ============================================================================
@@ -24,6 +27,8 @@ abstract class AppRoutes {
   static const String login = '/login';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
+  static const String goalSetting = '/goal-setting';
+  static const String onboarding = '/onboarding';
 
   // ==================== AUTHENTICATED ROUTES ====================
   static const String home = '/home';
@@ -36,6 +41,10 @@ abstract class AppRoutes {
 
   static const String leaderboard = '/leaderboard';
   static const String userProfile = '/user';
+
+  static const String exam = '/exam';
+  static const String premium = '/premium';
+
 
   static const String profile = '/profile';
   static const String statistics = '/profile/statistics';
@@ -103,6 +112,11 @@ class AppRouter {
           await home.loadLibrary();
           return home.HomeScreen();
         });
+
+      case AppRoutes.onboarding:
+        return MaterialPageRoute(builder: (_) => const OnboardingScreen());
+      case AppRoutes.goalSetting:
+        return MaterialPageRoute(builder: (_) => const GoalSettingScreen());
 
       // TODO: Add more routes as features are built
       // case AppRoutes.examSession:

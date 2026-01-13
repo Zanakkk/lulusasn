@@ -8,7 +8,8 @@ class AppTextStyles {
   AppTextStyles._(); // Private constructor
 
   // System font stack (no custom fonts for performance)
-  static const String fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  static const String fontFamily =
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
   // ============================================================================
   // DISPLAY STYLES (Extra Large)
@@ -132,6 +133,7 @@ class AppTextStyles {
     letterSpacing: 0.5,
     color: AppColors.textPrimary,
   );
+
 
   static const TextStyle labelSmall = TextStyle(
     fontSize: 10,

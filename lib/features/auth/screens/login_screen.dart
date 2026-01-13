@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:line_icons/line_icons.dart';
 
 import '../../../app/routes.dart';
+import '../service/user_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -58,8 +59,19 @@ class _LoginScreenState extends State<LoginScreen> {
           return;
         }
 
-        // Login success - Navigate to home
-        if (mounted) {
+        // ✅ Check apakah user document ada
+        final userExists = await UserService.instance.userExists(
+          userCredential.user!.uid,
+        );
+
+        if (!mounted) return;
+
+        if (!userExists) {
+          // User lama tanpa document → Goal Setting
+          Navigator.pushReplacementNamed(context, AppRoutes.goalSetting);
+        } else {
+          // Update last login
+          await UserService.instance.updateLastLogin(userCredential.user!.uid);
           Navigator.pushReplacementNamed(context, AppRoutes.home);
         }
       } else {
@@ -242,8 +254,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (value == null || value.isEmpty) {
                           return 'Email wajib diisi';
                         }
-                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                            .hasMatch(value)) {
+                        if (!RegExp(
+                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                        ).hasMatch(value)) {
                           return 'Format email tidak valid';
                         }
                         return null;
@@ -291,21 +304,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: _isLoading ? null : _handleAuth,
                         child: _isLoading
                             ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
                             : Text(
-                          _isLoginMode ? 'LOGIN' : 'DAFTAR',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                                _isLoginMode ? 'LOGIN' : 'DAFTAR',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
                       ),
                     ),
 
@@ -489,9 +502,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         SizedBox(height: 8),
                         Text(
                           '1. Buka inbox email Anda\n'
-                              '2. Klik link verifikasi\n'
-                              '3. Kembali ke halaman ini\n'
-                              '4. Login dengan akun Anda',
+                          '2. Klik link verifikasi\n'
+                          '3. Kembali ke halaman ini\n'
+                          '4. Login dengan akun Anda',
                           style: TextStyle(fontSize: 13),
                         ),
                       ],
