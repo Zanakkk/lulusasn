@@ -13,7 +13,7 @@ enum QuestionType {
 
   static QuestionType fromString(String value) {
     return QuestionType.values.firstWhere(
-          (type) => type.value == value,
+      (type) => type.value == value,
       orElse: () => QuestionType.objective,
     );
   }
@@ -30,7 +30,9 @@ class QuestionModel {
   final String question;
   final QuestionType type;
   final List<String> options; // Untuk objective type
-  final int correctAnswer; // index untuk objective, 0/1 untuk yesno, 1-5 untuk likert
+  final int
+  correctAnswer; // index untuk objective, 0/1 untuk yesno, 1-5 untuk likert
+  final List<int>? optionScores; // 🆕 TAMBAH INI: [1,2,3,4,5] untuk likert
   final String explanationShort; // Free user (1-2 kalimat)
   final String explanationFull; // Premium user (lengkap + video)
   final String category; // TWK, TIU, TKP
@@ -46,6 +48,8 @@ class QuestionModel {
     required this.type,
     required this.options,
     required this.correctAnswer,
+
+    this.optionScores, // 🆕 TAMBAH INI (nullable)
     required this.explanationShort,
     required this.explanationFull,
     required this.category,
@@ -70,6 +74,8 @@ class QuestionModel {
       type: QuestionType.fromString(data['type'] as String? ?? 'objective'),
       options: (data['options'] as List<dynamic>?)?.cast<String>() ?? [],
       correctAnswer: data['correctAnswer'] as int? ?? 0,
+      optionScores: (data['optionScores'] as List<dynamic>?)?.cast<int>(), // 🆕 TAMBAH INI
+
       explanationShort: data['explanationShort'] as String? ?? '',
       explanationFull: data['explanationFull'] as String? ?? '',
       category: data['category'] as String? ?? '',
@@ -112,6 +118,8 @@ class QuestionModel {
       'type': type.value,
       'options': options,
       'correctAnswer': correctAnswer,
+
+      'optionScores': optionScores, // 🆕 TAMBAH INI
       'explanationShort': explanationShort,
       'explanationFull': explanationFull,
       'category': category,
@@ -130,6 +138,8 @@ class QuestionModel {
       'type': type.value,
       'options': options,
       'correctAnswer': correctAnswer,
+
+      'optionScores': optionScores, // 🆕 TAMBAH INI
       'explanationShort': explanationShort,
       'explanationFull': explanationFull,
       'category': category,
@@ -210,6 +220,8 @@ class QuestionModel {
     QuestionType? type,
     List<String>? options,
     int? correctAnswer,
+
+    List<int>? optionScores, // 🆕 TAMBAH INI
     String? explanationShort,
     String? explanationFull,
     String? category,
@@ -225,6 +237,8 @@ class QuestionModel {
       type: type ?? this.type,
       options: options ?? this.options,
       correctAnswer: correctAnswer ?? this.correctAnswer,
+
+      optionScores: optionScores ?? this.optionScores, // 🆕 TAMBAH INI
       explanationShort: explanationShort ?? this.explanationShort,
       explanationFull: explanationFull ?? this.explanationFull,
       category: category ?? this.category,
@@ -257,5 +271,74 @@ class QuestionModel {
   @override
   String toString() {
     return 'QuestionModel(id: $questionId, type: ${type.value}, category: $category, difficulty: $difficulty)';
+  }
+
+  // Tambahkan di bagian BUSINESS LOGIC (sekitar baris 150)
+
+  /// Get skor untuk jawaban likert (skor 1-5 berdasarkan index 0-4)
+  /// Get skor untuk jawaban likert (skor 1-5 berdasarkan index 0-4)
+  /// Get skor untuk jawaban likert
+  int getLikertScore(int answerIndex) {
+    if (type != QuestionType.likert) return 0;
+
+    // Validasi index
+    if (answerIndex < 0 || answerIndex >= options.length) return 0;
+
+    // 🆕 Jika ada optionScores, gunakan itu
+    if (optionScores != null && answerIndex < optionScores!.length) {
+      return optionScores![answerIndex];
+    }
+
+    // Fallback: Index 0-4 = skor 1-5
+    return answerIndex + 1;
+  }
+
+  /// Get skor untuk semua opsi (untuk display di review)
+  List<int> getAllOptionScores() {
+    if (type != QuestionType.likert) return [];
+
+    if (optionScores != null) {
+      return optionScores!;
+    }
+
+    // Fallback: generate 1-5
+    return List.generate(options.length, (i) => i + 1);
+  }
+
+  /// Check apakah ini jawaban optimal (skor tertinggi)
+  bool isOptimalAnswer(int answerIndex) {
+    if (type != QuestionType.likert) {
+      return answerIndex == correctAnswer;
+    }
+
+    final scores = getAllOptionScores();
+    if (scores.isEmpty || answerIndex >= scores.length) return false;
+
+    final maxScore = scores.reduce((a, b) => a > b ? a : b);
+    return scores[answerIndex] == maxScore;
+  }
+  /// Get jawaban optimal untuk likert (skor tertinggi)
+  int getOptimalLikertAnswer() {
+    if (type != QuestionType.likert) return 0;
+    return options.length - 1; // Index terakhir = skor tertinggi
+  }
+
+  /// Get skor maksimal untuk tipe soal ini
+  int getMaxScore() {
+    switch (type) {
+      case QuestionType.likert:
+        return 5; // Skor maksimal likert
+      case QuestionType.objective:
+      case QuestionType.yesNo:
+        return 5; // Skor tetap untuk benar
+    }
+  }
+
+  /// Check apakah ini jawaban optimal untuk likert
+  bool isOptimalLikertAnswer(int userAnswer) {
+    if (type != QuestionType.likert) return false;
+
+    // Jawaban optimal adalah yang skornya tertinggi
+    return userAnswer == correctAnswer;
   }
 }

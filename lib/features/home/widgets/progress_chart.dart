@@ -113,6 +113,10 @@ class ProgressChart extends StatelessWidget {
   // BAR
   // ============================================================================
 
+  // ============================================================================
+  // BAR - FIXED OVERFLOW
+  // ============================================================================
+
   Widget _buildBar(DailyProgress day, int maxExams) {
     final isToday = day.isToday;
     final height = maxExams > 0 ? (day.examsCompleted / maxExams) * 100 : 0.0;
@@ -121,43 +125,65 @@ class ProgressChart extends StatelessWidget {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            // Count label
-            if (hasData)
-              Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isToday ? AppColors.blue : AppColors.gray800,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '${day.examsCompleted}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // ✅ Calculate available space
+            final availableHeight = constraints.maxHeight;
+            final labelHeight = hasData ? 20.0 : 0.0;
+            final barMaxHeight = availableHeight - labelHeight - 2; // 2px margin
+
+            // ✅ Calculate actual bar height
+            final barHeight = hasData
+                ? (height / 100 * barMaxHeight).clamp(12.0, barMaxHeight)
+                : 12.0;
+
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Count label
+                if (hasData)
+                  Container(
+                    height: 18,
+                    margin: const EdgeInsets.only(bottom: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isToday ? AppColors.blue : AppColors.gray800,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${day.examsCompleted}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox.shrink(),
+
+                // Bar
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  height: barHeight,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: hasData
+                        ? (isToday ? AppColors.blue : AppColors.green)
+                        : AppColors.gray200,
+                    borderRadius: BorderRadius.circular(6),
+                    border: isToday
+                        ? Border.all(color: AppColors.blue, width: 2)
+                        : null,
                   ),
                 ),
-              ),
-
-            // Bar
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              height: hasData ? height.clamp(12.0, 100.0) : 12.0,
-              decoration: BoxDecoration(
-                color: hasData
-                    ? (isToday ? AppColors.blue : AppColors.green)
-                    : AppColors.gray200,
-                borderRadius: BorderRadius.circular(6),
-                border: isToday
-                    ? Border.all(color: AppColors.blue, width: 2)
-                    : null,
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );

@@ -1,5 +1,7 @@
 // lib/features/home/screens/home_screen.dart
 
+// ignore_for_file: avoid_print, deprecated_member_use
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -8,9 +10,7 @@ import 'package:lulusasn/core/constants/text_styles.dart';
 import 'package:lulusasn/core/constants/spacing.dart';
 import 'package:lulusasn/core/services/firebase_service.dart';
 import 'package:lulusasn/features/home/models/energy_model.dart';
-import 'package:lulusasn/features/home/models/streak_model.dart';
 import 'package:lulusasn/features/home/services/energy_service.dart';
-import 'package:lulusasn/features/home/services/streak_service.dart';
 import 'package:lulusasn/features/home/widgets/progress_chart.dart';
 import 'package:lulusasn/features/home/widgets/quick_exam_button.dart';
 import 'package:lulusasn/app/routes.dart';
@@ -51,13 +51,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   Timer? _energyTimer;
   EnergyModel? _currentEnergy;
-  bool _isPremium = false;
 
   @override
   void initState() {
     super.initState();
     _loadEnergyData();
-    _startEnergyTimer();
+    _startEnergyTimer(); // Timer untuk countdown UI
   }
 
   @override
@@ -68,12 +67,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseService.instance.currentUser;
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: _buildAppBar(context, user?.displayName ?? 'User', screenWidth),
       body: _buildResponsiveBody(context, screenWidth),
     );
   }
@@ -81,7 +78,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void _startEnergyTimer() {
     _energyTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _currentEnergy != null) {
-        setState(() {});
+        // ✅ Cek apakah ada regenerasi baru
+        final newEnergy = _currentEnergy!.calculateCurrentEnergy();
+        final oldEnergy = _currentEnergy!.current;
+
+        // ✅ Jika energy bertambah (regenerasi), update Firestore
+        if (newEnergy > oldEnergy && newEnergy <= _currentEnergy!.max) {
+          _loadEnergyData(); // Reload dan save
+        } else {
+          // ✅ Hanya update UI (untuk countdown timer)
+          setState(() {});
+        }
       }
     });
   }
@@ -90,189 +97,51 @@ class _HomeScreenState extends State<HomeScreen> {
     final userId = FirebaseService.instance.currentUser?.uid;
     if (userId == null) return;
 
-    final userDoc = await FirebaseService.instance.firestore
-        .collection('users')
-        .doc(userId)
-        .get();
+    try {
+      final userDoc = await FirebaseService.instance.firestore
+          .collection('users')
+          .doc(userId)
+          .get();
 
-    final energyService = EnergyService();
-    final energy = await energyService.getEnergy();
-    final isPremium = userDoc.data()?['isPremium'] as bool? ?? false;
+      final energyService = EnergyService();
+      final energy = await energyService.getEnergy();
 
-    if (mounted) {
-      setState(() {
-        _currentEnergy = energy;
-        _isPremium = isPremium;
-      });
+      // ✅ Hitung current energy dengan regenerasi
+      final currentEnergy = energy.calculateCurrentEnergy();
+
+      // ✅ Jika ada regenerasi, update ke Firestore
+      if (currentEnergy != energy.current && currentEnergy < energy.max) {
+        final now = DateTime.now();
+        final updatedEnergy = energy.copyWith(
+          current: currentEnergy,
+          lastRegen: now,
+        );
+
+        await FirebaseService.instance.firestore
+            .collection('users')
+            .doc(userId)
+            .update({'energy': updatedEnergy.toFirestore()});
+
+        if (mounted) {
+          setState(() {
+            _currentEnergy = updatedEnergy;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _currentEnergy = energy;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading energy: $e');
     }
   }
 
   // ============================================================================
   // DUOLINGO-STYLE APP BAR
   // ============================================================================
-
-  PreferredSizeWidget _buildAppBar(
-    BuildContext context,
-    String userName,
-    double screenWidth,
-  ) {
-    final isMobile = screenWidth < _Breakpoints.mobile;
-
-    return AppBar(
-      elevation: 0,
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      toolbarHeight: isMobile ? 64 : 72,
-      automaticallyImplyLeading: false, // ✅ Hilangkan tombol back
-      title: Row(
-        children: [
-          // Logo/Brand
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF58CC02),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              'LULUS',
-              style: TextStyle(
-                fontSize: isMobile ? 16 : 18,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        // Streak Display
-        if (_currentEnergy != null) ...[
-          _buildStreakWidget(context, isMobile),
-          const SizedBox(width: 8),
-        ],
-
-        // Energy Display
-        if (_currentEnergy != null) ...[
-          _buildEnergyWidget(context, isMobile),
-          const SizedBox(width: 12),
-        ],
-
-        // Profile Menu Button
-        PopupMenuButton<String>(
-          offset: const Offset(0, 56),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          icon: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey[300]!, width: 2),
-            ),
-            child: Icon(Icons.person, size: 20, color: Colors.grey[700]),
-          ),
-          itemBuilder: (context) => [
-            PopupMenuItem<String>(
-              value: 'profile',
-              child: Row(
-                children: [
-                  Icon(Icons.person_outline, size: 20, color: Colors.grey[700]),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Profil',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-            const PopupMenuDivider(),
-            PopupMenuItem<String>(
-              value: 'logout',
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.logout_rounded,
-                    size: 20,
-                    color: Color(0xFFFF4B4B),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Logout',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFFFF4B4B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          onSelected: (value) async {
-            if (value == 'profile') {
-              Navigator.pushNamed(context, AppRoutes.profile);
-            } else if (value == 'logout') {
-              // Show confirmation dialog
-              final shouldLogout = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  title: const Text(
-                    'Logout',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                  ),
-                  content: const Text(
-                    'Apakah Anda yakin ingin keluar?',
-                    style: TextStyle(fontSize: 15),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text(
-                        'Batal',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF3C3C3C),
-                        ),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF4B4B),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Logout',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-
-              if (shouldLogout == true && context.mounted) {
-                await FirebaseService.instance.signOut();
-                if (context.mounted) {
-                  Navigator.pushReplacementNamed(context, AppRoutes.login);
-                }
-              }
-            }
-          },
-        ),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
 
   // ============================================================================
   // MOBILE LAYOUT (< 600px) - Single Column
@@ -341,332 +210,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildCategorySection(),
         const SizedBox(height: 64),
       ],
-    );
-  }
-
-  // ============================================================================
-  // ENERGY WIDGET (Duolingo Style)
-  // ============================================================================
-
-  Widget _buildEnergyWidget(BuildContext context, bool isMobile) {
-    if (_currentEnergy == null) return const SizedBox.shrink();
-
-    final currentEnergy = _currentEnergy!.calculateCurrentEnergy();
-    final maxEnergy = _currentEnergy!.max;
-    final isFull = currentEnergy >= maxEnergy;
-
-    // Calculate time until next energy
-    String timeText = '';
-    if (!_isPremium && !isFull) {
-      final minutesUntilNext = _currentEnergy!.minutesUntilNext();
-      final now = DateTime.now();
-      final lastRegen = _currentEnergy!.lastRegen;
-      final totalSeconds = minutesUntilNext * 60;
-      final elapsedSeconds =
-          now.difference(lastRegen).inSeconds %
-          (_currentEnergy!.regenRate * 60);
-      final remainingSeconds =
-          totalSeconds - (elapsedSeconds % (_currentEnergy!.regenRate * 60));
-
-      final minutes = remainingSeconds ~/ 60;
-      final seconds = remainingSeconds % 60;
-      timeText =
-          '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-
-    return GestureDetector(
-      onTap: () => _showEnergyBottomSheet(context),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 10 : 12,
-          vertical: 6,
-        ),
-        decoration: BoxDecoration(
-          color: _isPremium ? const Color(0xFFFFF9E6) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _isPremium ? const Color(0xFFFFD700) : Colors.grey[300]!,
-            width: 2,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Heart Icon
-            Icon(
-              _isPremium ? Icons.bolt : Icons.favorite,
-              color: _isPremium
-                  ? const Color(0xFFFFD700)
-                  : const Color(0xFFFF4B4B),
-              size: isMobile ? 18 : 20,
-            ),
-            const SizedBox(width: 6),
-
-            // Energy Count or "PRO"
-            if (_isPremium)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFD700),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'PRO',
-                  style: TextStyle(
-                    fontSize: isMobile ? 10 : 11,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              )
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$currentEnergy',
-                    style: TextStyle(
-                      fontSize: isMobile ? 14 : 15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey[800],
-                      height: 1.0,
-                    ),
-                  ),
-                  if (!isFull && timeText.isNotEmpty)
-                    Text(
-                      timeText,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[600],
-                        height: 1.0,
-                      ),
-                    ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================================
-  // STREAK WIDGET (Duolingo Style)
-  // ============================================================================
-
-  Widget _buildStreakWidget(BuildContext context, bool isMobile) {
-    return FutureBuilder<StreakModel>(
-      future: StreakService().getStreak(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-
-        final streak = snapshot.data!;
-
-        return GestureDetector(
-          onTap: () => _showStreakBottomSheet(context, streak),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 10 : 12,
-              vertical: 6,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF4E6),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFF9500), width: 2),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.local_fire_department,
-                  color: const Color(0xFFFF9500),
-                  size: isMobile ? 18 : 20,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${streak.current}',
-                  style: TextStyle(
-                    fontSize: isMobile ? 14 : 15,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.grey[800],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ============================================================================
-  // BOTTOM SHEETS
-  // ============================================================================
-
-  void _showEnergyBottomSheet(BuildContext context) {
-    if (_currentEnergy == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  _isPremium ? Icons.bolt : Icons.favorite,
-                  color: _isPremium
-                      ? const Color(0xFFFFD700)
-                      : const Color(0xFFFF4B4B),
-                  size: 32,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  _isPremium ? 'Unlimited Energy' : 'Energy Sistem',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            if (_isPremium) ...[
-              const Text('✨ Anda adalah Premium Member!'),
-              const SizedBox(height: 8),
-              const Text('• Energy tanpa batas'),
-              const Text('• Latihan sepuasnya'),
-              const Text('• Tanpa iklan'),
-            ] else ...[
-              Text(
-                'Energy: ${_currentEnergy!.calculateCurrentEnergy()}/${_currentEnergy!.max}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Regenerasi: 1 energy per ${_currentEnergy!.regenRate} menit',
-              ),
-              const SizedBox(height: 8),
-              Text('Total digunakan: ${_currentEnergy!.totalUsed}'),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF9E6),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFFD700)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.bolt, color: Color(0xFFFFD700)),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Upgrade ke PRO untuk energy unlimited!',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF58CC02),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'OK',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showStreakBottomSheet(BuildContext context, StreakModel streak) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.local_fire_department,
-                  color: Color(0xFFFF9500),
-                  size: 32,
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Streak Anda',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Current Streak: ${streak.current} hari',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Text('Longest Streak: ${streak.longest} hari'),
-            const SizedBox(height: 8),
-            Text('Status: ${streak.getStatus().displayText}'),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF58CC02),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'OK',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -908,12 +451,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if (context.mounted) {
         Navigator.pushNamed(
           context,
-          AppRoutes.examPre, // ✅ FIX: Ganti dari AppRoutes.exam ke AppRoutes.examPre
+          AppRoutes
+              .examPre, // ✅ FIX: Ganti dari AppRoutes.exam ke AppRoutes.examPre
           arguments: {
             'category': category,
             'questionCount': 10, // Default 10 soal
-            'energyCost': 1,     // 1 energy per exam
-            'isPremium': false,  // TODO: Get from user doc
+            'energyCost': 1, // 1 energy per exam
+            'isPremium': false, // TODO: Get from user doc
           },
         );
       }
@@ -988,3 +532,503 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+// ============================================================================
+// STATEFUL ENERGY DIALOG - Real-time Countdown
+// ============================================================================
+
+class _EnergyDialog extends StatefulWidget {
+  final EnergyModel energy;
+  final bool isPremium;
+
+  const _EnergyDialog({required this.energy, required this.isPremium});
+
+  @override
+  State<_EnergyDialog> createState() => _EnergyDialogState();
+}
+
+class _EnergyDialogState extends State<_EnergyDialog> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Update UI setiap detik untuk countdown
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentEnergy = widget.energy.calculateCurrentEnergy();
+    final maxEnergy = widget.energy.max;
+    final isFull = currentEnergy >= maxEnergy;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 360),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header dengan gradient
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: widget.isPremium
+                      ? [const Color(0xFFFFFBF0), const Color(0xFFFFF5D6)]
+                      : [const Color(0xFFFFEFEF), const Color(0xFFFFE5E5)],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      widget.isPremium
+                          ? Icons.bolt_rounded
+                          : Icons.favorite_rounded,
+                      color: widget.isPremium
+                          ? const Color(0xFFFFD700)
+                          : const Color(0xFFFF4B4B),
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.isPremium ? 'Unlimited' : 'Energy',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF3C3C3C),
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        Text(
+                          widget.isPremium ? 'Premium Member' : 'Sistem Energi',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: widget.isPremium
+                  ? _buildPremiumContent()
+                  : _buildFreeContent(currentEnergy, maxEnergy, isFull),
+            ),
+
+            // Close button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF58CC02),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Tutup',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Premium content - compact
+  Widget _buildPremiumContent() {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBF0),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFFFD700).withOpacity(0.3),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            children: [
+              const Icon(
+                Icons.all_inclusive,
+                size: 40,
+                color: Color(0xFFFFD700),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Energy Tanpa Batas',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF3C3C3C),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildPremiumBenefit(Icons.check_circle, 'Latihan sepuasnya'),
+              const SizedBox(height: 8),
+              _buildPremiumBenefit(Icons.check_circle, 'Tanpa iklan'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPremiumBenefit(IconData icon, String text) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF58CC02)),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF666666),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Free content - compact dengan real-time countdown
+  Widget _buildFreeContent(int currentEnergy, int maxEnergy, bool isFull) {
+    // Real-time countdown calculation
+    final now = DateTime.now();
+    final lastRegen = widget.energy.lastRegen;
+    final secondsPassed = now.difference(lastRegen).inSeconds;
+    final secondsPerEnergy = widget.energy.regenRate * 60;
+    final secondsInCurrentCycle = secondsPassed % secondsPerEnergy;
+    final secondsRemaining = secondsPerEnergy - secondsInCurrentCycle;
+    final regenProgress = secondsInCurrentCycle / secondsPerEnergy;
+    final minutes = secondsRemaining ~/ 60;
+    final seconds = secondsRemaining % 60;
+    final countdown =
+        '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
+    return Column(
+      children: [
+        // Energy count - compact
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              '$currentEnergy',
+              style: const TextStyle(
+                fontSize: 44,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF3C3C3C),
+                letterSpacing: -1.5,
+                height: 1.0,
+              ),
+            ),
+            Text(
+              ' / $maxEnergy',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[400],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        // Compact energy bar
+        Container(
+          height: 24,
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: currentEnergy / maxEnergy,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFFF4B4B), Color(0xFFFF6B6B)],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Center(
+                // ✅ TAMBAH INI
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(
+                      maxEnergy,
+                      (i) => Icon(
+                        i < currentEnergy
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        color: i < currentEnergy
+                            ? Colors.white
+                            : Colors.grey[400],
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Compact info row
+        Row(
+          children: [
+            Expanded(
+              child: _buildInfoCard(
+                Icons.autorenew_rounded,
+                '${widget.energy.regenRate} min',
+                'Per energy',
+                const Color(0xFF58CC02),
+              ),
+            ),
+            if (!isFull) ...[
+              const SizedBox(width: 12),
+              Expanded(child: _buildCountdownCard(countdown, regenProgress)),
+            ],
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Compact upgrade CTA
+        InkWell(
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, AppRoutes.premium);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFFBF0), Color(0xFFFFF5D6)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFFFD700).withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.bolt_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Upgrade ke PRO',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF3C3C3C),
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 18,
+                  color: Colors.grey[600],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoCard(
+    IconData icon,
+    String value,
+    String label,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF3C3C3C),
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCountdownCard(String countdown, double progress) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 3,
+                  backgroundColor: Colors.grey[300],
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFFFF4B4B)),
+                ),
+              ),
+              const Icon(
+                Icons.schedule_rounded,
+                color: Color(0xFFFF4B4B),
+                size: 14,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            countdown,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF3C3C3C),
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+          Text(
+            'Berikutnya',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// UPDATE: Ganti _buildEnergyWidget onTap
+// ============================================================================
+// Di method _buildEnergyWidget(), ganti onTap menjadi:
+// onTap: () => _showEnergyDialog(context),

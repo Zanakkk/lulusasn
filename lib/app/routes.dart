@@ -1,6 +1,7 @@
 // lib/app/routes.dart
 
 import 'package:flutter/material.dart';
+import 'package:lulusasn/features/home/screens/StatisticScreen.dart';
 
 import '../features/auth/screens/goal_setting_screen.dart';
 import '../features/auth/screens/onboarding_screen.dart';
@@ -11,6 +12,8 @@ import '../features/exam/screens/exam_result_screen.dart';
 import '../features/exam/screens/exam_review_screen.dart';
 import '../features/exam/screens/exam_session_screen.dart';
 import '../features/exam/screens/pre_exam_screen.dart';
+import '../features/home/screens/ProfileScreen.dart';
+import '../features/home/screens/leaderboard_screen.dart';
 import '../features/main_navigation/main_screen..dart';
 
 import 'package:lulusasn/features/auth/screens/splash_screen.dart';
@@ -130,6 +133,23 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const MainNavigationScreen(),
+        );
+
+      case AppRoutes.profile:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ProfileScreen(),
+        );
+      case AppRoutes.leaderboard:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const LeaderboardScreen(),
+        );
+
+      case AppRoutes.statistics:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => StatisticsScreen(),
         );
 
       // ==================== EXAM ROUTES ====================

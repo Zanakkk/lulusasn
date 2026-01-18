@@ -1,5 +1,8 @@
 // lib/features/exam/screens/exam_list_screen.dart
 
+// ignore_for_file: deprecated_member_use
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -36,21 +39,23 @@ class _ExamListScreenState extends State<ExamListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          // Compact Header
-          SliverToBoxAdapter(
-            child: _CompactHeader(
-              category: _selectedCategory,
-              onCategoryChanged: (category) {
-                HapticFeedback.selectionClick();
-                setState(() => _selectedCategory = category);
-              },
-            ),
+      body: Column(
+        children: [
+          // ✅ Fixed Header - tidak scroll
+          _CompactHeader(
+            category: _selectedCategory,
+            onCategoryChanged: (category) {
+              HapticFeedback.selectionClick();
+              setState(() => _selectedCategory = category);
+            },
           ),
 
-          // Snake Learning Path
-          SliverToBoxAdapter(child: _SnakePath(category: _selectedCategory)),
+          // ✅ Scrollable content
+          Expanded(
+            child: SingleChildScrollView(
+              child: _SnakePath(category: _selectedCategory),
+            ),
+          ),
         ],
       ),
     );
@@ -296,7 +301,9 @@ class _SnakePathState extends State<_SnakePath> {
                     }
                   }
                 } catch (e) {
-                  print('Error parsing exam doc: $e');
+                  if (kDebugMode) {
+                    print('Error parsing exam doc: $e');
+                  }
                 }
               }
             }

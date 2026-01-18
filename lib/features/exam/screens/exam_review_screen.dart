@@ -1,15 +1,15 @@
 // lib/features/exam/screens/exam_review_screen.dart
 
+// ignore_for_file: deprecated_member_use
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:lulusasn/core/constants/colors.dart';
 import 'package:lulusasn/core/constants/text_styles.dart';
-import 'package:lulusasn/core/constants/spacing.dart';
 import 'package:lulusasn/core/widgets/brutalist_button.dart';
 import 'package:lulusasn/features/exam/models/exam_result_model.dart';
 import 'package:lulusasn/features/exam/models/answer_model.dart';
 import 'package:lulusasn/features/exam/models/question_model.dart';
-import 'package:lulusasn/features/exam/services/exam_service.dart';
 import 'package:lulusasn/features/exam/services/question_service.dart';
 
 import '../../../core/services/firebase_service.dart';
@@ -33,7 +33,6 @@ class ExamReviewScreen extends StatefulWidget {
 }
 
 class _ExamReviewScreenState extends State<ExamReviewScreen> {
-  final _examService = ExamService();
   final _questionService = QuestionService();
   final _pageController = PageController();
   final _scrollController = ScrollController();
@@ -117,9 +116,9 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
   }
 
   Future<List<QuestionModel>> _loadQuestionsFromPackage(
-      String packageId,
-      List<AnswerModel> answers,
-      ) async {
+    String packageId,
+    List<AnswerModel> answers,
+  ) async {
     final packageDoc = await FirebaseService.instance.firestore
         .collection('exam_packages')
         .doc(packageId)
@@ -154,7 +153,7 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
     final orderedQuestions = <QuestionModel>[];
     for (final answer in answers) {
       final question = allQuestions.firstWhere(
-            (q) => q.questionId == answer.questionId,
+        (q) => q.questionId == answer.questionId,
         orElse: () => _createDummyQuestion(answer),
       );
       orderedQuestions.add(question);
@@ -164,8 +163,8 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
   }
 
   Future<List<QuestionModel>> _loadIndividualQuestions(
-      List<AnswerModel> answers,
-      ) async {
+    List<AnswerModel> answers,
+  ) async {
     final questions = <QuestionModel>[];
 
     for (final answer in answers) {
@@ -266,72 +265,72 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
           child: _filteredAnswers.isEmpty
               ? _buildEmptyState()
               : Column(
-            children: [
-              // Question counter
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                color: Colors.white,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      'Soal ${_currentPage + 1} dari ${_filteredAnswers.length}',
-                      style: AppTextStyles.labelLarge.copyWith(
-                        color: AppColors.textSecondary,
+                    // Question counter
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
+                      color: Colors.white,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Soal ${_currentPage + 1} dari ${_filteredAnswers.length}',
+                            style: AppTextStyles.labelLarge.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // PageView
+                    Expanded(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        onPageChanged: (index) {
+                          setState(() => _currentPage = index);
+                        },
+                        itemCount: _filteredAnswers.length,
+                        itemBuilder: (context, index) {
+                          final answer = _filteredAnswers[index];
+                          final question = _questions.firstWhere(
+                            (q) => q.questionId == answer.questionId,
+                            orElse: () => _createDummyQuestion(answer),
+                          );
+
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.all(16),
+                            child: _QuestionReviewCard(
+                              answer: answer,
+                              question: question,
+                              questionNumber: answer.questionOrder,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    // Navigation buttons
+                    _MobileNavigation(
+                      currentPage: _currentPage,
+                      totalPages: _filteredAnswers.length,
+                      onPrevious: _currentPage > 0
+                          ? () => _pageController.previousPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            )
+                          : null,
+                      onNext: _currentPage < _filteredAnswers.length - 1
+                          ? () => _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            )
+                          : null,
+                      onDone: _handleDone,
                     ),
                   ],
                 ),
-              ),
-              // PageView
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  onPageChanged: (index) {
-                    setState(() => _currentPage = index);
-                  },
-                  itemCount: _filteredAnswers.length,
-                  itemBuilder: (context, index) {
-                    final answer = _filteredAnswers[index];
-                    final question = _questions.firstWhere(
-                          (q) => q.questionId == answer.questionId,
-                      orElse: () => _createDummyQuestion(answer),
-                    );
-
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: _QuestionReviewCard(
-                        answer: answer,
-                        question: question,
-                        questionNumber: answer.questionOrder,
-                      ),
-                    );
-                  },
-                ),
-              ),
-              // Navigation buttons
-              _MobileNavigation(
-                currentPage: _currentPage,
-                totalPages: _filteredAnswers.length,
-                onPrevious: _currentPage > 0
-                    ? () => _pageController.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                )
-                    : null,
-                onNext: _currentPage < _filteredAnswers.length - 1
-                    ? () => _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                )
-                    : null,
-                onDone: _handleDone,
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -362,10 +361,10 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
                 child: _filteredAnswers.isEmpty
                     ? _buildEmptyState()
                     : _QuestionNavigationGrid(
-                  answers: _filteredAnswers,
-                  currentIndex: _currentPage,
-                  onQuestionTap: _jumpToQuestion,
-                ),
+                        answers: _filteredAnswers,
+                        currentIndex: _currentPage,
+                        onQuestionTap: _jumpToQuestion,
+                      ),
               ),
               _DesktopBottomAction(onDone: _handleDone),
             ],
@@ -376,26 +375,26 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
           child: _filteredAnswers.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(24),
-            itemCount: _filteredAnswers.length,
-            itemBuilder: (context, index) {
-              final answer = _filteredAnswers[index];
-              final question = _questions.firstWhere(
-                    (q) => q.questionId == answer.questionId,
-                orElse: () => _createDummyQuestion(answer),
-              );
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(24),
+                  itemCount: _filteredAnswers.length,
+                  itemBuilder: (context, index) {
+                    final answer = _filteredAnswers[index];
+                    final question = _questions.firstWhere(
+                      (q) => q.questionId == answer.questionId,
+                      orElse: () => _createDummyQuestion(answer),
+                    );
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: _QuestionReviewCard(
-                  answer: answer,
-                  question: question,
-                  questionNumber: answer.questionOrder,
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: _QuestionReviewCard(
+                        answer: answer,
+                        question: question,
+                        questionNumber: answer.questionOrder,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );
@@ -682,8 +681,8 @@ class _QuestionNavigationGrid extends StatelessWidget {
               color: isActive
                   ? AppColors.primary
                   : (answer.isCorrect
-                  ? AppColors.success.withOpacity(0.1)
-                  : AppColors.error.withOpacity(0.1)),
+                        ? AppColors.success.withOpacity(0.1)
+                        : AppColors.error.withOpacity(0.1)),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isActive
@@ -699,8 +698,8 @@ class _QuestionNavigationGrid extends StatelessWidget {
                   color: isActive
                       ? Colors.white
                       : (answer.isCorrect
-                      ? AppColors.success
-                      : AppColors.error),
+                            ? AppColors.success
+                            : AppColors.error),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -834,18 +833,28 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
           ),
 
           // Options
+          // Di dalam build method _QuestionReviewCard, ganti bagian Options:
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: List.generate(
                 widget.question.options.length,
-                    (index) => _OptionTile(
-                  index: index,
-                  option: widget.question.options[index],
-                  isUserAnswer: widget.answer.userAnswer == index,
-                  isCorrectAnswer: widget.answer.correctAnswer == index,
-                  isCorrect: widget.answer.isCorrect,
-                ),
+                    (index) {
+                  // 🆕 Untuk likert, ambil semua skor
+                  final optionScores = widget.question.type == QuestionType.likert
+                      ? widget.question.getAllOptionScores()
+                      : null;
+
+                  return _OptionTile(
+                    index: index,
+                    option: widget.question.options[index],
+                    isUserAnswer: widget.answer.userAnswer == index,
+                    isCorrectAnswer: widget.answer.correctAnswer == index,
+                    isCorrect: widget.answer.isCorrect,
+                    questionType: widget.question.type, // 🆕 TAMBAH INI
+                    optionScore: optionScores?[index], // 🆕 TAMBAH INI
+                  );
+                },
               ),
             ),
           ),
@@ -956,7 +965,7 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                     InkWell(
                       onTap: () {
                         setState(
-                              () => _showFullExplanation = !_showFullExplanation,
+                          () => _showFullExplanation = !_showFullExplanation,
                         );
                       },
                       child: Container(
@@ -1076,6 +1085,8 @@ class _OptionTile extends StatelessWidget {
   final bool isUserAnswer;
   final bool isCorrectAnswer;
   final bool isCorrect;
+  final QuestionType questionType; // 🆕 TAMBAH INI
+  final int? optionScore; // 🆕 TAMBAH INI
 
   const _OptionTile({
     required this.index,
@@ -1083,6 +1094,8 @@ class _OptionTile extends StatelessWidget {
     required this.isUserAnswer,
     required this.isCorrectAnswer,
     required this.isCorrect,
+    required this.questionType, // 🆕 TAMBAH INI
+    this.optionScore, // 🆕 TAMBAH INI
   });
 
   @override
@@ -1090,15 +1103,46 @@ class _OptionTile extends StatelessWidget {
     Color? backgroundColor;
     Color? borderColor;
     IconData? icon;
+    Widget? scoreWidget;
 
-    if (isCorrectAnswer) {
-      backgroundColor = AppColors.success.withOpacity(0.1);
-      borderColor = AppColors.success;
-      icon = Icons.check_circle;
-    } else if (isUserAnswer && !isCorrect) {
-      backgroundColor = AppColors.error.withOpacity(0.1);
-      borderColor = AppColors.error;
-      icon = Icons.cancel;
+    // 🆕 LOGIKA BARU: Bedakan objective vs likert
+    if (questionType == QuestionType.likert) {
+      // LIKERT: Tampilkan skor tiap opsi dengan warna gradasi
+      if (isUserAnswer) {
+        backgroundColor = _getLikertColor(optionScore).withOpacity(0.15);
+        borderColor = _getLikertColor(optionScore);
+        icon = Icons.person; // User's choice
+      } else {
+        backgroundColor = _getLikertColor(optionScore).withOpacity(0.05);
+        borderColor = _getLikertColor(optionScore).withOpacity(0.3);
+      }
+
+      // Score badge untuk likert
+      scoreWidget = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: _getLikertColor(optionScore),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          '${optionScore ?? 0}',
+          style: AppTextStyles.labelSmall.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    } else {
+      // OBJECTIVE/YESNO: Logika lama (hijau untuk benar, merah untuk salah)
+      if (isCorrectAnswer) {
+        backgroundColor = AppColors.success.withOpacity(0.1);
+        borderColor = AppColors.success;
+        icon = Icons.check_circle;
+      } else if (isUserAnswer && !isCorrect) {
+        backgroundColor = AppColors.error.withOpacity(0.1);
+        borderColor = AppColors.error;
+        icon = Icons.cancel;
+      }
     }
 
     return Container(
@@ -1114,6 +1158,7 @@ class _OptionTile extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Label (A, B, C, D, E)
           Container(
             width: 32,
             height: 32,
@@ -1136,24 +1181,51 @@ class _OptionTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
+
+          // Option text
           Expanded(
             child: Text(
               option,
               style: AppTextStyles.bodyMedium.copyWith(
                 color: borderColor ?? AppColors.textPrimary,
-                fontWeight: borderColor != null
-                    ? FontWeight.w500
+                fontWeight: borderColor != null && isUserAnswer
+                    ? FontWeight.w600
                     : FontWeight.normal,
               ),
             ),
           ),
-          if (icon != null) ...[
+
+          // Icon atau score widget
+          if (scoreWidget != null) ...[
+            const SizedBox(width: 8),
+            scoreWidget,
+          ] else if (icon != null) ...[
             const SizedBox(width: 8),
             Icon(icon, color: borderColor, size: 22),
           ],
         ],
       ),
     );
+  }
+
+  // 🆕 Helper untuk warna likert berdasarkan skor
+  Color _getLikertColor(int? score) {
+    if (score == null) return AppColors.textSecondary;
+
+    switch (score) {
+      case 1:
+        return const Color(0xFFFF4B4B); // Red (rendah)
+      case 2:
+        return const Color(0xFFFF9600); // Orange
+      case 3:
+        return const Color(0xFFFFC800); // Yellow (netral)
+      case 4:
+        return const Color(0xFF58CC02); // Light green
+      case 5:
+        return const Color(0xFF48B002); // Green (tinggi)
+      default:
+        return AppColors.textSecondary;
+    }
   }
 }
 
@@ -1208,9 +1280,9 @@ class _MobileNavigation extends StatelessWidget {
               child: currentPage == totalPages - 1
                   ? DuolingoButton.primary(text: 'SELESAI', onPressed: onDone)
                   : DuolingoButton.primary(
-                text: 'SELANJUTNYA',
-                onPressed: onNext,
-              ),
+                      text: 'SELANJUTNYA',
+                      onPressed: onNext,
+                    ),
             ),
           ],
         ),

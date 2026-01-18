@@ -30,8 +30,10 @@ class AnswerModel {
   final DateTime timeStarted;
   final DateTime? timeAnswered; // null = belum dijawab
   final int timeTaken; // seconds
-
   final DateTime answeredAt;
+
+  // 🆕 Scoring
+  final int score; // Skor yang didapat (1-5 untuk likert, 0/5 untuk objective)
 
   const AnswerModel({
     required this.answerId,
@@ -48,6 +50,7 @@ class AnswerModel {
     required this.timeAnswered,
     required this.timeTaken,
     required this.answeredAt,
+    this.score = 0, // 🆕 Default 0
   });
 
   // ==========================================================================
@@ -62,26 +65,34 @@ class AnswerModel {
       answerId: doc.id,
       questionId: data['questionId'] as String? ?? '',
       questionOrder: data['questionOrder'] as int? ?? 0,
-      questionType: QuestionType.fromString(data['questionType'] as String? ?? 'objective'),
+      questionType: QuestionType.fromString(
+        data['questionType'] as String? ?? 'objective',
+      ),
       category: data['category'] as String? ?? '',
       subcategory: data['subcategory'] as String? ?? '',
       difficulty: data['difficulty'] as int? ?? 50,
       userAnswer: data['userAnswer'] as int?,
       correctAnswer: data['correctAnswer'] as int? ?? 0,
       isCorrect: data['isCorrect'] as bool? ?? false,
-      timeStarted: (data['timeStarted'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      timeStarted:
+          (data['timeStarted'] as Timestamp?)?.toDate() ?? DateTime.now(),
       timeAnswered: (data['timeAnswered'] as Timestamp?)?.toDate(),
       timeTaken: data['timeTaken'] as int? ?? 0,
-      answeredAt: (data['answeredAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      answeredAt:
+          (data['answeredAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      score: data['score'] as int? ?? 0, // 🆕
     );
   }
+
   /// 🆕 Create from Map (untuk embedded data)
   factory AnswerModel.fromMap(Map<String, dynamic> map) {
     return AnswerModel(
       answerId: map['answerId'] as String? ?? '',
       questionId: map['questionId'] as String? ?? '',
       questionOrder: map['questionOrder'] as int? ?? 0,
-      questionType: QuestionType.fromString(map['questionType'] as String? ?? 'objective'),
+      questionType: QuestionType.fromString(
+        map['questionType'] as String? ?? 'objective',
+      ),
       category: map['category'] as String? ?? '',
       subcategory: map['subcategory'] as String? ?? '',
       difficulty: map['difficulty'] as int? ?? 50,
@@ -98,14 +109,15 @@ class AnswerModel {
       answeredAt: map['answeredAt'] is DateTime
           ? map['answeredAt'] as DateTime
           : DateTime.now(),
+      score: map['score'] as int? ?? 0, // 🆕
     );
   }
+
   /// Create dari QuestionModel (saat mulai soal)
   factory AnswerModel.fromQuestion({
     required QuestionModel question,
     required int questionOrder,
-  })
-  {
+  }) {
     final now = DateTime.now();
     final answerId = 'ans_${now.millisecondsSinceEpoch}';
 
@@ -124,6 +136,7 @@ class AnswerModel {
       timeAnswered: null,
       timeTaken: 0,
       answeredAt: now,
+      score: 0, // 🆕
     );
   }
 
@@ -143,9 +156,12 @@ class AnswerModel {
       'correctAnswer': correctAnswer,
       'isCorrect': isCorrect,
       'timeStarted': Timestamp.fromDate(timeStarted),
-      'timeAnswered': timeAnswered != null ? Timestamp.fromDate(timeAnswered!) : null,
+      'timeAnswered': timeAnswered != null
+          ? Timestamp.fromDate(timeAnswered!)
+          : null,
       'timeTaken': timeTaken,
       'answeredAt': Timestamp.fromDate(answeredAt),
+      'score': score, // 🆕
     };
   }
 
@@ -165,6 +181,7 @@ class AnswerModel {
       'timeAnswered': timeAnswered,
       'timeTaken': timeTaken,
       'answeredAt': answeredAt,
+      'score': score, // 🆕
     };
   }
 
@@ -186,13 +203,22 @@ class AnswerModel {
   }
 
   /// Submit answer
+  /// Submit answer
   AnswerModel submitAnswer(int answer) {
     final now = DateTime.now();
     final taken = now.difference(timeStarted).inSeconds;
 
+    // 🆕 Untuk likert, tidak ada konsep "correct" karena semua jawaban valid
+    final bool isAnswerCorrect;
+    if (questionType == QuestionType.likert) {
+      isAnswerCorrect = true; // Likert selalu "correct" selama dijawab
+    } else {
+      isAnswerCorrect = answer == correctAnswer;
+    }
+
     return copyWith(
       userAnswer: answer,
-      isCorrect: answer == correctAnswer,
+      isCorrect: isAnswerCorrect,
       timeAnswered: now,
       timeTaken: taken,
       answeredAt: now,
@@ -239,6 +265,7 @@ class AnswerModel {
     DateTime? timeAnswered,
     int? timeTaken,
     DateTime? answeredAt,
+    int? score, // 🆕
   }) {
     return AnswerModel(
       answerId: answerId ?? this.answerId,
@@ -255,6 +282,7 @@ class AnswerModel {
       timeAnswered: timeAnswered ?? this.timeAnswered,
       timeTaken: timeTaken ?? this.timeTaken,
       answeredAt: answeredAt ?? this.answeredAt,
+      score: score ?? this.score, // 🆕
     );
   }
 
@@ -278,6 +306,6 @@ class AnswerModel {
 
   @override
   String toString() {
-    return 'AnswerModel(id: $answerId, question: $questionOrder, answered: $isAnswered, correct: $isCorrect, time: ${timeTaken}s)';
+    return 'AnswerModel(id: $answerId, question: $questionOrder, answered: $isAnswered, correct: $isCorrect, score: $score, time: ${timeTaken}s)';
   }
 }

@@ -1,5 +1,7 @@
 // lib/features/exam/services/exam_service.dart
 
+// ignore_for_file: avoid_print
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lulusasn/core/services/firebase_service.dart';
 import 'package:lulusasn/features/exam/models/answer_model.dart';
@@ -132,6 +134,7 @@ class ExamService {
   /// Submit answer untuk current question
   ///
   /// OPTIMIZATION: Pure in-memory operation, ZERO Firestore!
+  // GANTI method submitAnswer() (sekitar baris 125):
   ExamSession submitAnswer(int answer) {
     if (_currentSession == null) {
       throw Exception('Tidak ada session aktif');
@@ -140,18 +143,21 @@ class ExamService {
     final session = _currentSession!;
     final currentIndex = session.currentQuestionIndex;
 
-    // Validate index
     if (currentIndex >= session.answers.length) {
       throw Exception('Invalid question index');
     }
 
-    // Update answer in-memory
-    final updatedAnswers = List<AnswerModel>.from(session.answers);
-    updatedAnswers[currentIndex] = updatedAnswers[currentIndex].submitAnswer(
-      answer,
-    );
+    final question = session.questions[currentIndex];
 
-    // Move to next question
+    // 🆕 Hitung skor berdasarkan tipe soal
+    int score = _calculateScore(question, answer);
+
+    // Update answer in-memory dengan skor
+    final updatedAnswers = List<AnswerModel>.from(session.answers);
+    updatedAnswers[currentIndex] = updatedAnswers[currentIndex]
+        .submitAnswer(answer)
+        .copyWith(score: score); // 🆕 Set score
+
     final nextIndex = currentIndex + 1;
 
     _currentSession = session.copyWith(
@@ -160,6 +166,51 @@ class ExamService {
     );
 
     return _currentSession!;
+  }
+
+// GANTI method submitAnswerAtIndex() (sekitar baris 165):
+  ExamSession submitAnswerAtIndex(int questionIndex, int answer) {
+    if (_currentSession == null) {
+      throw Exception('Tidak ada session aktif');
+    }
+
+    final session = _currentSession!;
+
+    if (questionIndex < 0 || questionIndex >= session.answers.length) {
+      throw Exception('Invalid question index: $questionIndex');
+    }
+
+    final question = session.questions[questionIndex];
+
+    // 🆕 Hitung skor berdasarkan tipe soal
+    int score = _calculateScore(question, answer);
+
+    // Update answer in-memory dengan skor
+    final updatedAnswers = List<AnswerModel>.from(session.answers);
+    updatedAnswers[questionIndex] = updatedAnswers[questionIndex]
+        .submitAnswer(answer)
+        .copyWith(score: score); // 🆕 Set score
+
+    _currentSession = session.copyWith(answers: updatedAnswers);
+
+    return _currentSession!;
+  }
+
+  /// Calculate score based on question type
+  ///
+  /// Likert: skor 1-5 berdasarkan index pilihan
+  /// Objective/YesNo: skor 5 jika benar, 0 jika salah
+  int _calculateScore(QuestionModel question, int userAnswer) {
+    switch (question.type) {
+      case QuestionType.likert:
+      // Likert: skor 1-5 berdasarkan index yang dipilih (0-4)
+        return question.getLikertScore(userAnswer);
+
+      case QuestionType.objective:
+      case QuestionType.yesNo:
+      // Objective/YesNo: skor 5 jika benar, 0 jika salah
+        return question.isCorrectAnswer(userAnswer) ? 5 : 0;
+    }
   }
 
   /// Skip current question (mark as unanswered)
@@ -183,28 +234,6 @@ class ExamService {
   ///
   /// OPTIMIZATION: Pure in-memory operation, ZERO Firestore!
   /// Digunakan untuk navigasi bebas antar soal
-  ExamSession submitAnswerAtIndex(int questionIndex, int answer) {
-    if (_currentSession == null) {
-      throw Exception('Tidak ada session aktif');
-    }
-
-    final session = _currentSession!;
-
-    // Validate index
-    if (questionIndex < 0 || questionIndex >= session.answers.length) {
-      throw Exception('Invalid question index: $questionIndex');
-    }
-
-    // Update answer in-memory
-    final updatedAnswers = List<AnswerModel>.from(session.answers);
-    updatedAnswers[questionIndex] = updatedAnswers[questionIndex].submitAnswer(
-      answer,
-    );
-
-    _currentSession = session.copyWith(answers: updatedAnswers);
-
-    return _currentSession!;
-  }
 
   /// Check if exam is completed
   bool isExamCompleted() {

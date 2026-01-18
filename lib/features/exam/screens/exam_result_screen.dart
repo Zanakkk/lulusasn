@@ -1,11 +1,15 @@
 // lib/features/exam/screens/exam_result_screen.dart
 
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:lulusasn/core/constants/colors.dart';
 import 'package:lulusasn/core/constants/text_styles.dart';
 import 'package:lulusasn/core/widgets/brutalist_button.dart';
 import 'package:lulusasn/features/exam/models/exam_result_model.dart';
 import 'dart:math' as math;
+
+import '../models/question_model.dart';
 
 /// Duolingo-style Exam Result Screen
 ///
@@ -204,10 +208,26 @@ class _ExamResultScreenState extends State<ExamResultScreen>
   }
 
   Color _getBackgroundColor(double accuracy) {
-    if (accuracy >= 0.85) return const Color(0xFFF0FFF4); // green tint
-    if (accuracy >= 0.7) return const Color(0xFFF0F9FF); // blue tint
-    if (accuracy >= 0.5) return const Color(0xFFFFFBEB); // yellow tint
-    return const Color(0xFFFEF2F2); // red tint
+    // 🆕 Jika ada Likert, gunakan skema warna berbeda
+    final hasLikert =
+        widget.result.answers?.any(
+          (a) => a.questionType == QuestionType.likert,
+        ) ??
+        false;
+
+    if (hasLikert) {
+      // Skema warna untuk Likert (berdasarkan skor %)
+      if (accuracy >= 0.85) return const Color(0xFFFFF4E6); // warm gold
+      if (accuracy >= 0.7) return const Color(0xFFF0F9FF); // cool blue
+      if (accuracy >= 0.5) return const Color(0xFFFFFBEB); // soft yellow
+      return const Color(0xFFFEF2F2); // soft red
+    } else {
+      // Skema warna untuk Objective (original)
+      if (accuracy >= 0.85) return const Color(0xFFF0FFF4); // green tint
+      if (accuracy >= 0.7) return const Color(0xFFF0F9FF); // blue tint
+      if (accuracy >= 0.5) return const Color(0xFFFFFBEB); // yellow tint
+      return const Color(0xFFFEF2F2); // red tint
+    }
   }
 }
 
@@ -231,6 +251,9 @@ class _ScoreCircle extends StatelessWidget {
     return AnimatedBuilder(
       animation: animation,
       builder: (context, child) {
+        // 🆕 Gunakan percentage dari skor, bukan accuracy (untuk Likert)
+        final displayPercentage = (animation.value * 100).toInt();
+
         return Container(
           width: 200,
           height: 200,
@@ -265,14 +288,14 @@ class _ScoreCircle extends StatelessWidget {
                     Text(_getEmoji(), style: const TextStyle(fontSize: 48)),
                     const SizedBox(height: 8),
                     Text(
-                      '${(animation.value * 100).toInt()}%',
+                      '$displayPercentage%',
                       style: AppTextStyles.displaySmall.copyWith(
                         color: _getColor(),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
-                      'Akurasi',
+                      'Skor Akhir', // 🆕 Ganti dari "Akurasi" jadi "Skor Akhir"
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -400,36 +423,106 @@ class _StatsCards extends StatelessWidget {
 
   const _StatsCards({required this.result});
 
+  // 🆕 Helper: Hitung total skor maksimal
+  int _getMaxPossibleScore() {
+    if (result.answers == null || result.answers!.isEmpty) {
+      return result.totalQuestions * 5; // Fallback: asumsi semua soal = 5 poin
+    }
+
+    int maxScore = 0;
+    for (var answer in result.answers!) {
+      if (answer.questionType == QuestionType.likert) {
+        maxScore += 5; // Likert max = 5
+      } else {
+        maxScore += 5; // Objective/YesNo max = 5
+      }
+    }
+    return maxScore;
+  }
+
+  // 🆕 Helper: Hitung total skor aktual
+  int _getActualScore() {
+    if (result.answers == null || result.answers!.isEmpty) {
+      return result.correctCount * 5; // Fallback
+    }
+
+    return result.answers!.fold<int>(0, (sum, answer) => sum + answer.score);
+  }
+
+  // 🆕 Check apakah ada soal Likert
+  bool _hasLikertQuestions() {
+    if (result.answers == null) return false;
+    return result.answers!.any((a) => a.questionType == QuestionType.likert);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final hasLikert = _hasLikertQuestions();
+    final actualScore = _getActualScore();
+    final maxScore = _getMaxPossibleScore();
+
+    return Column(
       children: [
-        Expanded(
-          child: _StatCard(
-            icon: Icons.check_circle_rounded,
-            value: '${result.correctCount}', // ✅ BENAR
-            label: 'Benar',
-            color: AppColors.success,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            icon: Icons.cancel_rounded,
-            value:
-                '${result.totalQuestions - result.correctCount}', // Ini sudah benar!
-            label: 'Salah',
-            color: AppColors.error,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            icon: Icons.timer_rounded,
-            value: result.formattedDuration, // ✅ BENAR (sudah format MM:SS)
-            label: 'Waktu',
+        // 🆕 Jika ada Likert, tampilkan Skor dulu (prioritas)
+        if (hasLikert) ...[
+          _ScoreCard(
+            icon: Icons.stars_rounded,
+            value: '$actualScore',
+            maxValue: maxScore,
+            label: 'Total Skor',
             color: AppColors.primary,
           ),
+          const SizedBox(height: 12),
+        ],
+
+        // Row untuk Benar/Salah/Waktu
+        Row(
+          children: [
+            if (hasLikert)
+              // Jika ada Likert, tampilkan "Dijawab" bukan "Benar"
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.check_circle_rounded,
+                  value: '${result.correctCount}',
+                  label: 'Dijawab',
+                  color: AppColors.success,
+                ),
+              )
+            else
+              // Jika pure Objective, tampilkan "Benar"
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.check_circle_rounded,
+                  value: '${result.correctCount}',
+                  label: 'Benar',
+                  color: AppColors.success,
+                ),
+              ),
+
+            const SizedBox(width: 12),
+
+            // Waktu
+            Expanded(
+              child: _StatCard(
+                icon: Icons.timer_rounded,
+                value: result.formattedDuration,
+                label: 'Waktu',
+                color: AppColors.cyan,
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            // Rata-rata per soal
+            Expanded(
+              child: _StatCard(
+                icon: Icons.speed_rounded,
+                value: '${result.averageTimePerQuestion.toInt()}s',
+                label: 'Rata-rata',
+                color: AppColors.orange,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -684,4 +777,117 @@ class _ConfettiPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+// ==============================================================================
+// SCORE CARD (Big score display untuk Likert)
+// ==============================================================================
+
+class _ScoreCard extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final int maxValue;
+  final String label;
+  final Color color;
+
+  const _ScoreCard({
+    required this.icon,
+    required this.value,
+    required this.maxValue,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final percentage = (int.parse(value) / maxValue * 100).toInt();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withOpacity(0.15), color.withOpacity(0.05)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Icon
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: color, size: 32),
+          ),
+
+          const SizedBox(width: 16),
+
+          // Score
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      value,
+                      style: AppTextStyles.displaySmall.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                        height: 1,
+                      ),
+                    ),
+                    Text(
+                      ' / $maxValue',
+                      style: AppTextStyles.headingMedium.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Percentage badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '$percentage%',
+              style: AppTextStyles.headingSmall.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -1,12 +1,15 @@
 // lib/features/main_navigation/main_screen.dart
 
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
+import 'package:lulusasn/features/home/screens/ProfileScreen.dart';
 import 'package:lulusasn/features/main_navigation/widgets/bottom_nav_bar.dart';
 import 'package:lulusasn/features/main_navigation/widgets/navigation_rail.dart';
 import 'package:lulusasn/features/home/screens/home_screen.dart';
-
 import '../exam/screens/exam_list_screen.dart';
-
+import '../home/screens/leaderboard_screen.dart';
+import 'duolingo_app_bar.dart';
 
 /// Main Navigation Screen - Responsive Wrapper
 ///
@@ -14,7 +17,7 @@ import '../exam/screens/exam_list_screen.dart';
 /// - Detect screen size
 /// - Show appropriate navigation (bottom bar vs rail)
 /// - Handle navigation state
-/// - Render current screen
+/// - Render current screen with global app bar
 class MainNavigationScreen extends StatefulWidget {
   final String? initialRoute;
 
@@ -42,6 +45,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final isDesktop = screenWidth >= _tabletBreakpoint;
 
     return Scaffold(
+      // ✅ Global AppBar - digunakan di semua screen
+      appBar: const GlobalAppBar(),
       body: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
       bottomNavigationBar: isDesktop ? null : _buildBottomNavBar(),
     );
@@ -93,19 +98,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget _getCurrentScreen() {
     switch (_currentRoute) {
       case '/home':
+      // ✅ HomeScreen tanpa AppBar (sudah ada di Scaffold)
         return const HomeScreen();
 
       case '/learn':
-        // ✅ REVISI: Show ExamListScreen
         return const ExamListScreen();
 
       case '/leaderboard':
-        // TODO: Ganti dengan LeaderboardScreen saat sudah dibuat
-        return const _PlaceholderScreen(title: 'Peringkat');
+        return const LeaderboardScreen();
 
       case '/profile':
-        // TODO: Ganti dengan ProfileScreen saat sudah dibuat
-        return const _PlaceholderScreen(title: 'Profil');
+        return const ProfileScreen();
 
       default:
         return const HomeScreen();
@@ -165,72 +168,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
 
     if (shouldLogout == true && mounted) {
-      // TODO: Implement logout logic
-      // await FirebaseService.instance.signOut();
-      // Navigator.pushReplacementNamed(context, '/login');
     }
   }
 }
 
-// ============================================================================
-// PLACEHOLDER SCREEN (Temporary)
-// ============================================================================
-
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-
-  const _PlaceholderScreen({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.construction_rounded,
-                size: 60,
-                color: Colors.grey.shade400,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Halaman $title',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Sedang dalam tahap pengembangan',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -1,5 +1,7 @@
 // lib/features/exam/screens/pre_exam_screen.dart
 
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lulusasn/core/constants/colors.dart';
@@ -7,7 +9,8 @@ import 'package:lulusasn/core/constants/text_styles.dart';
 import 'package:lulusasn/core/constants/spacing.dart';
 import 'package:lulusasn/core/widgets/brutalist_button.dart';
 
-import '../../seed/seedscreen.dart';
+import '../../home/services/energy_service.dart'
+    hide InsufficientEnergyException;
 import '../services/exam_service.dart';
 import '../widgets/out_of_energy_modal.dart';
 
@@ -124,6 +127,47 @@ class _PreExamScreenState extends State<PreExamScreen>
 
     try {
       final examService = ExamService();
+      final energyService = EnergyService();
+
+      // ✅ 1. Check energy SEBELUM start exam
+      final canStart = await energyService.canStartExam();
+
+      if (!canStart) {
+        // ✅ 2. Jika energy habis, ambil data real untuk modal
+        final energyData = await energyService.getEnergy();
+        final currentEnergy = energyData.calculateCurrentEnergy();
+        final maxEnergy = energyData.max;
+
+        // Calculate time until next energy
+        final minutesUntilNext = energyData.minutesUntilNext();
+        final timeUntilNext = Duration(minutes: minutesUntilNext);
+
+        if (!mounted) return;
+
+        HapticFeedback.lightImpact();
+
+        // ✅ 3. Show modal dengan data REAL
+        await OutOfEnergyModal.show(
+          context: context,
+          currentEnergy: currentEnergy,
+          maxEnergy: maxEnergy,
+          timeUntilNextEnergy: timeUntilNext,
+          onWatchAd: () => Navigator.pop(context),
+          onRefillDiamond: () => Navigator.pop(context),
+          onUpgradePremium: () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, '/premium');
+          },
+        );
+
+        if (mounted) {
+          setState(() => _isLoading = false);
+          Navigator.of(context).pop(); // Back to home
+        }
+        return;
+      }
+
+      // ✅ 4. Start exam (ini akan consume energy -1)
       final session = await examService.startExam(
         category: widget.category,
         questionCount: widget.questionCount,
@@ -134,20 +178,28 @@ class _PreExamScreenState extends State<PreExamScreen>
 
       HapticFeedback.heavyImpact();
 
+      // ✅ 5. Navigate ke exam session
       Navigator.of(context).pushReplacementNamed(
         '/exam/session',
         arguments: {'sessionId': session.examId},
       );
-    } on InsufficientEnergyException catch (e) {
+    } on InsufficientEnergyException {
+      // ✅ Fallback jika ada exception (seharusnya sudah di-handle di atas)
       if (!mounted) return;
+
+      final energyService = EnergyService();
+      final energyData = await energyService.getEnergy();
+      final currentEnergy = energyData.calculateCurrentEnergy();
+      final maxEnergy = energyData.max;
+      final minutesUntilNext = energyData.minutesUntilNext();
 
       HapticFeedback.lightImpact();
 
       await OutOfEnergyModal.show(
         context: context,
-        currentEnergy: 0,
-        maxEnergy: 5,
-        timeUntilNextEnergy: const Duration(minutes: 15),
+        currentEnergy: currentEnergy,
+        maxEnergy: maxEnergy,
+        timeUntilNextEnergy: Duration(minutes: minutesUntilNext),
         onWatchAd: () => Navigator.pop(context),
         onRefillDiamond: () => Navigator.pop(context),
         onUpgradePremium: () {
@@ -156,7 +208,9 @@ class _PreExamScreenState extends State<PreExamScreen>
         },
       );
 
-      Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       if (!mounted) return;
 
@@ -448,54 +502,29 @@ class _StatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Tablet/Desktop: 2 columns
-        if (constraints.maxWidth > 600) {
-          return IntrinsicHeight(
-            child: Row(
-              children: [
-                Expanded(
-                  child: _InfoCard(
-                    icon: Icons.quiz_rounded,
-                    label: 'Soal',
-                    value: '$questionCount',
-                    color: categoryColor,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: _InfoCard(
-                    icon: Icons.access_time_rounded,
-                    label: 'Estimasi',
-                    value: '$estimatedMinutes min',
-                    color: AppColors.neutral,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        // Mobile: stacked
-        return Column(
-          children: [
-            _InfoCard(
+    // Semua ukuran: 1 row dengan 2 kolom
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          Expanded(
+            child: _InfoCard(
               icon: Icons.quiz_rounded,
               label: 'Soal',
               value: '$questionCount',
               color: categoryColor,
             ),
-            const SizedBox(height: AppSpacing.md),
-            _InfoCard(
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: _InfoCard(
               icon: Icons.access_time_rounded,
               label: 'Estimasi',
               value: '$estimatedMinutes min',
               color: AppColors.neutral,
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 }

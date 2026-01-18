@@ -1,5 +1,7 @@
 // lib/core/widgets/duolingo_button.dart
 
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 
 /// Duolingo-style button with playful design, rounded corners, and smooth animations.

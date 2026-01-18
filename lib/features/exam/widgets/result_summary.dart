@@ -1,5 +1,7 @@
 // lib/features/exam/widgets/result_summary.dart
 
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:lulusasn/core/constants/colors.dart';
 import 'package:lulusasn/core/constants/text_styles.dart';
@@ -345,7 +347,7 @@ class _CategoryBreakdown extends StatelessWidget {
               stats: entry.value,
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

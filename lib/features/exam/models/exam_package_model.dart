@@ -179,6 +179,7 @@ class CompactQuestion {
   final String type;
   final List<String> opts;
   final int ans;
+  final List<int>? scores; // 🆕 TAMBAH INI: skor tiap opsi untuk likert
   final String exp;
   final String cat;
   final String sub;
@@ -189,6 +190,8 @@ class CompactQuestion {
     required this.type,
     required this.opts,
     required this.ans,
+
+    this.scores, // 🆕 TAMBAH INI
     required this.exp,
     required this.cat,
     required this.sub,
@@ -205,6 +208,8 @@ class CompactQuestion {
       type: map['type'] as String? ?? 'objective',
       opts: (map['opts'] as List<dynamic>?)?.cast<String>() ?? [],
       ans: map['ans'] as int? ?? 0,
+
+      scores: (map['scores'] as List<dynamic>?)?.cast<int>(), // 🆕 TAMBAH INI
       exp: map['exp'] as String? ?? '',
       cat: map['cat'] as String? ?? '',
       sub: map['sub'] as String? ?? '',
@@ -222,6 +227,8 @@ class CompactQuestion {
       'type': type,
       'opts': opts,
       'ans': ans,
+
+      'scores': scores, // 🆕 TAMBAH INI
       'exp': exp,
       'cat': cat,
       'sub': sub,
@@ -241,6 +248,8 @@ class CompactQuestion {
       type: QuestionType.fromString(type),
       options: opts,
       correctAnswer: ans,
+
+      optionScores: scores, // 🆕 TAMBAH INI
       explanationShort: exp,
       explanationFull: exp,
       category: cat,
@@ -261,6 +270,8 @@ class CompactQuestion {
     String? type,
     List<String>? opts,
     int? ans,
+
+    List<int>? scores, // 🆕 TAMBAH INI
     String? exp,
     String? cat,
     String? sub,
@@ -271,6 +282,8 @@ class CompactQuestion {
       type: type ?? this.type,
       opts: opts ?? this.opts,
       ans: ans ?? this.ans,
+
+      scores: scores ?? this.scores, // 🆕 TAMBAH INI
       exp: exp ?? this.exp,
       cat: cat ?? this.cat,
       sub: sub ?? this.sub,

@@ -1,5 +1,7 @@
 // lib/features/exam/widgets/out_of_energy_modal.dart
 
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:lulusasn/core/constants/colors.dart';
 import 'package:lulusasn/core/constants/text_styles.dart';

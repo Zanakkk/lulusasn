@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lulusasn/features/exam/models/answer_model.dart';
+import 'package:lulusasn/features/exam/models/question_model.dart';
 
 /// Model untuk Exam Result
 ///
@@ -78,13 +79,13 @@ class ExamResultModel {
 
     // 🆕 Parse embedded answers
     final answersData = data['answers'] as List<dynamic>?;
-    final answers = answersData?.map((a) =>
-        AnswerModel.fromMap(a as Map<String, dynamic>)
-    ).toList();
-
+    final answers = answersData
+        ?.map((a) => AnswerModel.fromMap(a as Map<String, dynamic>))
+        .toList();
 
     return ExamResultModel(
-      examId: doc.id,packageId: data['packageId'] as String?, // 🆕 AMBIL packageId
+      examId: doc.id,
+      packageId: data['packageId'] as String?, // 🆕 AMBIL packageId
 
       startedAt: (data['startedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       completedAt: (data['completedAt'] as Timestamp?)?.toDate(),
@@ -97,7 +98,9 @@ class ExamResultModel {
       correctCount: resultsData['correctCount'] as int? ?? 0,
       accuracy: (resultsData['accuracy'] as num?)?.toDouble() ?? 0.0,
       byType: _parseBreakdown(resultsData['byType'] as Map<String, dynamic>?),
-      byCategory: _parseBreakdown(resultsData['byCategory'] as Map<String, dynamic>?),
+      byCategory: _parseBreakdown(
+        resultsData['byCategory'] as Map<String, dynamic>?,
+      ),
       xpEarned: data['xpEarned'] as int? ?? 0,
       bonusXP: data['bonusXP'] as int? ?? 0,
       streakDay: data['streakDay'] as int? ?? 0,
@@ -107,6 +110,7 @@ class ExamResultModel {
     );
   }
 
+  /// Create dari list of answers (saat exam selesai)
   /// Create dari list of answers (saat exam selesai)
   factory ExamResultModel.fromAnswers({
     required String examId,
@@ -121,9 +125,31 @@ class ExamResultModel {
     final now = DateTime.now();
     final duration = now.difference(startedAt).inSeconds;
 
-    // Calculate totals
+    // 🆕 Calculate totals dengan support Likert scoring
     final totalQuestions = answers.length;
-    final correctCount = answers.where((a) => a.isCorrect).length;
+    int correctCount = 0;
+    int totalScore = 0; // 🆕 Total score dari semua jawaban
+
+    // Count correct answers dan total score
+    // 🆕 Count correct answers dan total score
+    for (var answer in answers) {
+      // Akumulasi total score
+      totalScore += answer.score;
+
+      // Count correct:
+      // - Likert: dihitung "correct" jika dijawab (karena tidak ada jawaban salah)
+      // - Objective/YesNo: harus benar
+      if (answer.questionType == QuestionType.likert) {
+        if (answer.userAnswer != null) {
+          correctCount++; // Likert: asal dijawab = correct
+        }
+      } else {
+        if (answer.isCorrect) {
+          correctCount++; // Objective: harus benar
+        }
+      }
+    }
+
     final accuracy = totalQuestions > 0 ? correctCount / totalQuestions : 0.0;
 
     // Group by type
@@ -137,11 +163,25 @@ class ExamResultModel {
 
     typeGroups.forEach((type, typeAnswers) {
       final total = typeAnswers.length;
-      final correct = typeAnswers.where((a) => a.isCorrect).length;
+      int correct = 0;
+      int typeScore = 0; // 🆕 Track score per type
+
+      for (var answer in typeAnswers) {
+        typeScore += answer.score; // 🆕 Accumulate score
+
+        if (answer.questionType == QuestionType.likert) {
+          if (answer.userAnswer != null) correct++;
+        } else {
+          if (answer.isCorrect) correct++;
+        }
+      }
+
       byType[type] = CategoryResult(
+        category: type, // 🆕 Set category name
         total: total,
         correct: correct,
         accuracy: total > 0 ? correct / total : 0.0,
+        totalScore: typeScore, // 🆕 Add total score
       );
     });
 
@@ -156,21 +196,38 @@ class ExamResultModel {
 
     categoryGroups.forEach((cat, catAnswers) {
       final total = catAnswers.length;
-      final correct = catAnswers.where((a) => a.isCorrect).length;
+      int correct = 0;
+      int catScore = 0; // 🆕 Track score per category
+
+      for (var answer in catAnswers) {
+        catScore += answer.score; // 🆕 Accumulate score
+
+        if (answer.questionType == QuestionType.likert) {
+          if (answer.userAnswer != null) correct++;
+        } else {
+          if (answer.isCorrect) correct++;
+        }
+      }
+
       byCategory[cat] = CategoryResult(
+        category: cat, // 🆕 Set category name
         total: total,
         correct: correct,
         accuracy: total > 0 ? correct / total : 0.0,
+        totalScore: catScore, // 🆕 Add total score
       );
     });
 
-    // Calculate XP (base: 10 per correct answer)
-    final baseXP = correctCount * 10;
+    // 🆕 Calculate XP berdasarkan total score, bukan hanya correctCount
+    // Base XP: 2 XP per point scored
+    final baseXP = totalScore * 2;
+
+    // Bonus XP
     final bonusXP = _calculateBonusXP(accuracy, duration, totalQuestions);
 
     return ExamResultModel(
       examId: examId,
-      packageId: packageId, // 🆕 SIMPAN packageId
+      packageId: packageId,
       startedAt: startedAt,
       completedAt: now,
       duration: duration,
@@ -187,7 +244,8 @@ class ExamResultModel {
       bonusXP: bonusXP,
       streakDay: streakDay,
       adsShown: false,
-      adType: null, answers: [],
+      adType: null,
+      answers: answers, // 🆕 Simpan answers
     );
   }
 
@@ -196,9 +254,12 @@ class ExamResultModel {
   // ==========================================================================
 
   Map<String, dynamic> toFirestore() {
-    return {'packageId': packageId, // 🆕 SIMPAN packageId
+    return {
+      'packageId': packageId, // 🆕 SIMPAN packageId
       'startedAt': Timestamp.fromDate(startedAt),
-      'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
+      'completedAt': completedAt != null
+          ? Timestamp.fromDate(completedAt!)
+          : null,
       'duration': duration,
       'category': category,
       'energyUsed': energyUsed,
@@ -266,7 +327,9 @@ class ExamResultModel {
   // PRIVATE HELPERS
   // ==========================================================================
 
-  static Map<String, CategoryResult> _parseBreakdown(Map<String, dynamic>? data) {
+  static Map<String, CategoryResult> _parseBreakdown(
+      Map<String, dynamic>? data,
+      ) {
     if (data == null) return {};
 
     return data.map((key, value) {
@@ -274,15 +337,21 @@ class ExamResultModel {
       return MapEntry(
         key,
         CategoryResult(
+          category: map['category'] as String? ?? key,
           total: map['total'] as int? ?? 0,
           correct: map['correct'] as int? ?? 0,
           accuracy: (map['accuracy'] as num?)?.toDouble() ?? 0.0,
+          totalScore: map['totalScore'] as int? ?? 0, // 🆕 TAMBAHKAN INI
         ),
       );
     });
   }
 
-  static int _calculateBonusXP(double accuracy, int duration, int totalQuestions) {
+  static int _calculateBonusXP(
+    double accuracy,
+    int duration,
+    int totalQuestions,
+  ) {
     int bonus = 0;
 
     // Accuracy bonus
@@ -310,7 +379,8 @@ class ExamResultModel {
   // ==========================================================================
 
   ExamResultModel copyWith({
-    String? examId,String? packageId, // 🆕 TAMBAH INI
+    String? examId,
+    String? packageId, // 🆕 TAMBAH INI
     DateTime? startedAt,
     DateTime? completedAt,
     int? duration,
@@ -331,7 +401,8 @@ class ExamResultModel {
     List<AnswerModel>? answers,
   }) {
     return ExamResultModel(
-      examId: examId ?? this.examId, packageId: packageId ?? this.packageId, // 🆕 TAMBAH INI
+      examId: examId ?? this.examId,
+      packageId: packageId ?? this.packageId, // 🆕 TAMBAH INI
       startedAt: startedAt ?? this.startedAt,
       completedAt: completedAt ?? this.completedAt,
       duration: duration ?? this.duration,
@@ -382,27 +453,35 @@ class ExamResultModel {
 // ==============================================================================
 
 /// Result breakdown per category/type
+// Di class CategoryResult (sekitar baris akhir file), TAMBAHKAN field category:
+
 class CategoryResult {
+  final String category;
   final int total;
   final int correct;
   final double accuracy;
+  final int totalScore; // 🆕 TAMBAHKAN INI
 
   const CategoryResult({
+    this.category = '',
     required this.total,
     required this.correct,
     required this.accuracy,
+    this.totalScore = 0, // 🆕 TAMBAHKAN INI
   });
 
   Map<String, dynamic> toMap() {
     return {
+      'category': category,
       'total': total,
       'correct': correct,
       'accuracy': accuracy,
+      'totalScore': totalScore, // 🆕 TAMBAHKAN INI
     };
   }
 
   @override
   String toString() {
-    return 'CategoryResult($correct/$total = ${(accuracy * 100).toStringAsFixed(1)}%)';
+    return 'CategoryResult($category: $correct/$total = ${(accuracy * 100).toStringAsFixed(1)}%, score: $totalScore)'; // 🆕 UPDATE INI
   }
 }

@@ -1,5 +1,7 @@
 // lib/features/exam/screens/exam_session_screen.dart
 
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lulusasn/core/constants/colors.dart';
@@ -43,7 +45,7 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
   ExamSession? _session;
   bool _isLoading = true;
   String? _error;
-  Map<int, int> _answers = {}; // questionIndex -> answer
+  final Map<int, int> _answers = {}; // questionIndex -> answer
   int _currentQuestionIndex = 0;
   bool _isSubmitting = false;
 

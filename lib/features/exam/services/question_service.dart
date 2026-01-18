@@ -1,5 +1,7 @@
 // lib/features/exam/services/question_service.dart
 
+// ignore_for_file: avoid_print
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lulusasn/core/services/firebase_service.dart';
 import 'package:lulusasn/features/exam/models/question_model.dart';
@@ -163,6 +165,8 @@ class QuestionService {
         type: QuestionType.fromString(q['type'] as String? ?? 'objective'),
         options: (q['options'] as List<dynamic>?)?.cast<String>() ?? [],
         correctAnswer: q['correctAnswer'] as int? ?? 0,
+        optionScores: (q['optionScores'] as List<dynamic>?)?.cast<int>(), // 🆕 TAMBAH INI
+
         explanationShort: q['explanationShort'] as String? ?? '',
         explanationFull: q['explanationFull'] as String? ?? '',
         category: q['category'] as String? ?? '',

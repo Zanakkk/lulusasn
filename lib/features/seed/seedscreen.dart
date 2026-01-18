@@ -1,10 +1,11 @@
+// ignore_for_file: avoid_print
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:lulusasn/core/constants/colors.dart';
 import 'package:lulusasn/core/constants/text_styles.dart';
 import 'package:lulusasn/core/constants/spacing.dart';
 import 'package:lulusasn/core/widgets/brutalist_button.dart';
-
 import '../../../core/services/firebase_service.dart';
 
 class SeedData {
@@ -927,6 +928,7 @@ class SeedData {
           'Langsung menyerahkan ke keamanan/HRD',
         ],
         'correctAnswer': 4,
+        'optionScores': [1, 2, 3, 4, 5], // 🆕 TAMBAH INI
         'explanationShort': 'Langsung serahkan ke pihak berwenang.',
         'explanationFull':
             'Integritas ditunjukkan dengan segera menyerahkan barang temuan kepada pihak yang berwenang tanpa mengambil apapun.',
@@ -947,10 +949,11 @@ class SeedData {
           'Membantu rekan yang kesulitan',
           'Memimpin tim dan mengkoordinasi semua orang',
         ],
-        'correctAnswer': 3,
-        'explanationShort': 'Proaktif membantu rekan.',
+        'correctAnswer': 4, // Index opsi terbaik (skor tertinggi)
+        'optionScores': [1, 2, 3, 4, 5], // 🆕 TAMBAH INI
+        'explanationShort': 'Memimpin dan koordinasi menunjukkan leadership.',
         'explanationFull':
-            'Kerja sama terbaik ditunjukkan dengan proaktif membantu rekan yang kesulitan sambil tetap mengerjakan bagian sendiri.',
+            'Kerja sama terbaik ditunjukkan dengan kemampuan memimpin dan mengkoordinasi tim sambil membantu semua anggota.',
         'category': 'TKP',
         'subcategory': 'TKP_KerjaSama',
         'tags': ['kerja-sama', 'teamwork'],
@@ -967,12 +970,20 @@ class SeedData {
           'Minta izin untuk tidak lembur',
           'Mencoba mengatur ulang jadwal keluarga',
           'Lembur dan menjelaskan situasi kepada keluarga',
-          'Lembur tanpa berpikir panjang',
+          'Lembur tanpa berpikir panjang', // Ini sebenarnya kurang tepat
         ],
         'correctAnswer': 3,
-        'explanationShort': 'Prioritaskan tanggung jawab kerja.',
+        'optionScores': [
+          1,
+          2,
+          3,
+          5,
+          4,
+        ], // 🆕 Skor disesuaikan (opsi 3 = skor tertinggi)
+        'explanationShort':
+            'Prioritaskan tanggung jawab dengan komunikasi baik.',
         'explanationFull':
-            'Komitmen kerja tinggi ditunjukkan dengan mengutamakan tanggung jawab sambil tetap menjelaskan situasi kepada keluarga.',
+            'Komitmen kerja tinggi ditunjukkan dengan lembur sambil menjelaskan situasi kepada keluarga, menunjukkan keseimbangan profesional dan personal.',
         'category': 'TKP',
         'subcategory': 'TKP_Komitmen',
         'tags': ['komitmen', 'tanggung-jawab'],
@@ -991,6 +1002,7 @@ class SeedData {
           'Proaktif mencari solusi dan berdiskusi dengan tim',
         ],
         'correctAnswer': 4,
+        'optionScores': [1, 2, 3, 4, 5], // 🆕 TAMBAH INI
         'explanationShort': 'Proaktif mencari solusi bersama tim.',
         'explanationFull':
             'Inisiatif terbaik adalah proaktif mencari solusi sambil melibatkan tim untuk mendapat masukan.',
@@ -1012,6 +1024,7 @@ class SeedData {
           'Antusias menerima sebagai kesempatan belajar',
         ],
         'correctAnswer': 4,
+        'optionScores': [1, 2, 3, 4, 5], // 🆕 TAMBAH INI
         'explanationShort': 'Antusias sebagai kesempatan belajar.',
         'explanationFull':
             'Sikap positif terhadap tantangan menunjukkan motivasi tinggi untuk berkembang.',
@@ -1033,6 +1046,7 @@ class SeedData {
           'Selalu dinamis dan menantang',
         ],
         'correctAnswer': 4,
+        'optionScores': [1, 2, 3, 4, 5], // 🆕 TAMBAH INI
         'explanationShort': 'Suka situasi dinamis dan menantang.',
         'explanationFull':
             'Adaptabilitas tinggi ditunjukkan dengan menyukai lingkungan dinamis dan penuh tantangan.',
@@ -1055,6 +1069,7 @@ class SeedData {
           'Berterima kasih dan memperbaiki',
         ],
         'correctAnswer': 4,
+        'optionScores': [1, 2, 3, 4, 5], // 🆕 TAMBAH INI
         'explanationShort': 'Berterima kasih dan memperbaiki.',
         'explanationFull':
             'Sikap terbuka terhadap kritik menunjukkan kematangan dan keinginan untuk berkembang.',
@@ -1076,6 +1091,7 @@ class SeedData {
           'Menganalisis data dan berkonsultasi dengan ahli',
         ],
         'correctAnswer': 4,
+        'optionScores': [1, 2, 3, 4, 5], // 🆕 TAMBAH INI
         'explanationShort': 'Analisis data dan konsultasi ahli.',
         'explanationFull':
             'Pengambilan keputusan terbaik melibatkan analisis data dan konsultasi dengan pihak yang berkompeten.',
@@ -1097,6 +1113,13 @@ class SeedData {
           'Memberikan hasil terbaik yang berdampak positif',
         ],
         'correctAnswer': 4,
+        'optionScores': [
+          3,
+          3,
+          2,
+          4,
+          5,
+        ], // 🆕 Skor disesuaikan (beberapa opsi sama nilainya)
         'explanationShort': 'Hasil terbaik yang berdampak positif.',
         'explanationFull':
             'Orientasi hasil terbaik adalah menghasilkan kualitas tinggi yang memberikan dampak positif.',
@@ -1118,6 +1141,7 @@ class SeedData {
           'Tetap tenang, fokus, dan mengatur strategi penyelesaian',
         ],
         'correctAnswer': 4,
+        'optionScores': [1, 2, 4, 4, 5], // 🆕 Skor disesuaikan
         'explanationShort': 'Tenang dan atur strategi.',
         'explanationFull':
             'Manajemen stres yang baik adalah tetap tenang sambil mengatur strategi penyelesaian yang efektif.',
@@ -1132,9 +1156,11 @@ class SeedData {
   }
 
   static List<Map<String, dynamic>> _getTKPMediumQuestions() {
-    return List.generate(
-      15,
-      (i) => {
+    return List.generate(15, (i) {
+      // 🆕 Generate skor bervariasi untuk setiap soal
+      final scores = [1, 2, 3, 4, 5];
+
+      return {
         'question':
             'Soal TKP Menengah ${i + 1}: Dalam situasi konflik tim, saya akan...',
         'type': 'likert',
@@ -1145,7 +1171,8 @@ class SeedData {
           'Mediasi dengan objektif',
           'Fasilitasi diskusi konstruktif untuk solusi bersama',
         ],
-        'correctAnswer': 4 - (i % 5),
+        'correctAnswer': 4, // Selalu opsi terakhir = skor tertinggi
+        'optionScores': scores, // 🆕 TAMBAH INI
         'explanationShort': 'Penjelasan singkat soal ${i + 1}.',
         'explanationFull':
             'Penjelasan lengkap untuk soal TKP medium nomor ${i + 1} tentang pelayanan.',
@@ -1155,14 +1182,20 @@ class SeedData {
         'difficulty': 40 + (i % 15),
         'isActive': true,
         'createdAt': Timestamp.now(),
-      },
-    );
+      };
+    });
   }
 
   static List<Map<String, dynamic>> _getTKPHardQuestions() {
-    return List.generate(
-      20,
-      (i) => {
+    return List.generate(20, (i) {
+      // 🆕 Generate skor dengan variasi (tidak selalu 1-5 linear)
+      final scores = i % 3 == 0
+          ? [1, 2, 3, 4, 5] // Soal normal
+          : i % 3 == 1
+          ? [1, 1, 3, 4, 5] // Opsi 0 dan 1 sama-sama rendah
+          : [1, 2, 4, 4, 5]; // Opsi 2 dan 3 sama-sama sedang
+
+      return {
         'question':
             'Soal TKP Lanjutan ${i + 1}: Menghadapi dilema etika dalam pelayanan publik...',
         'type': 'likert',
@@ -1173,7 +1206,8 @@ class SeedData {
           'Konsultasi dengan tim dan stakeholder',
           'Analisis mendalam dan putuskan sesuai nilai integritas',
         ],
-        'correctAnswer': 4 - (i % 5),
+        'correctAnswer': 4, // Selalu opsi terakhir
+        'optionScores': scores, // 🆕 TAMBAH INI
         'explanationShort': 'Penjelasan singkat soal ${i + 1}.',
         'explanationFull':
             'Penjelasan lengkap untuk soal TKP hard nomor ${i + 1} tentang orientasi pelayanan publik.',
@@ -1183,8 +1217,8 @@ class SeedData {
         'difficulty': 60 + (i % 20),
         'isActive': true,
         'createdAt': Timestamp.now(),
-      },
-    );
+      };
+    });
   }
 }
 
@@ -1225,6 +1259,39 @@ class _SeedDataScreenState extends State<SeedDataScreen> {
         _isSeeding = false;
       });
     }
+  }
+
+  Future<void> updateExistingLikertQuestions() async {
+    final db = FirebaseFirestore.instance;
+    final packagesRef = db.collection('exam_packages');
+
+    final snapshot = await packagesRef.get();
+
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+      final questions = List<Map<String, dynamic>>.from(
+        data['questions'] ?? [],
+      );
+
+      bool needsUpdate = false;
+      final updatedQuestions = questions.map((q) {
+        if (q['type'] == 'likert' && q['optionScores'] == null) {
+          needsUpdate = true;
+          return {
+            ...q,
+            'optionScores': [1, 2, 3, 4, 5], // Default scores
+          };
+        }
+        return q;
+      }).toList();
+
+      if (needsUpdate) {
+        await doc.reference.update({'questions': updatedQuestions});
+        print('✅ Updated ${doc.id}');
+      }
+    }
+
+    print('🎉 All done!');
   }
 
   @override
@@ -1309,6 +1376,10 @@ class _SeedDataScreenState extends State<SeedDataScreen> {
             ),
 
             Spacer(),
+            DuolingoButton.secondary(
+              text: _isSeeding ? 'PROCESSING...' : 'MULAI UPDATE SEEDING',
+              onPressed: _isSeeding ? null : updateExistingLikertQuestions,
+            ),
 
             DuolingoButton.primary(
               text: _isSeeding ? 'PROCESSING...' : 'MULAI SEEDING',

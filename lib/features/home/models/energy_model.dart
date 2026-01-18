@@ -102,6 +102,11 @@ class EnergyModel {
     return newEnergy > max ? max : newEnergy;
   }
 
+  // ============================================================================
+  // TAMBAHKAN METHOD INI di energy_model.dart
+  // Di bagian BUSINESS LOGIC section
+  // ============================================================================
+
   /// Berapa menit lagi sampai next energy regen
   int minutesUntilNext() {
     if (current >= max) return 0;
@@ -125,21 +130,21 @@ class EnergyModel {
     return baseMinutes - regenRate + minutesUntilNext;
   }
 
-  /// Apakah bisa start exam (current > 0)
-  bool canStartExam() {
-    return calculateCurrentEnergy() > 0;
-  }
-
-  /// Progress regeneration (0.0 - 1.0)
-  /// Untuk animasi timer visual
+  /// Progress regeneration (0.0 - 1.0) untuk timer bar
   double regenProgress() {
     if (current >= max) return 1.0;
 
     final now = DateTime.now();
-    final minutesPassed = now.difference(lastRegen).inMinutes;
-    final progressInCurrentCycle = minutesPassed % regenRate;
+    final secondsPassed = now.difference(lastRegen).inSeconds;
+    final secondsPerEnergy = regenRate * 60;
+    final secondsInCurrentCycle = secondsPassed % secondsPerEnergy;
 
-    return progressInCurrentCycle / regenRate;
+    return secondsInCurrentCycle / secondsPerEnergy;
+  }
+
+  /// Apakah bisa start exam (current > 0)
+  bool canStartExam() {
+    return calculateCurrentEnergy() > 0;
   }
 
   // ============================================================================
@@ -183,14 +188,7 @@ class EnergyModel {
 
   @override
   int get hashCode {
-    return Object.hash(
-      current,
-      max,
-      regenRate,
-      lastRegen,
-      lastUsed,
-      totalUsed,
-    );
+    return Object.hash(current, max, regenRate, lastRegen, lastUsed, totalUsed);
   }
 
   // ============================================================================

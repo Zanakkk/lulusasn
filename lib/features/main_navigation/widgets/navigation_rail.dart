@@ -1,5 +1,7 @@
 // lib/features/main_navigation/widgets/navigation_rail.dart
 
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:lulusasn/features/main_navigation/models/nav_item.dart';
 
@@ -50,7 +52,6 @@ class _DuolingoNavigationRailState extends State<DuolingoNavigationRail> {
       child: Column(
         children: [
           // Logo/Brand
-          _buildLogo(),
 
           const SizedBox(height: 24),
 
@@ -71,31 +72,6 @@ class _DuolingoNavigationRailState extends State<DuolingoNavigationRail> {
     );
   }
 
-  Widget _buildLogo() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF58CC02),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'LULUS',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildNavItem(NavItem item) {
     final isActive = widget.currentRoute == item.route;

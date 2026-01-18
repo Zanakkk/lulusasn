@@ -1,5 +1,7 @@
 // lib/features/exam/widgets/exam_timer.dart
 
+// ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lulusasn/core/constants/colors.dart';
