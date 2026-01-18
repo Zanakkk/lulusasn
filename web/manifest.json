@@ -1,35 +1,61 @@
 {
-    "name": "lulusasn",
-    "short_name": "lulusasn",
-    "start_url": ".",
-    "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
-    "prefer_related_applications": false,
-    "icons": [
+  "name": "LulusASN - Platform Latihan Ujian",
+  "short_name": "LulusASN",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#58CC02",
+  "theme_color": "#58CC02",
+  "description": "Platform latihan ujian CPNS, BUMN, Kedinasan dengan sistem gamifikasi seperti Duolingo",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "categories": ["education", "productivity"],
+  "lang": "id",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/Icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/Icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/home.png",
+      "sizes": "540x720",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Latihan Soal",
+      "short_name": "Latihan",
+      "description": "Mulai latihan soal",
+      "url": "/latihan",
+      "icons": [
         {
-            "src": "icons/Icon-192.png",
-            "sizes": "192x192",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/Icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/Icon-maskable-192.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "maskable"
-        },
-        {
-            "src": "icons/Icon-maskable-512.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "maskable"
+          "src": "icons/shortcut-latihan.png",
+          "sizes": "96x96"
         }
-    ]
+      ]
+    }
+  ]
 }

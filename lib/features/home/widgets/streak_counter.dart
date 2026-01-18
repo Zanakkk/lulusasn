@@ -5,16 +5,9 @@
 import 'package:flutter/material.dart';
 import 'package:lulusasn/core/constants/colors.dart';
 import 'package:lulusasn/core/constants/text_styles.dart';
-import 'package:lulusasn/core/constants/spacing.dart';
 import 'package:lulusasn/features/home/models/streak_model.dart';
 
-/// Streak Counter Widget
-///
-/// Menampilkan:
-/// - Fire icon dengan streak count
-/// - Status indicator (active, at risk, broken)
-/// - Progress ke next milestone
-/// - Visual feedback berdasarkan status
+/// Duolingo-Style Streak Counter Widget
 class StreakCounter extends StatelessWidget {
   final StreakModel streak;
   final VoidCallback? onTap;
@@ -28,45 +21,51 @@ class StreakCounter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = streak.getStatus();
-    final color = _getStreakColor(status);
     final nextMilestone = streak.getNextMilestone();
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: AppSpacing.paddingMD,
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          border: Border.all(color: AppColors.black, width: AppSpacing.borderThick),
-          boxShadow: const [
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderPrimary, width: 2),
+          boxShadow: [
             BoxShadow(
-              color: AppColors.black,
-              offset: AppSpacing.shadowMedium,
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header dengan fire icon
+            // Header
             Row(
               children: [
                 _buildFireIcon(status),
-                AppSpacing.horizontalGapMD,
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'STREAK',
+                        'Streak',
                         style: AppTextStyles.labelMedium.copyWith(
                           color: AppColors.textSecondary,
                         ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
-                        '${streak.current} HARI',
-                        style: AppTextStyles.streakCount.copyWith(
-                          color: color,
+                        '${streak.current} hari',
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.orange,
+                          letterSpacing: -0.5,
+                          height: 1.2,
                         ),
                       ),
                     ],
@@ -76,16 +75,16 @@ class StreakCounter extends StatelessWidget {
               ],
             ),
 
-            AppSpacing.verticalGapMD,
+            const SizedBox(height: 20),
 
             // Progress ke milestone
             if (nextMilestone != null) ...[
-              _buildMilestoneProgress(nextMilestone, color),
+              _buildMilestoneProgress(nextMilestone),
+              const SizedBox(height: 12),
             ] else ...[
               _buildMaxStreak(),
+              const SizedBox(height: 12),
             ],
-
-            AppSpacing.verticalGapSM,
 
             // Longest streak
             _buildLongestStreak(),
@@ -101,33 +100,38 @@ class StreakCounter extends StatelessWidget {
 
   Widget _buildFireIcon(StreakStatus status) {
     IconData icon;
+    Color bgColor;
     Color iconColor;
 
     switch (status) {
       case StreakStatus.active:
         icon = Icons.local_fire_department;
-        iconColor = AppColors.streakFire;
+        bgColor = const Color(0xFFFFF4E6);
+        iconColor = AppColors.orange;
         break;
       case StreakStatus.atRisk:
         icon = Icons.local_fire_department_outlined;
+        bgColor = const Color(0xFFFFF7ED);
         iconColor = AppColors.warning;
         break;
       case StreakStatus.broken:
         icon = Icons.heart_broken;
-        iconColor = AppColors.textTertiary;
+        bgColor = AppColors.gray100;
+        iconColor = AppColors.gray400;
         break;
     }
 
     return Container(
-      padding: AppSpacing.paddingSM,
+      width: 56,
+      height: 56,
       decoration: BoxDecoration(
-        color: iconColor,
-        border: Border.all(color: AppColors.black, width: AppSpacing.borderThin),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(
         icon,
-        color: AppColors.white,
-        size: AppSpacing.iconMD,
+        color: iconColor,
+        size: 28,
       ),
     );
   }
@@ -139,37 +143,46 @@ class StreakCounter extends StatelessWidget {
   Widget _buildStatusBadge(StreakStatus status) {
     String text;
     Color bgColor;
+    String emoji;
 
     switch (status) {
       case StreakStatus.active:
-        text = '🔥 AKTIF';
+        text = 'Aktif';
+        emoji = '🔥';
         bgColor = AppColors.success;
         break;
       case StreakStatus.atRisk:
-        text = '⚠️ BAHAYA';
+        text = 'Bahaya';
+        emoji = '⚠️';
         bgColor = AppColors.warning;
         break;
       case StreakStatus.broken:
-        text = '💔 PUTUS';
-        bgColor = AppColors.textTertiary;
+        text = 'Putus';
+        emoji = '💔';
+        bgColor = AppColors.gray400;
         break;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: bgColor,
-        border: Border.all(color: AppColors.black, width: AppSpacing.borderThin),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        text,
-        style: AppTextStyles.labelSmall.copyWith(
-          color: AppColors.white,
-          fontWeight: FontWeight.bold,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -178,7 +191,7 @@ class StreakCounter extends StatelessWidget {
   // MILESTONE PROGRESS
   // ============================================================================
 
-  Widget _buildMilestoneProgress(StreakMilestone milestone, Color color) {
+  Widget _buildMilestoneProgress(StreakMilestone milestone) {
     final progress = streak.progressToNextMilestone();
 
     return Column(
@@ -189,73 +202,85 @@ class StreakCounter extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Target: ${milestone.days} hari',
-              style: AppTextStyles.bodySmall.copyWith(
+              'Target ${milestone.days} hari',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
-                fontWeight: FontWeight.bold,
               ),
             ),
             Text(
               '${streak.current}/${milestone.days}',
-              style: AppTextStyles.bodySmall.copyWith(
-                color: color,
-                fontWeight: FontWeight.bold,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.orange,
               ),
             ),
           ],
         ),
-        AppSpacing.verticalGapSM,
+        const SizedBox(height: 8),
 
         // Progress bar
-        Container(
-          height: 12,
-          decoration: BoxDecoration(
-            color: AppColors.borderLight.withOpacity(0.2),
-            border: Border.all(color: AppColors.black, width: AppSpacing.borderThin),
-          ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: progress,
-            child: Container(
-              decoration: BoxDecoration(
-                color: color,
-                border: Border(
-                  right: BorderSide(color: AppColors.black, width: AppSpacing.borderThin),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppColors.gray100,
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: progress,
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.orange, Color(0xFFFFB800)],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-        AppSpacing.verticalGapSM,
+        const SizedBox(height: 12),
 
         // Reward preview
         Container(
-          padding: AppSpacing.paddingSM,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.white,
-            border: Border.all(color: AppColors.black, width: AppSpacing.borderThin),
+            color: AppColors.gray50,
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '🎁 Hadiah: ',
-                style: AppTextStyles.labelSmall,
+              const Text('🎁', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Hadiah: ',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ),
               Text(
                 '+${milestone.xpReward} XP',
-                style: AppTextStyles.labelSmall.copyWith(
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.blue,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
               if (milestone.diamondReward > 0) ...[
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: 8),
                 Text(
                   '+${milestone.diamondReward} 💎',
-                  style: AppTextStyles.labelSmall.copyWith(
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.purple,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -267,26 +292,40 @@ class StreakCounter extends StatelessWidget {
   }
 
   // ============================================================================
-  // MAX STREAK (All Milestones Achieved)
+  // MAX STREAK
   // ============================================================================
 
   Widget _buildMaxStreak() {
     return Container(
-      padding: AppSpacing.paddingSM,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.gold.withOpacity(0.2),
-        border: Border.all(color: AppColors.gold, width: AppSpacing.borderThin),
+        color: const Color(0xFFFFF9E6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.gold.withOpacity(0.3), width: 2),
       ),
       child: Row(
         children: [
-          const Icon(Icons.emoji_events, color: AppColors.gold, size: AppSpacing.iconSM),
-          AppSpacing.horizontalGapSM,
-          Expanded(
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppColors.gold,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.emoji_events,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
             child: Text(
               'Semua milestone tercapai! 🎉',
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.black,
-                fontWeight: FontWeight.bold,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.gray800,
               ),
             ),
           ),
@@ -301,42 +340,30 @@ class StreakCounter extends StatelessWidget {
 
   Widget _buildLongestStreak() {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(color: AppColors.black, width: AppSpacing.borderThin),
+        color: AppColors.gray50,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.military_tech, size: AppSpacing.iconXS, color: AppColors.black),
-          const SizedBox(width: AppSpacing.xs),
+          const Icon(
+            Icons.military_tech,
+            size: 16,
+            color: AppColors.gray600,
+          ),
+          const SizedBox(width: 6),
           Text(
             'Rekor: ${streak.longest} hari',
-            style: AppTextStyles.labelSmall.copyWith(
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
           ),
         ],
       ),
     );
-  }
-
-  // ============================================================================
-  // HELPERS
-  // ============================================================================
-
-  Color _getStreakColor(StreakStatus status) {
-    switch (status) {
-      case StreakStatus.active:
-        return AppColors.streakFire;
-      case StreakStatus.atRisk:
-        return AppColors.warning;
-      case StreakStatus.broken:
-        return AppColors.textTertiary;
-    }
   }
 }

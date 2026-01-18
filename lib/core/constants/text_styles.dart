@@ -2,77 +2,81 @@ import 'package:flutter/material.dart';
 
 import 'colors.dart';
 
-/// Neobrutalism Text Styles
-/// Bold, high contrast, no subtle fonts
+/// Duolingo-Style Text Styles
+/// Friendly, rounded, bold but approachable
 class AppTextStyles {
-  AppTextStyles._(); // Private constructor
+  AppTextStyles._();
 
-  // System font stack (no custom fonts for performance)
   static const String fontFamily =
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      '-apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif';
 
   // ============================================================================
-  // DISPLAY STYLES (Extra Large)
+  // DISPLAY STYLES
   // ============================================================================
 
   static const TextStyle displayLarge = TextStyle(
     fontSize: 48,
-    fontWeight: FontWeight.w900,
-    letterSpacing: -2,
+    fontWeight: FontWeight.w800,
+    letterSpacing: -1,
     height: 1.1,
     color: AppColors.textPrimary,
   );
 
   static const TextStyle displayMedium = TextStyle(
     fontSize: 40,
-    fontWeight: FontWeight.w900,
-    letterSpacing: -1.5,
+    fontWeight: FontWeight.w800,
+    letterSpacing: -0.8,
     height: 1.1,
     color: AppColors.textPrimary,
   );
 
   static const TextStyle displaySmall = TextStyle(
     fontSize: 32,
-    fontWeight: FontWeight.w900,
-    letterSpacing: -1,
+    fontWeight: FontWeight.w800,
+    letterSpacing: -0.5,
     height: 1.2,
     color: AppColors.textPrimary,
   );
 
   // ============================================================================
-  // HEADLINE STYLES (Large)
+  // HEADLINE STYLES (ADDED ALIASES)
   // ============================================================================
 
   static const TextStyle headlineLarge = TextStyle(
     fontSize: 28,
-    fontWeight: FontWeight.bold,
-    letterSpacing: -0.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.3,
     height: 1.2,
     color: AppColors.textPrimary,
   );
 
   static const TextStyle headlineMedium = TextStyle(
     fontSize: 24,
-    fontWeight: FontWeight.bold,
-    letterSpacing: -0.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.3,
     height: 1.3,
     color: AppColors.textPrimary,
   );
 
   static const TextStyle headlineSmall = TextStyle(
     fontSize: 20,
-    fontWeight: FontWeight.bold,
+    fontWeight: FontWeight.w700,
     height: 1.3,
     color: AppColors.textPrimary,
   );
 
+  // Aliases untuk widget usage
+  static const TextStyle headingLarge = headlineLarge;
+  static const TextStyle headingMedium = headlineMedium;
+  static const TextStyle headingSmall = headlineSmall;
+
   // ============================================================================
-  // TITLE STYLES (Medium)
+  // TITLE STYLES
   // ============================================================================
 
   static const TextStyle titleLarge = TextStyle(
     fontSize: 18,
-    fontWeight: FontWeight.bold,
+    fontWeight: FontWeight.w700,
     height: 1.4,
     color: AppColors.textPrimary,
   );
@@ -92,52 +96,51 @@ class AppTextStyles {
   );
 
   // ============================================================================
-  // BODY STYLES (Regular)
+  // BODY STYLES
   // ============================================================================
 
   static const TextStyle bodyLarge = TextStyle(
     fontSize: 16,
-    fontWeight: FontWeight.normal,
+    fontWeight: FontWeight.w500,
     height: 1.5,
     color: AppColors.textPrimary,
   );
 
   static const TextStyle bodyMedium = TextStyle(
     fontSize: 14,
-    fontWeight: FontWeight.normal,
+    fontWeight: FontWeight.w500,
     height: 1.5,
     color: AppColors.textPrimary,
   );
 
   static const TextStyle bodySmall = TextStyle(
     fontSize: 12,
-    fontWeight: FontWeight.normal,
+    fontWeight: FontWeight.w500,
     height: 1.5,
     color: AppColors.textSecondary,
   );
 
   // ============================================================================
-  // LABEL STYLES (Small)
+  // LABEL STYLES
   // ============================================================================
 
   static const TextStyle labelLarge = TextStyle(
     fontSize: 14,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 0.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.3,
     color: AppColors.textPrimary,
   );
 
   static const TextStyle labelMedium = TextStyle(
     fontSize: 12,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 0.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.3,
     color: AppColors.textPrimary,
   );
 
-
   static const TextStyle labelSmall = TextStyle(
     fontSize: 10,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
     letterSpacing: 0.5,
     color: AppColors.textSecondary,
   );
@@ -148,24 +151,24 @@ class AppTextStyles {
 
   static const TextStyle buttonLarge = TextStyle(
     fontSize: 16,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 0.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.3,
     height: 1,
     color: AppColors.white,
   );
 
   static const TextStyle buttonMedium = TextStyle(
     fontSize: 14,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 0.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.3,
     height: 1,
     color: AppColors.white,
   );
 
   static const TextStyle buttonSmall = TextStyle(
     fontSize: 12,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 0.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.3,
     height: 1,
     color: AppColors.white,
   );
@@ -176,63 +179,58 @@ class AppTextStyles {
 
   static const TextStyle appBarTitle = TextStyle(
     fontSize: 20,
-    fontWeight: FontWeight.w900,
-    letterSpacing: -0.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.3,
     color: AppColors.textPrimary,
   );
 
   static const TextStyle caption = TextStyle(
     fontSize: 11,
-    fontWeight: FontWeight.normal,
+    fontWeight: FontWeight.w500,
     height: 1.4,
     color: AppColors.textSecondary,
   );
 
   static const TextStyle overline = TextStyle(
     fontSize: 10,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 1,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.5,
     color: AppColors.textSecondary,
   );
 
-  // Energy display (large numbers)
   static const TextStyle energyCount = TextStyle(
     fontSize: 32,
-    fontWeight: FontWeight.w900,
-    letterSpacing: -1,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.5,
     height: 1,
     color: AppColors.textPrimary,
   );
 
-  // Streak display (fire icon numbers)
   static const TextStyle streakCount = TextStyle(
     fontSize: 28,
-    fontWeight: FontWeight.w900,
-    letterSpacing: -0.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.3,
     height: 1,
     color: AppColors.streakFire,
   );
 
-  // Score/XP display
   static const TextStyle scoreDisplay = TextStyle(
     fontSize: 48,
-    fontWeight: FontWeight.w900,
-    letterSpacing: -2,
+    fontWeight: FontWeight.w800,
+    letterSpacing: -1,
     height: 1,
     color: AppColors.green,
   );
 
-  // Error message
   static const TextStyle errorText = TextStyle(
     fontSize: 12,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     color: AppColors.error,
   );
 
-  // Success message
   static const TextStyle successText = TextStyle(
     fontSize: 12,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     color: AppColors.success,
   );
 
@@ -240,22 +238,18 @@ class AppTextStyles {
   // HELPER METHODS
   // ============================================================================
 
-  /// Apply color to any text style
   static TextStyle withColor(TextStyle style, Color color) {
     return style.copyWith(color: color);
   }
 
-  /// Apply bold weight to any text style
   static TextStyle bold(TextStyle style) {
-    return style.copyWith(fontWeight: FontWeight.bold);
+    return style.copyWith(fontWeight: FontWeight.w700);
   }
 
-  /// Apply italic to any text style
   static TextStyle italic(TextStyle style) {
     return style.copyWith(fontStyle: FontStyle.italic);
   }
 
-  /// Apply underline to any text style
   static TextStyle underline(TextStyle style) {
     return style.copyWith(decoration: TextDecoration.underline);
   }

@@ -2,23 +2,37 @@
 
 import 'package:flutter/material.dart';
 
-// Lazy imports for code splitting
-import 'package:lulusasn/features/auth/screens/splash_screen.dart'
-    deferred as splash;
-import 'package:lulusasn/features/auth/screens/login_screen.dart'
-    deferred as login;
-import 'package:lulusasn/features/home/screens/home_screen.dart'
-    deferred as home;
-
 import '../features/auth/screens/goal_setting_screen.dart';
 import '../features/auth/screens/onboarding_screen.dart';
+import 'package:lulusasn/features/auth/screens/login_screen.dart';
+import '../features/exam/models/exam_result_model.dart';
+import '../features/exam/screens/exam_list_screen.dart';
+import '../features/exam/screens/exam_result_screen.dart';
+import '../features/exam/screens/exam_review_screen.dart';
+import '../features/exam/screens/exam_session_screen.dart';
+import '../features/exam/screens/pre_exam_screen.dart';
+import '../features/main_navigation/main_screen..dart';
+
+import 'package:lulusasn/features/auth/screens/splash_screen.dart';
+import 'package:lulusasn/features/home/screens/home_screen.dart';
+
+import 'package:firebase_auth/firebase_auth.dart';
 
 // ============================================================================
 // ROUTE NAMES
 // ============================================================================
 
-/// Static route name constants.
-/// Never use string literals for navigation - always reference these.
+// lib/app/routes.dart
+
+// ============================================================================
+// ROUTE NAMES
+// ============================================================================
+// lib/app/routes.dart
+
+// ============================================================================
+// ROUTE NAMES
+// ============================================================================
+
 abstract class AppRoutes {
   AppRoutes._();
 
@@ -31,29 +45,33 @@ abstract class AppRoutes {
   static const String onboarding = '/onboarding';
 
   // ==================== AUTHENTICATED ROUTES ====================
+  static const String main = '/main';
   static const String home = '/home';
-  static const String examSession = '/exam';
-  static const String examResult = '/exam/result';
-
   static const String learn = '/learn';
+  static const String leaderboard = '/leaderboard';
+  static const String profile = '/profile';
+
+  // ==================== EXAM ROUTES ====================
+
+  static const String examList = '/exam/list'; // 🆕 TAMBAH INI
+  static const String examPre = '/exam/pre';
+  static const String examSession = '/exam/session';
+  static const String examResult = '/exam/result';
+  static const String examReview = '/exam/review';
+
+  // ==================== LEARN ROUTES ====================
   static const String learnCategory = '/learn/category';
   static const String learnReview = '/learn/review';
 
-  static const String leaderboard = '/leaderboard';
+  // ==================== PROFILE ROUTES ====================
   static const String userProfile = '/user';
-
-  static const String exam = '/exam';
-  static const String premium = '/premium';
-
-
-  static const String profile = '/profile';
   static const String statistics = '/profile/statistics';
   static const String achievements = '/profile/achievements';
   static const String settings = '/profile/settings';
 
   // ==================== PAYMENT ROUTES ====================
   static const String diamondPurchase = '/diamond';
-  static const String premiumUpgrade = '/premium';
+  static const String premium = '/premium';
   static const String payment = '/payment';
   static const String paymentSuccess = '/payment/success';
   static const String paymentFailed = '/payment/failed';
@@ -74,91 +92,154 @@ abstract class AppRoutes {
 // ROUTE GENERATOR
 // ============================================================================
 
-/// Centralized route generator for the entire app.
-///
-/// Performance:
-/// - Uses deferred loading for code splitting
-/// - Stateless - no rebuilds on navigation
-///
-/// Web-specific:
-/// - Preserves browser back/forward
-/// - Supports deep linking
-/// - Clean URLs (no hash fragments)
 class AppRouter {
   AppRouter._();
 
-  /// Generate route based on RouteSettings
   static Route<dynamic>? generateRoute(RouteSettings settings) {
     final String routeName = settings.name ?? AppRoutes.notFound;
-    final Object? _ = settings.arguments;
+    final Object? arguments = settings.arguments; // ✅ FIX: Extract arguments
 
     switch (routeName) {
       // ==================== PUBLIC ROUTES ====================
       case AppRoutes.splash:
-        return _buildRoute(settings, (_) async {
-          await splash.loadLibrary();
-          return splash.SplashScreen();
-        });
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const SplashScreen(),
+        );
 
       case AppRoutes.login:
-        return _buildRoute(settings, (_) async {
-          await login.loadLibrary();
-          return login.LoginScreen();
-        });
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const LoginScreen(),
+        );
+
+      case AppRoutes.onboarding:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const OnboardingScreen(),
+        );
+
+      case AppRoutes.goalSetting:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const GoalSettingScreen(),
+        );
 
       // ==================== AUTHENTICATED ROUTES ====================
       case AppRoutes.home:
-        return _buildRoute(settings, (_) async {
-          await home.loadLibrary();
-          return home.HomeScreen();
-        });
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const MainNavigationScreen(),
+        );
 
-      case AppRoutes.onboarding:
-        return MaterialPageRoute(builder: (_) => const OnboardingScreen());
-      case AppRoutes.goalSetting:
-        return MaterialPageRoute(builder: (_) => const GoalSettingScreen());
+      // ==================== EXAM ROUTES ====================
+      case AppRoutes.examList:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ExamListScreen(),
+        );
+      case AppRoutes.examPre:
+        // ✅ FIX: Safe argument parsing
+        final args = arguments as Map<String, dynamic>? ?? {};
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => PreExamScreen(
+            packageId: args['packageId'] as String?, // ✅ Extract dari args
+            category: args['category'] as String? ?? 'TWK',
+            questionCount: args['questionCount'] as int? ?? 10,
+            energyCost: args['energyCost'] as int? ?? 1,
+            isPremium: args['isPremium'] as bool? ?? false,
+          ),
+        );
 
-      // TODO: Add more routes as features are built
-      // case AppRoutes.examSession:
-      // case AppRoutes.learn:
-      // case AppRoutes.profile:
-      // etc...
+      case AppRoutes.examSession:
+        // ✅ FIX: Safe argument parsing
+        final args = arguments as Map<String, dynamic>? ?? {};
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => ExamSessionScreen(
+            category: args['category'] as String? ?? 'TWK',
+            questionCount: args['questionCount'] as int? ?? 10,
+          ),
+        );
 
+      case AppRoutes.examResult:
+        // ✅ FIX: Safe argument parsing dengan null check
+        final args = arguments as Map<String, dynamic>? ?? {};
+        final result = args['result'] as ExamResultModel?;
+
+        if (result == null) {
+          // Redirect ke home jika result null
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => const HomeScreen(),
+          );
+        }
+
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => ExamResultScreen(result: result),
+        );
+      case AppRoutes.examReview:
+        final args = arguments as Map<String, dynamic>? ?? {};
+        final examId = args['examId'] as String?;
+
+        if (examId == null) {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => const HomeScreen(),
+          );
+        }
+
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => ExamReviewScreen(examId: examId),
+        );
       // ==================== ERROR ROUTES ====================
       case AppRoutes.notFound:
       default:
-        return _buildRoute(settings, (_) async => const NotFoundScreen());
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const NotFoundScreen(),
+        );
     }
   }
 
-  /// Unknown route handler
   static Route<dynamic> onUnknownRoute(RouteSettings settings) {
     return MaterialPageRoute(
       settings: settings,
       builder: (_) => const NotFoundScreen(),
     );
   }
+}
 
-  /// Build MaterialPageRoute with deferred builder
-  static MaterialPageRoute _buildRoute(
-    RouteSettings settings,
-    Future<Widget> Function(BuildContext) builder,
-  ) {
-    return MaterialPageRoute(
-      settings: settings,
-      builder: (context) {
-        return FutureBuilder<Widget>(
-          future: builder(context),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done) {
-              if (snapshot.hasError) {
-                return ErrorScreen(error: snapshot.error.toString());
-              }
-              return snapshot.data!;
-            }
-            return const LoadingScreen();
-          },
-        );
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // Loading state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                color: Color(0xFF58CC02), // Duolingo green
+              ),
+            ),
+          );
+        }
+
+        // ✅ REVISI: Arahkan ke MainNavigationScreen (bukan HomeScreen)
+        if (snapshot.hasData) {
+          return const MainNavigationScreen();
+        }
+
+        // Not logged in
+        return const LoginScreen();
       },
     );
   }

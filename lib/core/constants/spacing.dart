@@ -17,6 +17,22 @@ class AppSpacing {
   static const double xxxl = 64; // 3× Extra large
 
   // ============================================================================
+  // BORDER RADIUS (ADDED FOR WIDGETS)
+  // ============================================================================
+
+  static const double radiusNone = 0;     // Neobrutalism default (no radius)
+  static const double radiusSm = 4;       // ADDED (lowercase)
+  static const double radiusSM = 4;       // ADDED
+  static const double radiusMd = 8;       // ADDED (lowercase)
+  static const double radiusMD = 8;
+  static const double radiusLg = 12;      // ADDED (lowercase)
+  static const double radiusLG = 12;
+  static const double radiusXl = 16;      // ADDED (lowercase)
+  static const double radiusXL = 16;
+  static const double radiusFull = 999;   // ADDED (fully rounded)
+  static const double radiusRound = 999;  // Alias
+
+  // ============================================================================
   // PADDING (EdgeInsets)
   // ============================================================================
 
@@ -73,16 +89,7 @@ class AppSpacing {
   static const SizedBox verticalGapXL = SizedBox(height: xl);
   static const SizedBox verticalGapXXL = SizedBox(height: xxl);
 
-  // ============================================================================
-  // BORDER RADIUS
-  // ============================================================================
 
-  static const double radiusNone = 0;    // Neobrutalism default (no radius)
-  static const double radiusSM = 4;
-  static const double radiusMD = 8;
-  static const double radiusLG = 12;
-  static const double radiusXL = 16;
-  static const double radiusRound = 999; // Fully rounded
 
   static const BorderRadius borderRadiusNone = BorderRadius.zero;
   static const BorderRadius borderRadiusSM = BorderRadius.all(Radius.circular(radiusSM));

@@ -9,8 +9,6 @@ import '../../../core/constants/spacing.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/utils/extensions.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../service/user_service.dart';
 
 /// Goal setting screen untuk first-time user

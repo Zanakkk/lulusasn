@@ -59,7 +59,7 @@ class ErrorMessage extends StatelessWidget {
           ),
           if (onRetry != null) ...[
             const SizedBox(height: 16),
-            BrutalistButton.small(
+            DuolingoButton.small(
               text: retryButtonText!,
               onPressed: onRetry,
               backgroundColor: borderColor,
@@ -143,7 +143,7 @@ class ErrorMessage extends StatelessWidget {
               ),
               if (onRetry != null) ...[
                 const SizedBox(height: 24),
-                BrutalistButton.primary(
+                DuolingoButton.primary(
                   text: retryButtonText,
                   onPressed: onRetry,
                   width: double.infinity,

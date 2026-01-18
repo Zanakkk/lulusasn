@@ -86,7 +86,7 @@ class EmptyState extends StatelessWidget {
               // Action button
               if (actionText != null && onAction != null) ...[
                 const SizedBox(height: 32),
-                BrutalistButton.primary(
+                DuolingoButton.primary(
                   text: actionText!,
                   onPressed: onAction,
                   width: double.infinity,

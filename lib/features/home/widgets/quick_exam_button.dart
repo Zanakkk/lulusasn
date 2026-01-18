@@ -4,17 +4,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:lulusasn/core/constants/colors.dart';
-import 'package:lulusasn/core/constants/text_styles.dart';
-import 'package:lulusasn/core/constants/spacing.dart';
 
-/// Quick Exam Button Widget
-///
-/// Tombol CTA utama untuk mulai ujian
-/// Features:
-/// - Animated hover effect
-/// - Icon + text layout
-/// - Multiple variants (primary, disabled, loading)
-/// - Responsive sizing
+/// Duolingo-Style Quick Exam Button Widget
 class QuickExamButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -43,39 +34,53 @@ class _QuickExamButtonState extends State<QuickExamButton> {
   @override
   Widget build(BuildContext context) {
     final isInteractive = !widget.isDisabled && !widget.isLoading;
-    final color = _getColor();
-    final bgColor = _getBgColor();
+    final colors = _getColors();
 
     return GestureDetector(
-      onTapDown: isInteractive ? (_) => setState(() => _isPressed = true) : null,
+      onTapDown: isInteractive
+          ? (_) => setState(() => _isPressed = true)
+          : null,
       onTapUp: isInteractive ? (_) => setState(() => _isPressed = false) : null,
-      onTapCancel: isInteractive ? () => setState(() => _isPressed = false) : null,
+      onTapCancel: isInteractive
+          ? () => setState(() => _isPressed = false)
+          : null,
       onTap: isInteractive ? widget.onPressed : null,
-      child: AnimatedContainer(
+      child: AnimatedScale(
         duration: const Duration(milliseconds: 100),
-        padding: AppSpacing.paddingLG,
-        decoration: BoxDecoration(
-          color: bgColor,
-          border: Border.all(
-            color: AppColors.black,
-            width: AppSpacing.borderThick,
-          ),
-          boxShadow: [
-            if (!_isPressed && isInteractive)
-              const BoxShadow(
-                color: AppColors.black,
-                offset: AppSpacing.shadowLarge,
+        scale: _isPressed && isInteractive ? 0.98 : 1.0,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 100),
+          opacity: widget.isDisabled ? 0.6 : 1.0,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: widget.isDisabled
+                  ? null
+                  : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: colors.gradientColors,
+                    ),
+              color: widget.isDisabled ? AppColors.gray200 : null,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: widget.isDisabled
+                    ? AppColors.gray300
+                    : colors.borderColor,
+                width: 2,
               ),
-          ],
+              boxShadow: [
+                if (!widget.isDisabled)
+                  BoxShadow(
+                    color: colors.shadowColor.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+              ],
+            ),
+            child: widget.isLoading ? _buildLoading() : _buildContent(colors),
+          ),
         ),
-        transform: _isPressed && isInteractive
-            ? Matrix4.translationValues(
-          AppSpacing.shadowLarge.dx,
-          AppSpacing.shadowLarge.dy,
-          0,
-        )
-            : Matrix4.identity(),
-        child: widget.isLoading ? _buildLoading() : _buildContent(color),
       ),
     );
   }
@@ -84,28 +89,24 @@ class _QuickExamButtonState extends State<QuickExamButton> {
   // CONTENT
   // ============================================================================
 
-  Widget _buildContent(Color color) {
+  Widget _buildContent(_ButtonColors colors) {
     final label = widget.customLabel ?? _getDefaultLabel();
     final icon = widget.customIcon ?? _getDefaultIcon();
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // Icon container
         Container(
-          padding: AppSpacing.paddingSM,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
-            color: AppColors.white,
-            border: Border.all(color: AppColors.black, width: AppSpacing.borderThin),
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: AppSpacing.iconLG,
-          ),
+          child: Icon(icon, color: Colors.white, size: 26),
         ),
 
-        AppSpacing.horizontalGapMD,
+        const SizedBox(width: 16),
 
         // Text
         Expanded(
@@ -113,18 +114,24 @@ class _QuickExamButtonState extends State<QuickExamButton> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                label.toUpperCase(),
-                style: AppTextStyles.titleLarge.copyWith(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.bold,
+                label,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: -0.3,
+                  height: 1.2,
                 ),
               ),
               if (!widget.isDisabled) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   _getSubtitle(),
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.white.withOpacity(0.9),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withOpacity(0.85),
+                    height: 1.2,
                   ),
                 ),
               ],
@@ -133,11 +140,19 @@ class _QuickExamButtonState extends State<QuickExamButton> {
         ),
 
         // Arrow
-        if (!widget.isDisabled)
-          const Icon(
-            Icons.arrow_forward,
-            color: AppColors.white,
-            size: AppSpacing.iconMD,
+        if (!widget.isDisabled && !widget.isLoading)
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.arrow_forward_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
       ],
     );
@@ -152,19 +167,20 @@ class _QuickExamButtonState extends State<QuickExamButton> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const SizedBox(
-          width: AppSpacing.iconMD,
-          height: AppSpacing.iconMD,
+          width: 20,
+          height: 20,
           child: CircularProgressIndicator(
-            strokeWidth: 3,
-            valueColor: AlwaysStoppedAnimation(AppColors.white),
+            strokeWidth: 2.5,
+            valueColor: AlwaysStoppedAnimation(Colors.white),
           ),
         ),
-        AppSpacing.horizontalGapMD,
-        Text(
-          'MEMUAT...',
-          style: AppTextStyles.titleMedium.copyWith(
-            color: AppColors.white,
-            fontWeight: FontWeight.bold,
+        const SizedBox(width: 12),
+        const Text(
+          'Memuat...',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
           ),
         ),
       ],
@@ -172,36 +188,43 @@ class _QuickExamButtonState extends State<QuickExamButton> {
   }
 
   // ============================================================================
-  // VARIANTS
+  // COLORS & VARIANTS
   // ============================================================================
 
-  Color _getColor() {
-    if (widget.isDisabled) return AppColors.textTertiary;
-
-    switch (widget.variant) {
-      case QuickExamButtonVariant.primary:
-        return AppColors.success;
-      case QuickExamButtonVariant.twk:
-        return AppColors.twkColor;
-      case QuickExamButtonVariant.tiu:
-        return AppColors.tiuColor;
-      case QuickExamButtonVariant.tkp:
-        return AppColors.tkpColor;
+  _ButtonColors _getColors() {
+    if (widget.isDisabled) {
+      return _ButtonColors(
+        gradientColors: [AppColors.gray200, AppColors.gray200],
+        borderColor: AppColors.gray300,
+        shadowColor: Colors.transparent,
+      );
     }
-  }
-
-  Color _getBgColor() {
-    if (widget.isDisabled) return AppColors.textTertiary;
 
     switch (widget.variant) {
       case QuickExamButtonVariant.primary:
-        return AppColors.success;
+        return _ButtonColors(
+          gradientColors: [AppColors.green, AppColors.darkGreen],
+          borderColor: AppColors.darkGreen,
+          shadowColor: AppColors.green,
+        );
       case QuickExamButtonVariant.twk:
-        return AppColors.twkColor;
+        return _ButtonColors(
+          gradientColors: [AppColors.blue, const Color(0xFF0D8BBF)],
+          borderColor: const Color(0xFF0D8BBF),
+          shadowColor: AppColors.blue,
+        );
       case QuickExamButtonVariant.tiu:
-        return AppColors.tiuColor;
+        return _ButtonColors(
+          gradientColors: [AppColors.orange, const Color(0xFFE08600)],
+          borderColor: const Color(0xFFE08600),
+          shadowColor: AppColors.orange,
+        );
       case QuickExamButtonVariant.tkp:
-        return AppColors.tkpColor;
+        return _ButtonColors(
+          gradientColors: [AppColors.green, AppColors.darkGreen],
+          borderColor: AppColors.darkGreen,
+          shadowColor: AppColors.green,
+        );
     }
   }
 
@@ -210,7 +233,7 @@ class _QuickExamButtonState extends State<QuickExamButton> {
 
     switch (widget.variant) {
       case QuickExamButtonVariant.primary:
-        return 'Mulai Ujian';
+        return 'Mulai Ujian Campuran';
       case QuickExamButtonVariant.twk:
         return 'Ujian TWK';
       case QuickExamButtonVariant.tiu:
@@ -221,24 +244,24 @@ class _QuickExamButtonState extends State<QuickExamButton> {
   }
 
   IconData _getDefaultIcon() {
-    if (widget.isDisabled) return Icons.block;
+    if (widget.isDisabled) return Icons.lock_rounded;
 
     switch (widget.variant) {
       case QuickExamButtonVariant.primary:
-        return Icons.play_circle_filled;
+        return Icons.play_circle_fill_rounded;
       case QuickExamButtonVariant.twk:
-        return Icons.menu_book;
+        return Icons.menu_book_rounded;
       case QuickExamButtonVariant.tiu:
-        return Icons.psychology;
+        return Icons.psychology_rounded;
       case QuickExamButtonVariant.tkp:
-        return Icons.emoji_people;
+        return Icons.emoji_people_rounded;
     }
   }
 
   String _getSubtitle() {
     switch (widget.variant) {
       case QuickExamButtonVariant.primary:
-        return '10 soal · ±5 menit';
+        return '10 soal • ±5 menit';
       case QuickExamButtonVariant.twk:
         return 'Tes Wawasan Kebangsaan';
       case QuickExamButtonVariant.tiu:
@@ -250,21 +273,36 @@ class _QuickExamButtonState extends State<QuickExamButton> {
 }
 
 // ==============================================================================
+// BUTTON COLORS
+// ==============================================================================
+
+class _ButtonColors {
+  final List<Color> gradientColors;
+  final Color borderColor;
+  final Color shadowColor;
+
+  _ButtonColors({
+    required this.gradientColors,
+    required this.borderColor,
+    required this.shadowColor,
+  });
+}
+
+// ==============================================================================
 // QUICK EXAM BUTTON VARIANT
 // ==============================================================================
 
 enum QuickExamButtonVariant {
-  primary,  // Hijau - default mulai ujian
-  twk,      // TWK color
-  tiu,      // TIU color
-  tkp,      // TKP color
+  primary, // Green gradient - default
+  twk, // Blue gradient
+  tiu, // Orange gradient
+  tkp, // Green gradient
 }
 
 // ==============================================================================
-// CATEGORY SELECTOR (Bonus Widget)
+// CATEGORY SELECTOR
 // ==============================================================================
 
-/// Category Selector untuk pilih jenis ujian
 class CategorySelector extends StatelessWidget {
   final Function(QuickExamButtonVariant) onCategorySelected;
   final bool hasEnergy;
@@ -278,35 +316,54 @@ class CategorySelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header
-        Container(
-          padding: AppSpacing.paddingMD,
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            border: Border.all(color: AppColors.black, width: AppSpacing.borderThick),
-            boxShadow: const [
-              BoxShadow(
-                color: AppColors.black,
-                offset: AppSpacing.shadowMedium,
-              ),
-            ],
-          ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
           child: Row(
             children: [
-              const Icon(Icons.category, color: AppColors.black),
-              AppSpacing.horizontalGapSM,
-              Text(
-                'PILIH KATEGORI UJIAN',
-                style: AppTextStyles.titleMedium.copyWith(
-                  fontWeight: FontWeight.bold,
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.category_rounded,
+                  color: AppColors.green,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pilih Kategori',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.gray800,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Fokus latihan per kategori ujian',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-
-        AppSpacing.verticalGapMD,
 
         // Categories
         QuickExamButton(
@@ -314,14 +371,14 @@ class CategorySelector extends StatelessWidget {
           isDisabled: !hasEnergy,
           onPressed: () => onCategorySelected(QuickExamButtonVariant.twk),
         ),
-        AppSpacing.verticalGapMD,
+        const SizedBox(height: 12),
 
         QuickExamButton(
           variant: QuickExamButtonVariant.tiu,
           isDisabled: !hasEnergy,
           onPressed: () => onCategorySelected(QuickExamButtonVariant.tiu),
         ),
-        AppSpacing.verticalGapMD,
+        const SizedBox(height: 12),
 
         QuickExamButton(
           variant: QuickExamButtonVariant.tkp,
