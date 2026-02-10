@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 /// - Store/retrieve simple key-value data
 /// - Cache user preferences
 /// - Store onboarding status
+/// - Store goal setting status
 /// - Theme preferences
 /// - Last login info
 class StorageService {
@@ -43,6 +44,7 @@ class StorageService {
   // ============================================================================
 
   static const String _keyOnboardingCompleted = 'onboarding_completed';
+  static const String _keyGoalCompleted = 'goal_completed';
   static const String _keyThemeMode = 'theme_mode';
   static const String _keyLastLoginEmail = 'last_login_email';
   static const String _keyNotificationsEnabled = 'notifications_enabled';
@@ -138,14 +140,67 @@ class StorageService {
 
   // ---------- ONBOARDING ----------
 
-  /// Check if onboarding is completed
+  /// Check if onboarding is completed (Getter)
   bool get isOnboardingCompleted {
+    return getBool(_keyOnboardingCompleted) ?? false;
+  }
+
+  /// Check if onboarding has been seen (Method style)
+  /// Alias untuk isOnboardingCompleted
+  bool hasSeenOnboarding() {
     return getBool(_keyOnboardingCompleted) ?? false;
   }
 
   /// Mark onboarding as completed
   Future<void> setOnboardingCompleted(bool completed) async {
     await setBool(_keyOnboardingCompleted, completed);
+    if (kDebugMode) {
+      print('✅ Onboarding completed: $completed');
+    }
+  }
+
+  /// Mark onboarding as seen (Shorthand)
+  Future<void> setOnboardingSeen() async {
+    await setBool(_keyOnboardingCompleted, true);
+    if (kDebugMode) {
+      print('✅ Onboarding marked as seen');
+    }
+  }
+
+  /// Reset onboarding status (for testing)
+  Future<void> resetOnboarding() async {
+    await remove(_keyOnboardingCompleted);
+    if (kDebugMode) {
+      print('🔄 Onboarding reset');
+    }
+  }
+
+  // ---------- GOAL SETTING ----------
+
+  /// Check if goal has been set (Getter)
+  bool get isGoalCompleted {
+    return getBool(_keyGoalCompleted) ?? false;
+  }
+
+  /// Check if goal has been set (Method style)
+  bool hasSetGoal() {
+    return getBool(_keyGoalCompleted) ?? false;
+  }
+
+  /// Mark goal as completed
+  Future<void> setGoalCompleted() async {
+    await setBool(_keyGoalCompleted, true);
+    if (kDebugMode) {
+      print('✅ Goal setting completed');
+    }
+  }
+
+  /// Reset goal status (for testing)
+  Future<void> resetGoal() async {
+    await remove(_keyGoalCompleted);
+    if (kDebugMode) {
+      print('🔄 Goal reset');
+    }
   }
 
   // ---------- THEME ----------
@@ -159,6 +214,9 @@ class StorageService {
   /// Save theme mode
   Future<void> setThemeMode(String mode) async {
     await setString(_keyThemeMode, mode);
+    if (kDebugMode) {
+      print('🎨 Theme mode set to: $mode');
+    }
   }
 
   // ---------- LAST LOGIN ----------
@@ -171,11 +229,17 @@ class StorageService {
   /// Save last login email
   Future<void> setLastLoginEmail(String email) async {
     await setString(_keyLastLoginEmail, email);
+    if (kDebugMode) {
+      print('📧 Last login email saved: $email');
+    }
   }
 
   /// Clear last login email
   Future<void> clearLastLoginEmail() async {
     await remove(_keyLastLoginEmail);
+    if (kDebugMode) {
+      print('🗑️ Last login email cleared');
+    }
   }
 
   // ---------- NOTIFICATIONS ----------
@@ -188,6 +252,9 @@ class StorageService {
   /// Toggle notifications
   Future<void> setNotificationsEnabled(bool enabled) async {
     await setBool(_keyNotificationsEnabled, enabled);
+    if (kDebugMode) {
+      print('🔔 Notifications ${enabled ? "enabled" : "disabled"}');
+    }
   }
 
   // ---------- SOUND ----------
@@ -200,6 +267,9 @@ class StorageService {
   /// Toggle sound
   Future<void> setSoundEnabled(bool enabled) async {
     await setBool(_keySoundEnabled, enabled);
+    if (kDebugMode) {
+      print('🔊 Sound ${enabled ? "enabled" : "disabled"}');
+    }
   }
 
   // ---------- FIRST LAUNCH ----------
@@ -212,6 +282,9 @@ class StorageService {
   /// Mark first launch as completed
   Future<void> setFirstLaunchCompleted() async {
     await setBool(_keyFirstLaunch, false);
+    if (kDebugMode) {
+      print('✅ First launch completed');
+    }
   }
 
   // ---------- APP VERSION ----------
@@ -224,6 +297,41 @@ class StorageService {
   /// Save current app version
   Future<void> setAppVersion(String version) async {
     await setString(_keyAppVersion, version);
+    if (kDebugMode) {
+      print('📱 App version saved: $version');
+    }
+  }
+
+  // ============================================================================
+  // RESET METHODS (FOR TESTING & LOGOUT)
+  // ============================================================================
+
+  /// Reset entire onboarding flow (onboarding + goal)
+  Future<void> resetOnboardingFlow() async {
+    await remove(_keyOnboardingCompleted);
+    await remove(_keyGoalCompleted);
+    if (kDebugMode) {
+      print('🔄 Onboarding flow reset (onboarding + goal)');
+    }
+  }
+
+  /// Clear all user-related data (use on logout)
+  Future<void> clearUserData() async {
+    await remove(_keyOnboardingCompleted);
+    await remove(_keyGoalCompleted);
+    await remove(_keyLastLoginEmail);
+
+    if (kDebugMode) {
+      print('🗑️ User data cleared');
+    }
+  }
+
+  /// Clear all app data (nuclear option)
+  Future<void> clearAllData() async {
+    await clear();
+    if (kDebugMode) {
+      print('💣 All storage data cleared');
+    }
   }
 
   // ============================================================================
@@ -250,5 +358,62 @@ class StorageService {
     }
 
     return data;
+  }
+
+  /// Print all data with values (debug only)
+  void printAllData() {
+    if (kDebugMode) {
+      final data = getAllData();
+      print('📦 StorageService Data:');
+      data.forEach((key, value) {
+        print('  $key: $value');
+      });
+    }
+  }
+
+  /// Get status summary (debug only)
+  String getStatusSummary() {
+    return '''
+📊 Storage Status:
+  - Onboarding Completed: ${isOnboardingCompleted}
+  - Goal Completed: ${isGoalCompleted}
+  - First Launch: ${isFirstLaunch}
+  - Notifications: ${notificationsEnabled}
+  - Sound: ${soundEnabled}
+  - Theme: ${themeMode ?? 'system'}
+  - Last Login: ${lastLoginEmail ?? 'none'}
+  - App Version: ${appVersion ?? 'unknown'}
+''';
+  }
+
+  /// Print status summary (debug only)
+  void printStatus() {
+    if (kDebugMode) {
+      print(getStatusSummary());
+    }
+  }
+  // ---------- LOGIN STATUS ----------
+
+  static const String _keyHasEverLoggedIn = 'has_ever_logged_in';
+
+  /// Check if user has ever logged in before (Getter)
+  bool get hasEverLoggedIn {
+    return getBool(_keyHasEverLoggedIn) ?? false;
+  }
+
+  /// Mark user as logged in before
+  Future<void> setHasEverLoggedIn(bool value) async {
+    await setBool(_keyHasEverLoggedIn, value);
+    if (kDebugMode) {
+      print('✅ Has ever logged in: $value');
+    }
+  }
+
+  /// Reset login status (for testing)
+  Future<void> resetLoginStatus() async {
+    await remove(_keyHasEverLoggedIn);
+    if (kDebugMode) {
+      print('🔄 Login status reset');
+    }
   }
 }

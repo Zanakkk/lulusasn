@@ -2,6 +2,7 @@
 
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lulusasn/core/constants/colors.dart';
@@ -12,7 +13,10 @@ import 'package:lulusasn/features/exam/widgets/question_card.dart';
 import 'package:lulusasn/features/exam/widgets/answer_options.dart';
 import 'package:lulusasn/features/exam/widgets/exam_timer.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/widgets/brutalist_button.dart';
+import 'ad_interstitial_page.dart';
+import 'adsense.dart';
 
 /// Exam Session Screen - Professional Grade
 ///
@@ -48,13 +52,101 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
   final Map<int, int> _answers = {}; // questionIndex -> answer
   int _currentQuestionIndex = 0;
   bool _isSubmitting = false;
-
+  @override
   @override
   void initState() {
     super.initState();
     _examService = ExamService();
     _setupAnimations();
     _loadSession();
+
+    // Preload interstitial ad untuk mobile
+    if (!kIsWeb && AdConfig.adsEnabled) {
+      AdInterstitialController.load();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageTransitionController?.dispose();
+    // No need to dispose AdInterstitialController here - it's a singleton
+    super.dispose();
+  }
+
+  Future<void> _finishExam() async {
+    HapticFeedback.mediumImpact();
+
+    // Check unanswered questions
+    final totalQuestions = _session?.questions.length ?? 0;
+    final unansweredCount = totalQuestions - _answers.length;
+
+    if (unansweredCount > 0) {
+      final shouldContinue = await _showUnansweredDialog(unansweredCount);
+      if (shouldContinue != true) return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      // Submit all answers
+      for (var entry in _answers.entries) {
+        _examService.submitAnswerAtIndex(entry.key, entry.value);
+      }
+
+      final result = await _examService.submitExam();
+
+      if (!mounted) return;
+
+      HapticFeedback.heavyImpact();
+
+      // ========================================================================
+      // AD LOGIC - NAVIGATE TO AD PAGE
+      // ========================================================================
+
+      if (AdConfig.adsEnabled) {
+        // Navigate ke halaman Ad Interstitial (baik web maupun mobile)
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AdsInterstitialPage(
+              title: 'Preparing Your Results...',
+              subtitle: 'Please wait while we calculate your score',
+              skipDelaySeconds: 5,
+              showSkipButton: true,
+              onContinue: () {
+                Navigator.of(context).pushReplacementNamed(
+                  AppRoutes.examResult,
+                  arguments: {'result': result},
+                );
+              },
+            ),
+          ),
+        );
+      } else {
+        // Jika ads disabled, langsung ke result
+        Navigator.of(context).pushReplacementNamed(
+          AppRoutes.examResult,
+          arguments: {'result': result},
+        );
+      }
+
+      // ========================================================================
+      // END AD LOGIC
+      // ========================================================================
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isSubmitting = false);
+
+      HapticFeedback.heavyImpact();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _setupAnimations() {
@@ -62,12 +154,6 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-  }
-
-  @override
-  void dispose() {
-    _pageTransitionController?.dispose(); // ✅ ADD null check
-    super.dispose();
   }
 
   void _loadSession() {
@@ -146,51 +232,6 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
         },
       ),
     );
-  }
-
-  Future<void> _finishExam() async {
-    HapticFeedback.mediumImpact();
-
-    // Check unanswered questions
-    final totalQuestions = _session?.questions.length ?? 0;
-    final unansweredCount = totalQuestions - _answers.length;
-
-    if (unansweredCount > 0) {
-      final shouldContinue = await _showUnansweredDialog(unansweredCount);
-      if (shouldContinue != true) return;
-    }
-
-    setState(() => _isSubmitting = true);
-
-    try {
-      // Submit all answers
-      for (var entry in _answers.entries) {
-        _examService.submitAnswerAtIndex(entry.key, entry.value);
-      }
-
-      final result = await _examService.submitExam();
-
-      if (!mounted) return;
-
-      HapticFeedback.heavyImpact();
-
-      Navigator.of(
-        context,
-      ).pushReplacementNamed('/exam/result', arguments: {'result': result});
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() => _isSubmitting = false);
-
-      HapticFeedback.heavyImpact();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
   }
 
   Future<bool?> _showUnansweredDialog(int count) {

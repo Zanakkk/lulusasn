@@ -2,19 +2,24 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'app/routes.dart';
 import 'app/theme.dart';
 import 'core/services/storage_service.dart';
+import 'features/exam/screens/ad_interstitial_page.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ HANYA initialize Firebase SEKALI di sini
+  // ✅ Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // ✅ Initialize storage (tanpa re-init Firebase)
+  // ✅ Initialize storage
   await StorageService.instance.initialize();
+
+  // ✅ Initialize AdMob (TAMBAHKAN INI)
+  await AdService.initialize();
 
   runApp(const LulusASNApp());
 }

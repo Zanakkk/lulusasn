@@ -7,6 +7,7 @@ import '../features/auth/screens/goal_setting_screen.dart';
 import '../features/auth/screens/onboarding_screen.dart';
 import 'package:lulusasn/features/auth/screens/login_screen.dart';
 import '../features/exam/models/exam_result_model.dart';
+import '../features/exam/screens/ad_interstitial_page.dart';
 import '../features/exam/screens/exam_list_screen.dart';
 import '../features/exam/screens/exam_result_screen.dart';
 import '../features/exam/screens/exam_review_screen.dart';
@@ -59,6 +60,7 @@ abstract class AppRoutes {
   static const String examList = '/exam/list'; // 🆕 TAMBAH INI
   static const String examPre = '/exam/pre';
   static const String examSession = '/exam/session';
+  static const String examAd = '/exam/ad'; // 🆕 NEW - Ad Interstitial Route
   static const String examResult = '/exam/result';
   static const String examReview = '/exam/review';
 
@@ -182,6 +184,23 @@ class AppRouter {
             questionCount: args['questionCount'] as int? ?? 10,
           ),
         );
+
+      case AppRoutes.examAd:
+        final args = arguments as Map<String, dynamic>? ?? {};
+        final result = args['result'] as ExamResultModel?;
+
+        if (result == null) {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => const HomeScreen(),
+          );
+        }
+
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => AdInterstitialScreen(result: result,), // ✅ Gunakan AdInterstitialPage
+        );
+
 
       case AppRoutes.examResult:
         // ✅ FIX: Safe argument parsing dengan null check

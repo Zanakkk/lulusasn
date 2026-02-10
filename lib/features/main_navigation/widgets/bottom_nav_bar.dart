@@ -1,5 +1,7 @@
 // lib/features/main_navigation/widgets/bottom_nav_bar.dart
 
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:lulusasn/features/main_navigation/models/nav_item.dart';
 
