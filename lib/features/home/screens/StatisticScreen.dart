@@ -1,6 +1,6 @@
 // lib/features/profile/screens/statistics_screen.dart
 
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, file_names
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

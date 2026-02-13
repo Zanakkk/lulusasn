@@ -5,6 +5,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// User data model - represents complete user document in Firestore
 ///
 /// Matches Firestore schema exactly for type safety
+// lib/core/models/user_model.dart
+
+// lib/core/models/user_model.dart
+
 class UserModel {
   // === BASIC INFO ===
   final String userId;
@@ -14,17 +18,8 @@ class UserModel {
   final DateTime createdAt;
   final DateTime? lastLoginAt;
 
-  // === SUBSCRIPTION ===
-  final bool isPremium;
-  final DateTime? premiumSince;
-  final DateTime? premiumUntil;
-
-  // === DIAMOND ===
-  final int diamond;
-  final DiamondStats diamondStats;
-
-  // === ENERGY ===
-  final EnergyData energy;
+  // === PRICE (pengganti energy) ===
+  final int price;
 
   // === GAMIFICATION ===
   final int xp;
@@ -39,14 +34,14 @@ class UserModel {
   // === SKILLS (Adaptive Learning) ===
   final Map<String, SkillData> skills;
 
-  // === ADS ===
-  final AdsData ads;
-
   // === SETTINGS ===
   final UserSettings settings;
 
   // === GOAL (from onboarding) ===
   final String? goal;
+
+  // === OWNED TRYOUTS ===
+  final List<String> ownedTryouts; // Array of tryout IDs
 
   const UserModel({
     required this.userId,
@@ -55,12 +50,7 @@ class UserModel {
     required this.photoURL,
     required this.createdAt,
     this.lastLoginAt,
-    required this.isPremium,
-    this.premiumSince,
-    this.premiumUntil,
-    required this.diamond,
-    required this.diamondStats,
-    required this.energy,
+    required this.price,
     required this.xp,
     required this.level,
     required this.streak,
@@ -68,9 +58,9 @@ class UserModel {
     this.lastActiveDate,
     required this.stats,
     required this.skills,
-    required this.ads,
     required this.settings,
     this.goal,
+    this.ownedTryouts = const [],
   });
 
   // ============================================================================
@@ -88,18 +78,7 @@ class UserModel {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
 
-      isPremium: data['isPremium'] as bool? ?? false,
-      premiumSince: (data['premiumSince'] as Timestamp?)?.toDate(),
-      premiumUntil: (data['premiumUntil'] as Timestamp?)?.toDate(),
-
-      diamond: data['diamond'] as int? ?? 0,
-      diamondStats: DiamondStats.fromMap(
-        data['diamondStats'] as Map<String, dynamic>? ?? {},
-      ),
-
-      energy: EnergyData.fromMap(
-        data['energy'] as Map<String, dynamic>? ?? {},
-      ),
+      price: data['price'] as int? ?? 0,
 
       xp: data['xp'] as int? ?? 0,
       level: data['level'] as int? ?? 1,
@@ -113,15 +92,13 @@ class UserModel {
 
       skills: _parseSkills(data['skills'] as Map<String, dynamic>? ?? {}),
 
-      ads: AdsData.fromMap(
-        data['ads'] as Map<String, dynamic>? ?? {},
-      ),
-
       settings: UserSettings.fromMap(
         data['settings'] as Map<String, dynamic>? ?? {},
       ),
 
       goal: data['goal'] as String?,
+
+      ownedTryouts: List<String>.from(data['ownedTryouts'] ?? []),
     );
   }
 
@@ -156,27 +133,8 @@ class UserModel {
       createdAt: now,
       lastLoginAt: now,
 
-      // Free user defaults
-      isPremium: false,
-      premiumSince: null,
-      premiumUntil: null,
-
-      // No diamonds yet
-      diamond: 0,
-      diamondStats: const DiamondStats(
-        totalPurchased: 0,
-        totalSpent: 0,
-      ),
-
-      // Full energy for new user
-      energy: EnergyData(
-        current: 5,
-        max: 5,
-        regenRate: 10,
-        lastRegen: now,
-        lastUsed: null,
-        totalUsed: 0,
-      ),
+      // Starting price
+      price: 0,
 
       // Starting gamification
       xp: 0,
@@ -201,14 +159,6 @@ class UserModel {
       // Empty skills
       skills: const {},
 
-      // No ads watched yet
-      ads: AdsData(
-        totalBannerImpressions: 0,
-        totalInterstitialShown: 0,
-        totalRewardedWatched: 0,
-        lastRewardedAt: null,
-      ),
-
       // Default settings
       settings: const UserSettings(
         notifications: true,
@@ -217,6 +167,9 @@ class UserModel {
       ),
 
       goal: goal,
+
+      // No tryouts owned yet
+      ownedTryouts: const [],
     );
   }
 
@@ -230,16 +183,10 @@ class UserModel {
       'displayName': displayName,
       'photoURL': photoURL,
       'createdAt': Timestamp.fromDate(createdAt),
-      'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
+      'lastLoginAt':
+      lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
 
-      'isPremium': isPremium,
-      'premiumSince': premiumSince != null ? Timestamp.fromDate(premiumSince!) : null,
-      'premiumUntil': premiumUntil != null ? Timestamp.fromDate(premiumUntil!) : null,
-
-      'diamond': diamond,
-      'diamondStats': diamondStats.toMap(),
-
-      'energy': energy.toMap(),
+      'price': price,
 
       'xp': xp,
       'level': level,
@@ -251,11 +198,11 @@ class UserModel {
 
       'skills': skills.map((key, value) => MapEntry(key, value.toMap())),
 
-      'ads': ads.toMap(),
-
       'settings': settings.toMap(),
 
       if (goal != null) 'goal': goal,
+
+      'ownedTryouts': ownedTryouts,
     };
   }
 
@@ -267,12 +214,7 @@ class UserModel {
     String? displayName,
     String? photoURL,
     DateTime? lastLoginAt,
-    bool? isPremium,
-    DateTime? premiumSince,
-    DateTime? premiumUntil,
-    int? diamond,
-    DiamondStats? diamondStats,
-    EnergyData? energy,
+    int? price,
     int? xp,
     int? level,
     int? streak,
@@ -280,9 +222,9 @@ class UserModel {
     String? lastActiveDate,
     UserStats? stats,
     Map<String, SkillData>? skills,
-    AdsData? ads,
     UserSettings? settings,
     String? goal,
+    List<String>? ownedTryouts,
   }) {
     return UserModel(
       userId: userId,
@@ -291,12 +233,7 @@ class UserModel {
       photoURL: photoURL ?? this.photoURL,
       createdAt: createdAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
-      isPremium: isPremium ?? this.isPremium,
-      premiumSince: premiumSince ?? this.premiumSince,
-      premiumUntil: premiumUntil ?? this.premiumUntil,
-      diamond: diamond ?? this.diamond,
-      diamondStats: diamondStats ?? this.diamondStats,
-      energy: energy ?? this.energy,
+      price: price ?? this.price,
       xp: xp ?? this.xp,
       level: level ?? this.level,
       streak: streak ?? this.streak,
@@ -304,11 +241,23 @@ class UserModel {
       lastActiveDate: lastActiveDate ?? this.lastActiveDate,
       stats: stats ?? this.stats,
       skills: skills ?? this.skills,
-      ads: ads ?? this.ads,
       settings: settings ?? this.settings,
       goal: goal ?? this.goal,
+      ownedTryouts: ownedTryouts ?? this.ownedTryouts,
     );
   }
+
+  // ============================================================================
+  // HELPER METHODS FOR TRYOUTS
+  // ============================================================================
+
+  /// Check if user owns a specific tryout
+  bool ownsTryout(String tryoutId) {
+    return ownedTryouts.contains(tryoutId);
+  }
+
+  /// Get count of owned tryouts
+  int get ownedTryoutCount => ownedTryouts.length;
 }
 
 // ============================================================================

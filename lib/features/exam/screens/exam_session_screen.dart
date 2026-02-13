@@ -2,7 +2,6 @@
 
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lulusasn/core/constants/colors.dart';
@@ -15,8 +14,6 @@ import 'package:lulusasn/features/exam/widgets/exam_timer.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/widgets/brutalist_button.dart';
-import 'ad_interstitial_page.dart';
-import 'adsense.dart';
 
 /// Exam Session Screen - Professional Grade
 ///
@@ -61,9 +58,6 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
     _loadSession();
 
     // Preload interstitial ad untuk mobile
-    if (!kIsWeb && AdConfig.adsEnabled) {
-      AdInterstitialController.load();
-    }
   }
 
   @override
@@ -103,32 +97,10 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
       // AD LOGIC - NAVIGATE TO AD PAGE
       // ========================================================================
 
-      if (AdConfig.adsEnabled) {
-        // Navigate ke halaman Ad Interstitial (baik web maupun mobile)
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AdsInterstitialPage(
-              title: 'Preparing Your Results...',
-              subtitle: 'Please wait while we calculate your score',
-              skipDelaySeconds: 5,
-              showSkipButton: true,
-              onContinue: () {
-                Navigator.of(context).pushReplacementNamed(
-                  AppRoutes.examResult,
-                  arguments: {'result': result},
-                );
-              },
-            ),
-          ),
-        );
-      } else {
-        // Jika ads disabled, langsung ke result
-        Navigator.of(context).pushReplacementNamed(
-          AppRoutes.examResult,
-          arguments: {'result': result},
-        );
-      }
+      Navigator.of(context).pushReplacementNamed(
+        AppRoutes.examResult,
+        arguments: {'result': result},
+      );
 
       // ========================================================================
       // END AD LOGIC

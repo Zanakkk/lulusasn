@@ -1,6 +1,6 @@
 // lib/features/main_navigation/main_screen.dart
 
-// ignore_for_file: file_names
+// ignore_for_file: file_names, deprecated_member_use
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +10,8 @@ import 'package:lulusasn/features/main_navigation/widgets/navigation_rail.dart';
 import 'package:lulusasn/features/home/screens/home_screen.dart';
 import '../../app/routes.dart';
 import '../../core/services/storage_service.dart';
+import '../TO/owned_tryout_screen.dart';
+import '../TO/tryout_marketplace_screen.dart';
 import '../exam/screens/exam_list_screen.dart';
 import '../home/screens/leaderboard_screen.dart';
 import 'duolingo_app_bar.dart';
@@ -47,11 +49,37 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= _tabletBreakpoint;
 
+    // ================= DESKTOP =================
+    if (isDesktop) {
+      return Scaffold(
+        body: Row(
+          children: [
+            // Sidebar full height
+            DuolingoNavigationRail(
+              currentRoute: _currentRoute,
+              onNavigate: _handleNavigation,
+              onLogout: () {
+                handleLogout;
+              },
+            ),
+
+            // Content area (punya AppBar sendiri)
+            Expanded(
+              child: Scaffold(
+                appBar: ContentAppBar(),
+                body: _getCurrentScreen(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ================= MOBILE =================
     return Scaffold(
-      // ✅ Global AppBar - digunakan di semua screen
-      appBar: const GlobalAppBar(),
-      body: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
-      bottomNavigationBar: isDesktop ? null : _buildBottomNavBar(),
+      appBar: ContentAppBar(),
+      body: _buildMobileLayout(),
+      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
@@ -63,27 +91,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return _getCurrentScreen();
   }
 
-  // ============================================================================
-  // DESKTOP LAYOUT (with Navigation Rail)
-  // ============================================================================
-
-  Widget _buildDesktopLayout() {
-    return Row(
-      children: [
-        // Navigation Rail
-        DuolingoNavigationRail(
-          currentRoute: _currentRoute,
-          onNavigate: _handleNavigation,
-          onLogout: (){
-            handleLogout;
-          },
-        ),
-
-        // Main Content
-        Expanded(child: _getCurrentScreen()),
-      ],
-    );
-  }
 
   // ============================================================================
   // BOTTOM NAV BAR
@@ -108,6 +115,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
       case '/learn':
         return const ExamListScreen();
+      case '/my-tryout':
+        return const MyTryoutsScreen();
+      case '/purchase-tryout':
+        return const TryoutMarketplaceScreen();
 
       case '/leaderboard':
         return const LeaderboardScreen();

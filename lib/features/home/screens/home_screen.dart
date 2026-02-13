@@ -98,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (userId == null) return;
 
     try {
-      final userDoc = await FirebaseService.instance.firestore
+      final _ = await FirebaseService.instance.firestore
           .collection('users')
           .doc(userId)
           .get();

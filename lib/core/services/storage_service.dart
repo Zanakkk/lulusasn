@@ -361,25 +361,17 @@ class StorageService {
   }
 
   /// Print all data with values (debug only)
-  void printAllData() {
-    if (kDebugMode) {
-      final data = getAllData();
-      print('📦 StorageService Data:');
-      data.forEach((key, value) {
-        print('  $key: $value');
-      });
-    }
-  }
+
 
   /// Get status summary (debug only)
   String getStatusSummary() {
     return '''
 📊 Storage Status:
-  - Onboarding Completed: ${isOnboardingCompleted}
-  - Goal Completed: ${isGoalCompleted}
-  - First Launch: ${isFirstLaunch}
-  - Notifications: ${notificationsEnabled}
-  - Sound: ${soundEnabled}
+  - Onboarding Completed: $isOnboardingCompleted
+  - Goal Completed: $isGoalCompleted
+  - First Launch: $isFirstLaunch
+  - Notifications: $notificationsEnabled
+  - Sound: $soundEnabled
   - Theme: ${themeMode ?? 'system'}
   - Last Login: ${lastLoginEmail ?? 'none'}
   - App Version: ${appVersion ?? 'unknown'}

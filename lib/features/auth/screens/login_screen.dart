@@ -2,6 +2,7 @@
 
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, avoid_print
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:line_icons/line_icons.dart';
@@ -34,7 +35,6 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     super.dispose();
   }
-
   Future<void> _handleAuth() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -70,8 +70,35 @@ class _LoginScreenState extends State<LoginScreen> {
           Navigator.pushReplacementNamed(context, AppRoutes.goalSetting);
         } else {
           await UserService.instance.updateLastLogin(userCredential.user!.uid);
-          // ✅ FIX: Ganti dari AppRoutes.home ke AppRoutes.main
-          Navigator.pushReplacementNamed(context, AppRoutes.home);
+
+          // ✅ Cek apakah user adalah admin
+          // ✅ Query berdasarkan email
+          final querySnapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .where('email', isEqualTo: email)
+              .limit(1)
+              .get();
+
+          if (querySnapshot.docs.isEmpty) {
+            // User document tidak ditemukan
+            setState(() {
+              _errorMessage = 'Data user tidak ditemukan';
+              _isLoading = false;
+            });
+            return;
+          }
+
+          final userData = querySnapshot.docs.first.data();
+          final isAdmin = userData['admin'] ?? false;
+
+          if (!mounted) return;
+
+// Arahkan sesuai role
+          if (isAdmin) {
+            Navigator.pushReplacementNamed(context, AppRoutes.adminMain);
+          } else {
+            Navigator.pushReplacementNamed(context, AppRoutes.main);
+          }
         }
       } else {
         final userCredential = await FirebaseAuth.instance

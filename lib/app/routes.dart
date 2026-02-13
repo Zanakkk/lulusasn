@@ -1,8 +1,15 @@
 // lib/app/routes.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:lulusasn/features/home/screens/StatisticScreen.dart';
 
+import '../admin/Dashboard/AdminDashboard.dart';
+import '../admin/pages/CreateTO.dart';
+import '../admin/pages/ViewTO.dart';
+import '../features/TO/owned_tryout_screen.dart';
+import '../features/TO/tryout_detail_screen.dart';
+import '../features/TO/tryout_marketplace_screen.dart';
 import '../features/auth/screens/goal_setting_screen.dart';
 import '../features/auth/screens/onboarding_screen.dart';
 import 'package:lulusasn/features/auth/screens/login_screen.dart';
@@ -55,6 +62,11 @@ abstract class AppRoutes {
   static const String leaderboard = '/leaderboard';
   static const String profile = '/profile';
 
+  // ==================== Tryout ROUTES ====================
+  static const String mytryout = '/my-tryout';
+  static const String purchasetryout = '/purchase-tryout';
+  static const String tryoutDetail = '/detail-tryout';
+
   // ==================== EXAM ROUTES ====================
 
   static const String examList = '/exam/list'; // 🆕 TAMBAH INI
@@ -85,12 +97,10 @@ abstract class AppRoutes {
   static const String notFound = '/404';
 
   // ==================== ADMIN ROUTES ====================
-  static const String adminLogin = '/admin/login';
-  static const String adminDashboard = '/admin';
-  static const String adminUsers = '/admin/users';
-  static const String adminQuestions = '/admin/questions';
-  static const String adminAnalytics = '/admin/analytics';
-  static const String adminPayments = '/admin/payments';
+  static const String adminMain = '/admin-main';
+  static const String adminCreateTO = '/admin/create-to';
+  static const String adminViewTO = '/admin/view-to';
+  static const String adminDashboard = '/admin/dashboard';
 }
 
 // ============================================================================
@@ -136,6 +146,11 @@ class AppRouter {
           settings: settings,
           builder: (_) => const MainNavigationScreen(),
         );
+      case AppRoutes.adminMain:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const AdminMainNavigationScreen(),
+        );
 
       case AppRoutes.profile:
         return MaterialPageRoute(
@@ -154,6 +169,41 @@ class AppRouter {
           builder: (_) => StatisticsScreen(),
         );
 
+      // Di dalam switch statement, tambahkan setelah case AppRoutes.adminMain:
+
+      case AppRoutes.adminCreateTO:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const CreateTryoutScreen(),
+        );
+
+      case AppRoutes.adminViewTO:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ViewTryoutScreen(),
+        );
+
+      case AppRoutes.mytryout:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const MyTryoutsScreen(),
+        );
+      case AppRoutes.purchasetryout:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const TryoutMarketplaceScreen(),
+        );
+      case AppRoutes.tryoutDetail:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const TryoutDetailScreen(tryoutId: ''),
+        );
+
+      case AppRoutes.adminDashboard:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const AdminDashboardScreen(),
+        );
       // ==================== EXAM ROUTES ====================
       case AppRoutes.examList:
         return MaterialPageRoute(
@@ -198,9 +248,10 @@ class AppRouter {
 
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => AdInterstitialScreen(result: result,), // ✅ Gunakan AdInterstitialPage
+          builder: (_) => AdInterstitialScreen(
+            result: result,
+          ), // ✅ Gunakan AdInterstitialPage
         );
-
 
       case AppRoutes.examResult:
         // ✅ FIX: Safe argument parsing dengan null check
@@ -266,19 +317,53 @@ class AuthGate extends StatelessWidget {
             body: Center(
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                color: Color(0xFF58CC02), // Duolingo green
+                color: Color(0xFF58CC02),
               ),
             ),
           );
         }
 
-        // ✅ REVISI: Arahkan ke MainNavigationScreen (bukan HomeScreen)
-        if (snapshot.hasData) {
-          return const MainNavigationScreen();
+        // Not logged in
+        if (!snapshot.hasData) {
+          return const LoginScreen();
         }
 
-        // Not logged in
-        return const LoginScreen();
+        // ✅ User logged in - cek apakah admin
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .doc(snapshot.data!.uid)
+              .get(),
+          builder: (context, userDoc) {
+            // Loading user data
+            if (userDoc.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Color(0xFF58CC02),
+                  ),
+                ),
+              );
+            }
+
+            // Error atau user doc tidak ada
+            if (!userDoc.hasData || !userDoc.data!.exists) {
+              return const LoginScreen();
+            }
+
+            // Cek field adminTrue
+            final userData = userDoc.data!.data() as Map<String, dynamic>;
+            final isAdmin = userData['admin'] ?? false;
+
+            // Arahkan sesuai role
+            if (isAdmin) {
+              return const AdminMainNavigationScreen();
+            } else {
+              return const MainNavigationScreen();
+            }
+          },
+        );
       },
     );
   }

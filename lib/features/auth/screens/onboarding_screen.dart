@@ -1,8 +1,9 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:line_icons/line_icons.dart';
 import '../../../app/routes.dart';
 import '../../../core/constants/colors.dart';
-import '../../../core/constants/text_styles.dart';
 import '../../../core/constants/spacing.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/utils/extensions.dart';
@@ -261,7 +262,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   vertical: isMobile ? 12 : 16,
                 ),
               ).copyWith(
-                overlayColor: MaterialStateProperty.all(
+                overlayColor: WidgetStateProperty.all(
                   Colors.white.withOpacity(0.1),
                 ),
               ),
@@ -325,7 +326,6 @@ class _OnboardingSlideWidget extends StatelessWidget {
         final width = constraints.maxWidth;
         final isMobile = width < 800;
         final isTablet = width >= 800 && width < 1024;
-        final isDesktop = width >= 1024;
 
         // Responsive sizes
         final iconSize = isMobile ? 100.0 : (isTablet ? 130.0 : 150.0);

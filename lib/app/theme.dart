@@ -1,6 +1,8 @@
 // ============================================================================
 // DUOLINGO-STYLE THEME (Gamification UI)
 // ============================================================================
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 
 final duolingoTheme = ThemeData(

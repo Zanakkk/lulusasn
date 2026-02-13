@@ -8,34 +8,35 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lulusasn/core/services/firebase_service.dart';
 import 'package:lulusasn/app/routes.dart';
 
-/// Global App Bar - Duolingo Style
+/// Compact Content App Bar - Modern Design
 ///
 /// Features:
-/// - Real-time energy tracking with auto-save to Firestore
-/// - Streak display with animations
-/// - Profile menu with logout
-/// - Premium status indicator
-/// - Responsive design (mobile/tablet/desktop)
+/// - Spans only content area (not navigation rail)
+/// - Minimalist design without logo (logo in rail)
+/// - Real-time stats and profile
+/// - Responsive layout
 ///
 /// Usage:
 /// ```dart
-/// appBar: const GlobalAppBar()
+/// Scaffold(
+///   appBar: ContentAppBar(),
+///   body: YourContent(),
+/// )
 /// ```
-class GlobalAppBar extends StatefulWidget implements PreferredSizeWidget {
-  const GlobalAppBar({super.key});
+class ContentAppBar extends StatefulWidget implements PreferredSizeWidget {
+  const ContentAppBar({super.key});
 
   @override
-  State<GlobalAppBar> createState() => _GlobalAppBarState();
+  State<ContentAppBar> createState() => _ContentAppBarState();
 
   @override
   Size get preferredSize => const Size.fromHeight(72);
 }
 
-class _GlobalAppBarState extends State<GlobalAppBar> {
+class _ContentAppBarState extends State<ContentAppBar> {
   StreamSubscription<DocumentSnapshot>? _userSubscription;
   Timer? _energyTimer;
 
-  // User data
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
 
@@ -53,10 +54,6 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
     super.dispose();
   }
 
-  // ============================================================================
-  // FIRESTORE REAL-TIME STREAM
-  // ============================================================================
-
   void _initUserDataStream() {
     final userId = FirebaseService.instance.currentUser?.uid;
     if (userId == null) return;
@@ -67,37 +64,33 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
         .snapshots()
         .listen(
           (snapshot) {
-            if (mounted && snapshot.exists) {
-              setState(() {
-                _userData = snapshot.data();
-                _isLoading = false;
-              });
-            }
-          },
-          onError: (error) {
-            debugPrint('Error streaming user data: $error');
-            setState(() => _isLoading = false);
-          },
-        );
+        if (mounted && snapshot.exists) {
+          setState(() {
+            _userData = snapshot.data();
+            _isLoading = false;
+          });
+        }
+      },
+      onError: (error) {
+        debugPrint('Error streaming user data: $error');
+        setState(() => _isLoading = false);
+      },
+    );
   }
-
-  // ============================================================================
-  // ENERGY REGENERATION TIMER
-  // ============================================================================
 
   void _startEnergyRegenTimer() {
     _energyTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
       if (!mounted || _userData == null) return;
 
       final isPremium = _userData!['isPremium'] as bool? ?? false;
-      if (isPremium) return; // Premium users have unlimited energy
+      if (isPremium) return;
 
       final energyData = _userData!['energy'] as Map<String, dynamic>?;
       if (energyData == null) return;
 
       final current = energyData['current'] as int? ?? 0;
       final max = energyData['max'] as int? ?? 5;
-      final regenRate = energyData['regenRate'] as int? ?? 10; // minutes
+      final regenRate = energyData['regenRate'] as int? ?? 10;
       final lastRegen = (energyData['lastRegen'] as Timestamp?)?.toDate();
 
       if (lastRegen == null || current >= max) return;
@@ -110,7 +103,6 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
         final newEnergy = (current + energyToAdd).clamp(0, max);
         await _updateEnergyInFirestore(newEnergy, now);
       } else {
-        // Just update UI for countdown animation
         if (mounted) setState(() {});
       }
     });
@@ -125,17 +117,13 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
           .collection('users')
           .doc(userId)
           .update({
-            'energy.current': newEnergy,
-            'energy.lastRegen': Timestamp.fromDate(now),
-          });
+        'energy.current': newEnergy,
+        'energy.lastRegen': Timestamp.fromDate(now),
+      });
     } catch (e) {
       debugPrint('Error updating energy: $e');
     }
   }
-
-  // ============================================================================
-  // BUILD UI
-  // ============================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -144,50 +132,31 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
 
     return AppBar(
       elevation: 0,
+      surfaceTintColor: Colors.transparent,
       backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      toolbarHeight: isMobile ? 64 : 72,
       automaticallyImplyLeading: false,
-      title: _buildLogo(isMobile),
+      toolbarHeight: isMobile ? 64 : 72,
+      title: const SizedBox.shrink(), // Empty title
       actions: [
+        // Stats & Profile
         if (!_isLoading && _userData != null) ...[
           _buildStreakWidget(isMobile),
-          const SizedBox(width: 8),
-          _buildEnergyWidget(isMobile),
           const SizedBox(width: 12),
+          _buildEnergyWidget(isMobile),
+          const SizedBox(width: 16),
         ],
-        _buildProfileMenu(),
-        const SizedBox(width: 8),
+        _buildProfileMenu(isMobile),
+        SizedBox(width: isMobile ? 12 : 16),
       ],
-    );
-  }
-
-  Widget _buildLogo(bool isMobile) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.asset(
-        'assets/Logo.jpg',
-        height: isMobile ? 28 : 32,
-        fit: BoxFit.cover,
-        filterQuality: FilterQuality.high,
-        errorBuilder: (context, error, stackTrace) {
-          return Text(
-            'LULUS',
-            style: TextStyle(
-              fontSize: isMobile ? 16 : 18,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              letterSpacing: 0.5,
-            ),
-          );
-        },
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          height: 1,
+          color: Colors.grey.shade200,
+        ),
       ),
     );
   }
-
-  // ============================================================================
-  // STREAK WIDGET
-  // ============================================================================
 
   Widget _buildStreakWidget(bool isMobile) {
     final streak = _userData!['streak'] as int? ?? 0;
@@ -198,17 +167,17 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: isMobile ? 10 : 12,
-          vertical: 6,
+          vertical: 8,
         ),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFFFFF4E6), Color(0xFFFFEDD5)],
           ),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFFF9500), width: 2),
+          border: Border.all(color: const Color(0xFFFF9500), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFFF9500).withOpacity(0.2),
+              color: const Color(0xFFFF9500).withOpacity(0.15),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -226,9 +195,10 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
             Text(
               '$streak',
               style: TextStyle(
-                fontSize: isMobile ? 14 : 15,
+                fontSize: isMobile ? 15 : 16,
                 fontWeight: FontWeight.w800,
                 color: const Color(0xFF3C3C3C),
+                letterSpacing: 0.2,
               ),
             ),
           ],
@@ -236,10 +206,6 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
       ),
     );
   }
-
-  // ============================================================================
-  // ENERGY WIDGET
-  // ============================================================================
 
   Widget _buildEnergyWidget(bool isMobile) {
     final isPremium = _userData!['isPremium'] as bool? ?? false;
@@ -266,7 +232,7 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
       final minutes = secondsRemaining ~/ 60;
       final seconds = secondsRemaining % 60;
       timeText =
-          '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+      '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
       progress = secondsInCycle / secondsPerEnergy;
     }
 
@@ -281,27 +247,29 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
       ),
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 8 : 10,
-          vertical: 6,
+          horizontal: isMobile ? 10 : 12,
+          vertical: 8,
         ),
         decoration: BoxDecoration(
           gradient: isPremium
               ? const LinearGradient(
-                  colors: [Color(0xFFFFFBF0), Color(0xFFFFF5D6)],
-                )
-              : const LinearGradient(colors: [Colors.white, Color(0xFFFFFAFA)]),
-          borderRadius: BorderRadius.circular(16),
+            colors: [Color(0xFFFFFBF0), Color(0xFFFFF5D6)],
+          )
+              : const LinearGradient(
+            colors: [Colors.white, Color(0xFFFFFAFA)],
+          ),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isPremium
                 ? const Color(0xFFFFD700)
                 : const Color(0xFFE5E5E5),
-            width: 2,
+            width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
               color: (isPremium ? const Color(0xFFFFD700) : Colors.black)
-                  .withOpacity(0.1),
-              blurRadius: 6,
+                  .withOpacity(0.08),
+              blurRadius: 4,
               offset: const Offset(0, 2),
             ),
           ],
@@ -314,7 +282,7 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
               color: isPremium
                   ? const Color(0xFFFFD700)
                   : const Color(0xFFFF4B4B),
-              size: isMobile ? 20 : 22,
+              size: isMobile ? 18 : 20,
             ),
             const SizedBox(width: 8),
             if (isPremium)
@@ -338,10 +306,11 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
                   Text(
                     '$current',
                     style: TextStyle(
-                      fontSize: isMobile ? 16 : 18,
+                      fontSize: isMobile ? 16 : 17,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF3C3C3C),
                       height: 1.0,
+                      letterSpacing: 0.2,
                     ),
                   ),
                   if (!isFull) ...[
@@ -351,7 +320,7 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 36,
+                          width: 32,
                           height: 3,
                           decoration: BoxDecoration(
                             color: const Color(0xFFE5E5E5),
@@ -381,7 +350,7 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
                             fontWeight: FontWeight.w700,
                             color: Colors.grey[500],
                             height: 1.0,
-                            letterSpacing: 0.3,
+                            letterSpacing: 0.2,
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
@@ -396,17 +365,13 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
     );
   }
 
-  // ============================================================================
-  // PROFILE MENU
-  // ============================================================================
-
-  Widget _buildProfileMenu() {
+  Widget _buildProfileMenu(bool isMobile) {
     final displayName = _userData?['displayName'] as String? ?? 'User';
     final photoURL = _userData?['photoURL'] as String? ?? '';
     final isPremium = _userData?['isPremium'] as bool? ?? false;
 
     return PopupMenuButton<String>(
-      offset: const Offset(0, 56),
+      offset: const Offset(0, 48),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       icon: Container(
         width: 36,
@@ -414,9 +379,11 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
         decoration: BoxDecoration(
           gradient: isPremium
               ? const LinearGradient(
-                  colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                )
-              : LinearGradient(colors: [Colors.grey[300]!, Colors.grey[200]!]),
+            colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+          )
+              : LinearGradient(
+            colors: [Colors.grey[300]!, Colors.grey[200]!],
+          ),
           shape: BoxShape.circle,
           border: Border.all(
             color: isPremium ? const Color(0xFFFFD700) : Colors.grey[400]!,
@@ -425,7 +392,7 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
           boxShadow: [
             BoxShadow(
               color: (isPremium ? const Color(0xFFFFD700) : Colors.grey)
-                  .withOpacity(0.3),
+                  .withOpacity(0.25),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -433,21 +400,21 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
         ),
         child: photoURL.isEmpty
             ? Icon(
-                Icons.person_rounded,
-                size: 20,
-                color: isPremium ? Colors.white : Colors.grey[700],
-              )
+          Icons.person_rounded,
+          size: 20,
+          color: isPremium ? Colors.white : Colors.grey[700],
+        )
             : ClipOval(
-                child: Image.network(
-                  photoURL,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Icon(
-                    Icons.person_rounded,
-                    size: 20,
-                    color: isPremium ? Colors.white : Colors.grey[700],
-                  ),
-                ),
-              ),
+          child: Image.network(
+            photoURL,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Icon(
+              Icons.person_rounded,
+              size: 20,
+              color: isPremium ? Colors.white : Colors.grey[700],
+            ),
+          ),
+        ),
       ),
       itemBuilder: (context) => [
         PopupMenuItem<String>(
@@ -468,7 +435,7 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
-                    vertical: 2,
+                    vertical: 3,
                   ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
@@ -476,19 +443,19 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
                     ),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.workspace_premium_rounded,
                         size: 12,
                         color: Colors.white,
                       ),
-                      const SizedBox(width: 4),
-                      const Text(
+                      SizedBox(width: 4),
+                      Text(
                         'PRO',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
                           letterSpacing: 0.5,
@@ -514,7 +481,7 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
               const SizedBox(width: 12),
               const Text(
                 'Profil',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -522,18 +489,18 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
         const PopupMenuDivider(),
         PopupMenuItem<String>(
           value: 'logout',
-          child: Row(
+          child: const Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.logout_rounded,
                 size: 20,
                 color: Color(0xFFFF4B4B),
               ),
-              const SizedBox(width: 12),
-              const Text(
+              SizedBox(width: 12),
+              Text(
                 'Logout',
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFFFF4B4B),
                 ),
@@ -552,15 +519,11 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
     );
   }
 
-  // ============================================================================
-  // DIALOGS
-  // ============================================================================
-
+  // Dialogs remain the same...
   void _showStreakDialog(int streak, int longestStreak) {
     final now = DateTime.now();
     final lastActiveDate = _userData!['lastActiveDate'] as String? ?? '';
-    final isActiveToday =
-        lastActiveDate ==
+    final isActiveToday = lastActiveDate ==
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
     showDialog(
@@ -584,7 +547,6 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
@@ -658,7 +620,6 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
                   ],
                 ),
               ),
-              // Body
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -723,13 +684,13 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
   }
 
   void _showEnergyDialog(
-    bool isPremium,
-    int current,
-    int max,
-    String timeText,
-    double progress,
-    int regenRate,
-  ) {
+      bool isPremium,
+      int current,
+      int max,
+      String timeText,
+      double progress,
+      int regenRate,
+      ) {
     showDialog(
       context: context,
       builder: (context) => _EnergyDialog(
@@ -794,11 +755,11 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
   }
 
   Widget _buildStatCard(
-    IconData icon,
-    Color color,
-    String value,
-    String label,
-  ) {
+      IconData icon,
+      Color color,
+      String value,
+      String label,
+      ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -829,12 +790,10 @@ class _GlobalAppBarState extends State<GlobalAppBar> {
         ],
       ),
     );
+
   }
 }
 
-// ============================================================================
-// ENERGY DIALOG - Stateful dengan Real-time Countdown
-// ============================================================================
 
 class _EnergyDialog extends StatefulWidget {
   final bool isPremium;
@@ -1078,7 +1037,7 @@ class _EnergyDialogState extends State<_EnergyDialog> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: List.generate(
                       widget.max,
-                      (i) => Icon(
+                          (i) => Icon(
                         i < widget.current
                             ? Icons.favorite_rounded
                             : Icons.favorite_border_rounded,
@@ -1260,6 +1219,11 @@ class _EnergyDialogState extends State<_EnergyDialog> {
 }
 
 // ============================================================================
+// ENERGY DIALOG - Stateful dengan Real-time Countdown
+// ============================================================================
+
+
+// ============================================================================
 // LIVE COUNTDOWN WIDGET - Update setiap detik
 // ============================================================================
 
@@ -1323,7 +1287,7 @@ class _LiveCountdownState extends State<_LiveCountdown> {
 
       setState(() {
         _timeText =
-            '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+        '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
       });
     } catch (e) {
       debugPrint('Error updating countdown: $e');

@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'app/routes.dart';
 import 'app/theme.dart';
 import 'core/services/storage_service.dart';
@@ -34,7 +33,7 @@ class LulusASNApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: duolingoTheme,
 
-      initialRoute: AppRoutes.splash, // ✅ Route awal
+      home: const AuthGate(),
       onGenerateRoute: AppRouter.generateRoute, // ✅ Route generator
       onUnknownRoute:
           AppRouter.onUnknownRoute, // ✅ Fallback untuk route tidak dikenal

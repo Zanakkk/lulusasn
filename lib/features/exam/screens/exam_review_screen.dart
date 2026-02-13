@@ -1329,12 +1329,21 @@ extension DuolingoButtonExtension on DuolingoButton {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: onPressed != null
+            ? AppColors.primary
+            : const Color(0xFFCCCCCC), // ✅ Abu-abu kalau disabled
+        foregroundColor: onPressed != null
+            ? Colors.white
+            : const Color(0xFF999999), // ✅ Text abu-abu kalau disabled
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: AppColors.primary, width: 2),
+          side: BorderSide(
+            color: onPressed != null
+                ? AppColors.primary
+                : const Color(0xFFBBBBBB), // ✅ Border abu-abu
+            width: 2,
+          ),
         ),
         elevation: 0,
       ),

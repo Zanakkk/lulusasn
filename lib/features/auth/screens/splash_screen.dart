@@ -1,5 +1,7 @@
 // lib/features/auth/screens/splash_screen_clean.dart
 
+// ignore_for_file: deprecated_member_use
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
