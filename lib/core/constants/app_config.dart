@@ -7,7 +7,7 @@ class AppConfig {
   // APP INFO
   // ============================================================================
 
-  static const String appName = 'LulusASN';
+  static const String appName = 'LULUZZZ';
   static const String appDescription = 'Platform Latihan Ujian Nasional';
   static const String appVersion = '1.0.0';
   static const String appBuildNumber = '1';

@@ -7,6 +7,7 @@ import 'package:lulusasn/features/home/screens/StatisticScreen.dart';
 import '../admin/Dashboard/AdminDashboard.dart';
 import '../admin/pages/CreateTO.dart';
 import '../admin/pages/ViewTO.dart';
+import '../admin/pages/promotion_verification_screen.dart' show PromotionVerificationScreen;
 import '../features/TO/owned_tryout_screen.dart';
 import '../features/TO/tryout_detail_screen.dart';
 import '../features/TO/tryout_marketplace_screen.dart';
@@ -100,6 +101,7 @@ abstract class AppRoutes {
   static const String adminMain = '/admin-main';
   static const String adminCreateTO = '/admin/create-to';
   static const String adminViewTO = '/admin/view-to';
+  static const String adminVerificationTO = '/admin/verification';
   static const String adminDashboard = '/admin/dashboard';
 }
 
@@ -181,6 +183,11 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const ViewTryoutScreen(),
+        );
+      case AppRoutes.adminVerificationTO:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const PromotionVerificationScreen (),
         );
 
       case AppRoutes.mytryout:

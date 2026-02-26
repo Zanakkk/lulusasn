@@ -1,0 +1,11 @@
+[
+  {
+    "origin": [
+      "https://lulusasn-e15a3.web.app",
+      "http://localhost"
+    ],
+    "method": ["GET", "HEAD", "DELETE", "POST", "PUT"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Authorization", "Content-Length"]
+  }
+]

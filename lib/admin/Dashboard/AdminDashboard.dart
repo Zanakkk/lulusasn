@@ -11,6 +11,7 @@ import '../../core/services/storage_service.dart';
 import '../../features/main_navigation/duolingo_app_bar.dart';
 import '../pages/CreateTO.dart';
 import '../pages/ViewTO.dart';
+import '../pages/promotion_verification_screen.dart';
 
 /// Main Navigation Screen - Responsive Wrapper
 ///
@@ -108,6 +109,8 @@ class _AdminMainNavigationScreenState
 
       case '/view-to':
         return const ViewTryoutScreen(); // Lihat daftar TO
+      case '/verification':
+        return const PromotionVerificationScreen (); // Lihat daftar TO
 
       case '/dashboard':
         return const AdminDashboardScreen(); // Dashboard admin

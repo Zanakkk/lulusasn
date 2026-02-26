@@ -316,7 +316,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     return Text(
-      'LulusASN',
+      'LULUZZZ',
       style: TextStyle(
         fontSize: fontSize,
         fontWeight: FontWeight.w900,

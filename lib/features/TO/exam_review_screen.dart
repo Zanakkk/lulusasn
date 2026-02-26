@@ -764,6 +764,8 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
     final correctAnswer = question['correctIndex'] as int? ?? 0;
     final questionText = question['question'] as String? ?? '';
     final options = question['options'] as List<dynamic>? ?? [];
+    final optionImages = question['optionImages'] as List<dynamic>?;
+    final questionImage = question['questionImage'] as String?;
     final category = question['category'] as String? ?? '';
     final difficulty = question['difficulty'] as String? ?? 'medium';
     final explanationShort = question['explanationShort'] as String? ?? '';
@@ -955,6 +957,7 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
                       ],
                       SizedBox(height: AppSpacing.sm),
                       // Question preview
+                      // Question preview
                       Text(
                         questionText,
                         style: AppTextStyles.bodyMedium.copyWith(
@@ -965,6 +968,26 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (questionImage != null && questionImage.isNotEmpty) ...[
+                        SizedBox(height: AppSpacing.sm),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            questionImage,
+
+                            width: double.infinity,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (_, child, progress) => progress == null
+                                ? child
+                                : const SizedBox(height: 80,
+                                child: Center(child: CircularProgressIndicator(
+                                    color: Color(0xFF1CB0F6), strokeWidth: 2))),
+                            errorBuilder: (_, __, ___) => const Text(
+                                '❌ Gambar tidak dapat dimuat',
+                                style: TextStyle(fontSize: 11, color: Color(0xFF777777))),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -1107,13 +1130,40 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
                                 ),
                                 SizedBox(width: AppSpacing.md),
                                 Expanded(
-                                  child: Text(
-                                    optionText,
-                                    style: AppTextStyles.bodyMedium.copyWith(
-                                      color: const Color(0xFF1F1F1F),
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.4,
-                                    ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        optionText,
+                                        style: AppTextStyles.bodyMedium.copyWith(
+                                          color: const Color(0xFF1F1F1F),
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                      if (optionImages != null &&
+                                          index < optionImages.length &&
+                                          optionImages[index] != null &&
+                                          (optionImages[index] as String).isNotEmpty) ...[
+                                        SizedBox(height: AppSpacing.sm),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Image.network(
+                                            optionImages[index] as String,
+                                            height: 80,
+                                            fit: BoxFit.contain,
+                                            loadingBuilder: (_, child, progress) => progress == null
+                                                ? child
+                                                : const SizedBox(height: 80,
+                                                child: Center(child: CircularProgressIndicator(
+                                                    color: Color(0xFF1CB0F6), strokeWidth: 2))),
+                                            errorBuilder: (_, __, ___) => const Text(
+                                                '❌ Gambar gagal',
+                                                style: TextStyle(fontSize: 11, color: Color(0xFF777777))),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                               ],

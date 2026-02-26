@@ -950,6 +950,12 @@ class NavigationItems {
       label: 'Lihat TO',
     ),
     NavItem(
+      route: '/verification',
+      icon: Icons.add_circle_outline,
+      activeIcon: Icons.add_circle_rounded,
+      label: 'Verifikasi',
+    ),
+    NavItem(
       route: '/dashboard',
       icon: Icons.dashboard_outlined,
       activeIcon: Icons.dashboard_rounded,

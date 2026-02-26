@@ -1,28 +1,45 @@
 // lib/features/tryout/screens/tryout_marketplace_screen.dart
 
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:html' as html;
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:lulusasn/core/constants/spacing.dart';
+import 'package:lulusasn/core/constants/text_styles.dart';
+import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
+
+// lib/features/tryout/screens/tryout_marketplace_screen.dart
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:lulusasn/core/constants/spacing.dart';
 import 'package:lulusasn/core/constants/text_styles.dart';
-import 'dart:typed_data';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:image/image.dart' as img;
 
-import '../../app/routes.dart';
+// lib/features/tryout/screens/tryout_marketplace_screen.dart
+// ignore_for_file: deprecated_member_use
+
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'package:lulusasn/core/constants/spacing.dart';
+import 'package:lulusasn/core/constants/text_styles.dart';
 
 final currencyFormatter = NumberFormat.currency(
-  locale: 'id_ID',
   symbol: 'Rp ',
   decimalDigits: 0,
 );
 
-/// 🛒 TRYOUT MARKETPLACE - Halaman Beli TryOut
-///
-/// Menampilkan SEMUA tryout yang tersedia untuk dibeli
-/// User bisa lihat detail dan beli tryout yang belum dimiliki
 class TryoutMarketplaceScreen extends StatefulWidget {
   const TryoutMarketplaceScreen({super.key});
 
@@ -31,344 +48,264 @@ class TryoutMarketplaceScreen extends StatefulWidget {
       _TryoutMarketplaceScreenState();
 }
 
-class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
+  String _filter = 'all'; // all | free | premium
+  String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  String _selectedFilter = 'all'; // all | free | premium
-  String _searchQuery = '';
-
-  // Current user ID
   String get userId => FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(_handleTabChange);
-  }
+  void _handleSearch(String q) =>
+      setState(() => _searchQuery = q.toLowerCase().trim());
 
   @override
   void dispose() {
-    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _handleTabChange() {
-    if (!_tabController.indexIsChanging) {
-      setState(() {
-        switch (_tabController.index) {
-          case 0:
-            _selectedFilter = 'all';
-            break;
-          case 1:
-            _selectedFilter = 'free';
-            break;
-          case 2:
-            _selectedFilter = 'premium';
-            break;
-        }
-      });
-    }
-  }
-
-  void _handleSearch(String query) {
-    setState(() {
-      _searchQuery = query.toLowerCase().trim();
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: const Color(0xFFF0F4FF),
       body: SafeArea(
-        child: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [_buildHeader(), _buildSearchBar(), _buildTabBar()];
-          },
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildMarketplaceList('all'),
-              _buildMarketplaceList('free'),
-              _buildMarketplaceList('premium'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ==========================================================================
-  // HEADER
-  // ==========================================================================
-  Widget _buildHeader() {
-    return SliverToBoxAdapter(
-      child: Container(
-        padding: EdgeInsets.all(AppSpacing.lg),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF58CC02), Color(0xFF4CAF50)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.shopping_bag_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-                SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Marketplace Try Out',
-                        style: AppTextStyles.headingLarge.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        'Pilih try out yang sesuai dengan kebutuhanmu',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            _buildHeader(),
+            _buildSearchBar(),
+            _buildFilterChips(),
+            Expanded(child: _buildList()),
           ],
         ),
       ),
     );
   }
 
-  // ==========================================================================
-  // SEARCH BAR
-  // ==========================================================================
-  Widget _buildSearchBar() {
-    return SliverToBoxAdapter(
-      child: Container(
-        color: const Color(0xFF58CC02),
-        child: Container(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            0,
-            AppSpacing.lg,
-            AppSpacing.md,
-          ),
-          decoration: const BoxDecoration(
-            color: Color(0xFFF7F7F7),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              SizedBox(height: AppSpacing.md),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE5E5E5), width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+  // ── Header ──────────────────────────────────────────────────────────────────
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF58CC02), Color(0xFF3DA800)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF58CC02).withOpacity(0.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: _handleSearch,
-                  style: AppTextStyles.bodyLarge,
-                  decoration: InputDecoration(
-                    hintText: 'Cari try out...',
-                    hintStyle: AppTextStyles.bodyLarge.copyWith(
-                      color: const Color(0xFFAFAFAF),
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: Color(0xFF777777),
-                      size: 24,
-                    ),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Color(0xFF777777),
-                            ),
-                            onPressed: () {
-                              _searchController.clear();
-                              _handleSearch('');
-                            },
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.md,
-                    ),
-                  ),
+              ],
+            ),
+            child: const Icon(Icons.shopping_bag_rounded,
+                color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Marketplace',
+                style: AppTextStyles.headingLarge.copyWith(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                  color: const Color(0xFF1A1A2E),
+                ),
+              ),
+              Text(
+                'Temukan try out terbaik untukmu 🎯',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: const Color(0xFF8A94A6),
+                  fontSize: 12,
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 
-  // ==========================================================================
-  // TAB BAR
-  // ==========================================================================
-  Widget _buildTabBar() {
-    return SliverPersistentHeader(
-      pinned: true,
-      delegate: _StickyTabBarDelegate(
-        TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFF58CC02),
-          unselectedLabelColor: const Color(0xFF777777),
-          labelStyle: AppTextStyles.bodyLarge.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-          unselectedLabelStyle: AppTextStyles.bodyLarge.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-          indicator: const BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: Color(0xFF58CC02), width: 3),
+  // ── Search bar ──────────────────────────────────────────────────────────────
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: Container(
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
-          ),
-          tabs: const [
-            Tab(text: 'Semua'),
-            Tab(text: 'Gratis'),
-            Tab(text: 'Premium'),
           ],
         ),
+        child: TextField(
+          controller: _searchController,
+          onChanged: _handleSearch,
+          style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A2E)),
+          decoration: InputDecoration(
+            hintText: 'Cari try out...',
+            hintStyle:
+            const TextStyle(fontSize: 14, color: Color(0xFFB0BAC9)),
+            prefixIcon: const Icon(Icons.search_rounded,
+                color: Color(0xFFB0BAC9), size: 20),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? GestureDetector(
+              onTap: () {
+                _searchController.clear();
+                _handleSearch('');
+              },
+              child: const Icon(Icons.close_rounded,
+                  color: Color(0xFFB0BAC9), size: 18),
+            )
+                : null,
+            border: InputBorder.none,
+            contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
       ),
     );
   }
 
-  // ==========================================================================
-  // MARKETPLACE LIST
-  // ==========================================================================
-  Widget _buildMarketplaceList(String filter) {
+  // ── Filter chips ─────────────────────────────────────────────────────────
+  Widget _buildFilterChips() {
+    const chips = [
+      ('all', 'Semua', Icons.grid_view_rounded),
+      ('free', 'Gratis', Icons.card_giftcard_rounded),
+      ('premium', 'Premium', Icons.workspace_premium_rounded),
+    ];
+
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        children: chips.map((c) {
+          final sel = _filter == c.$1;
+          const green = Color(0xFF58CC02);
+          return GestureDetector(
+            onTap: () => setState(() => _filter = c.$1),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 8, top: 6, bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: sel ? green : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: sel
+                        ? green.withOpacity(0.3)
+                        : Colors.black.withOpacity(0.05),
+                    blurRadius: sel ? 8 : 4,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(c.$3,
+                      size: 13,
+                      color: sel ? Colors.white : const Color(0xFF8A94A6)),
+                  const SizedBox(width: 5),
+                  Text(
+                    c.$2,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: sel ? Colors.white : const Color(0xFF8A94A6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ── List ──────────────────────────────────────────────────────────────────
+  Widget _buildList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('tryouts')
           .where('isActive', isEqualTo: true)
           .orderBy('createdAt', descending: true)
           .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _buildErrorView(snapshot.error.toString());
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+                color: Color(0xFF58CC02), strokeWidth: 3),
+          );
+        }
+        if (snap.hasError) {
+          return _buildStatusView(
+            icon: Icons.error_outline_rounded,
+            color: const Color(0xFFFF4B4B),
+            title: 'Terjadi Kesalahan',
+            subtitle: snap.error.toString(),
+          );
         }
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildLoadingView();
+        var docs = snap.data?.docs ?? [];
+
+        if (_filter == 'free') {
+          docs = docs
+              .where((d) =>
+          (d.data() as Map<String, dynamic>)['isPremium'] == false)
+              .toList();
+        } else if (_filter == 'premium') {
+          docs = docs
+              .where((d) =>
+          (d.data() as Map<String, dynamic>)['isPremium'] == true)
+              .toList();
         }
 
-        var docs = snapshot.data?.docs ?? [];
-
-        // Filter by premium status
-        if (filter == 'free') {
-          docs = docs.where((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            return data['isPremium'] == false;
-          }).toList();
-        } else if (filter == 'premium') {
-          docs = docs.where((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            return data['isPremium'] == true;
-          }).toList();
-        }
-
-        // Filter by search query
         if (_searchQuery.isNotEmpty) {
-          docs = docs.where((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            final title = (data['title'] ?? '').toString().toLowerCase();
-            final description = (data['description'] ?? '')
-                .toString()
-                .toLowerCase();
-            final examTypeName = (data['examTypeName'] ?? '')
-                .toString()
-                .toLowerCase();
-
-            return title.contains(_searchQuery) ||
-                description.contains(_searchQuery) ||
-                examTypeName.contains(_searchQuery);
+          docs = docs.where((d) {
+            final data = d.data() as Map<String, dynamic>;
+            return ['title', 'description', 'examTypeName'].any((k) =>
+                (data[k] ?? '').toString().toLowerCase().contains(_searchQuery));
           }).toList();
         }
 
         if (docs.isEmpty) {
-          return _buildEmptyView();
-        }
-
-        return _buildGrid(docs);
-      },
-    );
-  }
-
-  Widget _buildGrid(List<QueryDocumentSnapshot> docs) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        int crossAxisCount;
-        double childAspectRatio;
-
-        if (constraints.maxWidth > 1200) {
-          crossAxisCount = 3;
-          childAspectRatio = 0.85;
-        } else if (constraints.maxWidth > 600) {
-          crossAxisCount = 2;
-          childAspectRatio = 0.8;
-        } else {
-          crossAxisCount = 1;
-          childAspectRatio = 0.95;
+          return _buildStatusView(
+            icon: Icons.shopping_bag_outlined,
+            color: const Color(0xFF58CC02),
+            title: 'Belum Ada Try Out',
+            subtitle: 'Try out akan segera ditambahkan!',
+          );
         }
 
         return RefreshIndicator(
-          onRefresh: () async {
-            setState(() {});
-          },
-          child: GridView.builder(
-            padding: EdgeInsets.all(AppSpacing.lg),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: AppSpacing.lg,
-              mainAxisSpacing: AppSpacing.lg,
-              childAspectRatio: childAspectRatio,
-            ),
+          onRefresh: () async => setState(() {}),
+          color: const Color(0xFF58CC02),
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
-
-              return _MarketplaceTryoutCard(
-                tryoutId: doc.id,
-                data: data,
-                userId: userId,
-              );
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (_, i) {
+              final data = docs[i].data() as Map<String, dynamic>;
+              return _MarketplaceCard(
+                  tryoutId: docs[i].id, data: data, userId: userId);
             },
           ),
         );
@@ -376,108 +313,308 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen>
     );
   }
 
-  // ==========================================================================
-  // LOADING, ERROR, EMPTY VIEWS
-  // ==========================================================================
-  Widget _buildLoadingView() {
+  Widget _buildStatusView({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+  }) {
     return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(Color(0xFF58CC02)),
-            strokeWidth: 3,
-          ),
-          SizedBox(height: AppSpacing.lg),
-          Text(
-            'Memuat try out...',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: const Color(0xFF777777),
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              shape: BoxShape.circle,
             ),
+            child: Icon(icon, size: 34, color: color),
           ),
+          const SizedBox(height: 16),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1A1A2E))),
+          const SizedBox(height: 6),
+          Text(subtitle,
+              style:
+              const TextStyle(fontSize: 13, color: Color(0xFF8A94A6))),
         ],
       ),
     );
   }
+}
 
-  Widget _buildErrorView(String error) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(AppSpacing.xl),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF4B4B).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                size: 64,
-                color: Color(0xFFFF4B4B),
-              ),
+// =============================================================================
+// Marketplace Card
+// =============================================================================
+class _MarketplaceCard extends StatelessWidget {
+  final String tryoutId;
+  final Map<String, dynamic> data;
+  final String userId;
+
+  const _MarketplaceCard(
+      {required this.tryoutId, required this.data, required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    final title = data['title'] as String? ?? 'Untitled';
+    final description = data['description'] as String? ?? '';
+    final examTypeName = data['examTypeName'] as String? ?? '';
+    final isPremium = data['isPremium'] as bool? ?? false;
+    final price = data['price'] as int? ?? 0;
+    final totalQuestions = data['totalQuestions'] as int? ?? 0;
+    final totalMinutes = data['totalEstimatedMinutes'] as int? ?? 0;
+    final subtests = data['subtests'] as List<dynamic>? ?? [];
+
+    // Check ownership
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('user_tryouts')
+          .where('userId', isEqualTo: userId)
+          .where('tryoutId', isEqualTo: tryoutId)
+          .limit(1)
+          .get(),
+      builder: (context, snap) {
+        final owned = (snap.data?.docs.isNotEmpty) ?? false;
+
+        final colors = isPremium
+            ? [const Color(0xFFFFB347), const Color(0xFFFF6B35)]
+            : [const Color(0xFF43E97B), const Color(0xFF38F9D7)];
+
+        return GestureDetector(
+          onTap: () {
+            // Navigate to detail / purchase
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: colors[0].withOpacity(0.15),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-            SizedBox(height: AppSpacing.lg),
-            Text(
-              'Terjadi Kesalahan',
-              style: AppTextStyles.headingMedium.copyWith(
-                fontWeight: FontWeight.w800,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                // Colored top strip
+                Container(
+                height: 5,
+                decoration:
+                BoxDecoration(gradient: LinearGradient(colors: colors)),
               ),
-            ),
-            SizedBox(height: AppSpacing.sm),
-            Text(
-              error,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: const Color(0xFF777777),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Row: exam badge + premium/free pill
+                    Row(
+                      children: [
+                        if (examTypeName.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: colors[0].withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              examTypeName,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: colors[0],
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        const Spacer(),
+                        // Premium / Gratis pill
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            gradient:
+                            LinearGradient(colors: colors),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isPremium
+                                    ? Icons.workspace_premium_rounded
+                                    : Icons.card_giftcard_rounded,
+                                size: 11,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isPremium ? 'Premium' : 'Gratis',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Title
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A1A2E),
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    if (description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFF8A94A6)),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+
+                    const SizedBox(height: 10),
+
+                    // Stats row
+                    Row(
+                      children: [
+                        _MiniStat(
+                          icon: Icons.quiz_rounded,
+                          label: '$totalQuestions soal',
+                          color: const Color(0xFF1CB0F6),
+                        ),
+                        const SizedBox(width: 10),
+                        _MiniStat(
+                          icon: Icons.timer_rounded,
+                          label: '$totalMinutes mnt',
+                          color: const Color(0xFFFF9600),
+                        ),
+                        const SizedBox(width: 10),
+                        _MiniStat(
+                          icon: Icons.layers_rounded,
+                          label: '${subtests.length} subtes',
+                          color: const Color(0xFF58CC02),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Price + CTA row
+                    Row(
+                      children: [
+                        // Price
+                        Text(
+                          isPremium
+                              ? currencyFormatter.format(price)
+                              : 'GRATIS',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: colors[0],
+                          ),
+                        ),
+                        const Spacer(),
+                        // CTA button
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            gradient: owned
+                                ? const LinearGradient(colors: [
+                              Color(0xFF8A94A6),
+                              Color(0xFF6B7280)
+                            ])
+                                : LinearGradient(colors: colors),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (owned
+                                    ? const Color(0xFF8A94A6)
+                                    : colors[0])
+                                    .withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            owned ? 'Dimiliki' : 'Beli Sekarang',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+        ),
+        );
+      },
     );
   }
+}
 
-  Widget _buildEmptyView() {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(AppSpacing.xl * 1.5),
-              decoration: BoxDecoration(
-                color: const Color(0xFF58CC02).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: const Icon(
-                Icons.shopping_bag_outlined,
-                size: 80,
-                color: Color(0xFF58CC02),
-              ),
-            ),
-            SizedBox(height: AppSpacing.xl),
-            Text(
-              'Belum Ada Try Out',
-              style: AppTextStyles.headingMedium.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: AppSpacing.sm),
-            Text(
-              'Try out akan segera ditambahkan!',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: const Color(0xFF777777),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+// =============================================================================
+// Mini Stat widget (reusable)
+// =============================================================================
+class _MiniStat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _MiniStat(
+      {required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF8A94A6)),
         ),
-      ),
+      ],
     );
   }
 }
@@ -913,12 +1050,72 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
 }
 
 // lib/features/tryout/screens/tryout_purchase_screen.dart
+//
+// ARSITEKTUR KUNCI:
+// - ValueNotifier<UploadState> → rebuild minimal, hanya widget notifikasi
+// - Upload berjalan async tanpa memblokir UI
+// - Notifikasi floating di kanan bawah via Stack + Positioned
+// - Tidak ada dialog blocking selama proses upload
 
-/// 🛍️ TRYOUT PURCHASE SCREEN - Halaman Pembelian Try Out
-///
-/// Desain modern dengan 2 opsi:
-/// 1. FREE - Upload 3 bukti promosi
-/// 2. BAYAR - Coming soon (QRIS/Payment Gateway)
+// ignore_for_file: use_build_context_synchronously
+
+// =============================================================================
+// MODEL - State upload yg jelas & terpisah
+// =============================================================================
+
+enum UploadStage { idle, compressing, uploading, saving, done, error }
+
+class UploadState {
+  final UploadStage stage;
+  final double progress; // 0.0 – 1.0
+  final String message;
+
+  const UploadState({
+    this.stage = UploadStage.idle,
+    this.progress = 0.0,
+    this.message = '',
+  });
+
+  bool get isActive =>
+      stage != UploadStage.idle &&
+      stage != UploadStage.done &&
+      stage != UploadStage.error;
+
+  bool get isError => stage == UploadStage.error;
+  bool get isDone => stage == UploadStage.done;
+}
+
+// Model bukti per-slot upload
+class ProofSlot {
+  final String type; // 'follow' | 'story' | 'tag'
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color color;
+
+  Uint8List? bytes;
+  String? fileName;
+
+  ProofSlot({
+    required this.type,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.color,
+  });
+
+  bool get hasFile => bytes != null;
+
+  void clear() {
+    bytes = null;
+    fileName = null;
+  }
+}
+
+// =============================================================================
+// SCREEN UTAMA
+// =============================================================================
+
 class TryoutPurchaseScreen extends StatefulWidget {
   final String tryoutId;
   final String tryoutTitle;
@@ -941,400 +1138,158 @@ class TryoutPurchaseScreen extends StatefulWidget {
 
 class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
+  // ── Animasi masuk halaman ──────────────────────────────────────────────────
+  late final AnimationController _enterAnim;
+  late final Animation<double> _fadeAnim;
+  late final Animation<Offset> _slideAnim;
 
+  // ── State upload – ValueNotifier agar rebuild MINIMAL ────────────────────
+  final ValueNotifier<UploadState> _uploadState = ValueNotifier(
+    const UploadState(),
+  );
+
+  // ── Pilihan metode ─────────────────────────────────────────────────────────
   String _selectedOption = 'free';
-  bool _isProcessing = false;
 
-  Uint8List? _followProofBytes;
-  Uint8List? _storyProofBytes;
-  Uint8List? _tagProofBytes;
+  // ── Slot bukti upload ──────────────────────────────────────────────────────
+  late final List<ProofSlot> _slots;
 
-  String? _followProofName;
-  String? _storyProofName;
-  String? _tagProofName;
-
-  // TAMBAHAN: untuk menyimpan URL upload
-  String? _followProofUrl;
-  String? _storyProofUrl;
-  String? _tagProofUrl;
-
-  String get userId => FirebaseAuth.instance.currentUser?.uid ?? '';
-
-  // ... initState, dispose, build tetap sama ...
+  String get _userId => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   // ==========================================================================
-  // FILE PICKER
-  // ==========================================================================
-  Future<void> _pickImage(String type) async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-        withData: true,
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final bytes = file.bytes;
-        final name = file.name;
-
-        if (bytes != null) {
-          // Compress gambar dulu
-          final compressedBytes = await _compressImage(bytes);
-
-          setState(() {
-            switch (type) {
-              case 'follow':
-                _followProofBytes = compressedBytes;
-                _followProofName = name;
-                break;
-              case 'story':
-                _storyProofBytes = compressedBytes;
-                _storyProofName = name;
-                break;
-              case 'tag':
-                _tagProofBytes = compressedBytes;
-                _tagProofName = name;
-                break;
-            }
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        _showErrorSnackBar('Error memilih gambar: $e');
-      }
-    }
-  }
-
-  // ==========================================================================
-  // COMPRESS IMAGE
-  // ==========================================================================
-  Future<Uint8List> _compressImage(Uint8List bytes) async {
-    try {
-      // Decode image
-      img.Image? image = img.decodeImage(bytes);
-
-      if (image == null) return bytes;
-
-      // Resize jika terlalu besar (max width/height 1200px)
-      if (image.width > 1200 || image.height > 1200) {
-        image = img.copyResize(
-          image,
-          width: image.width > image.height ? 1200 : null,
-          height: image.height > image.width ? 1200 : null,
-        );
-      }
-
-      // Compress dengan quality 85 (balance antara size & kualitas)
-      final compressed = img.encodeJpg(image, quality: 85);
-
-      return Uint8List.fromList(compressed);
-    } catch (e) {
-      // Kalau gagal compress, return original
-      return bytes;
-    }
-  }
-
-  // ==========================================================================
-  // UPLOAD TO FIREBASE STORAGE
-  // ==========================================================================
-  Future<String?> _uploadToFirebase({
-    required Uint8List bytes,
-    required String fileName,
-    required String proofType,
-  }) async {
-    try {
-      // Path: tryout_proofs/{userId}/{tryoutId}/{proofType}_{timestamp}.jpg
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final path =
-          'tryout_proofs/$userId/${widget.tryoutId}/${proofType}_$timestamp.jpg';
-
-      final ref = FirebaseStorage.instance.ref().child(path);
-
-      // Upload dengan metadata
-      final metadata = SettableMetadata(
-        contentType: 'image/jpeg',
-        customMetadata: {
-          'userId': userId,
-          'tryoutId': widget.tryoutId,
-          'proofType': proofType,
-          'originalName': fileName,
-        },
-      );
-
-      await ref.putData(bytes, metadata);
-
-      // Dapatkan download URL
-      final downloadUrl = await ref.getDownloadURL();
-
-      return downloadUrl;
-    } catch (e) {
-      print('Error upload to Firebase: $e');
-      return null;
-    }
-  }
-
-  // ==========================================================================
-  // SUBMIT - DENGAN UPLOAD
-  // ==========================================================================
-  Future<void> _handleSubmit() async {
-    if (_selectedOption != 'free') return;
-
-    setState(() => _isProcessing = true);
-
-    try {
-      // 1. Upload semua gambar ke Firebase Storage
-      String? followUrl;
-      String? storyUrl;
-      String? tagUrl;
-
-      if (_followProofBytes != null) {
-        followUrl = await _uploadToFirebase(
-          bytes: _followProofBytes!,
-          fileName: _followProofName ?? 'follow.jpg',
-          proofType: 'follow',
-        );
-      }
-
-      if (_storyProofBytes != null) {
-        storyUrl = await _uploadToFirebase(
-          bytes: _storyProofBytes!,
-          fileName: _storyProofName ?? 'story.jpg',
-          proofType: 'story',
-        );
-      }
-
-      if (_tagProofBytes != null) {
-        tagUrl = await _uploadToFirebase(
-          bytes: _tagProofBytes!,
-          fileName: _tagProofName ?? 'tag.jpg',
-          proofType: 'tag',
-        );
-      }
-
-      // Validasi semua berhasil upload
-      if (followUrl == null || storyUrl == null || tagUrl == null) {
-        throw Exception('Gagal upload gambar. Silakan coba lagi.');
-      }
-
-      // 2. Simpan ke Firestore dengan URL
-      await FirebaseFirestore.instance
-          .collection('user_tryouts')
-          .doc('${userId}_tryout_${widget.tryoutId}')
-          .set({
-            'userId': userId,
-            'tryoutId': widget.tryoutId,
-            'purchaseMethod': 'free_promotion',
-            'purchasedAt': FieldValue.serverTimestamp(),
-            'lastAccessedAt': FieldValue.serverTimestamp(),
-            'promotionProofs': {
-              'followProof': followUrl,
-              'storyProof': storyUrl,
-              'tagProof': tagUrl,
-              'status':
-                  'pending_review', // pending_review | approved | rejected
-              'submittedAt': FieldValue.serverTimestamp(),
-            },
-            'subtestProgress': {},
-            'totalAttempts': 0,
-            'isActive': false, // Belum aktif, menunggu approval admin
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-
-      if (mounted) {
-        await _showSuccessDialog();
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showErrorSnackBar('Error: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-    }
-  }
-
-  // ==========================================================================
-  // SUCCESS DIALOG - UPDATE MESSAGE
-  // ==========================================================================
-  Future<void> _showSuccessDialog() async {
-    return showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: EdgeInsets.all(AppSpacing.xl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(AppSpacing.xl),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF58CC02).withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle_rounded,
-                  color: Color(0xFF58CC02),
-                  size: 64,
-                ),
-              ),
-              SizedBox(height: AppSpacing.xl),
-              Text(
-                'Berhasil Terkirim!',
-                style: AppTextStyles.headingLarge.copyWith(
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF1A1A1A),
-                ),
-              ),
-              SizedBox(height: AppSpacing.sm),
-              Text(
-                'Bukti promosi kamu sedang ditinjau oleh admin.\nKamu akan mendapat notifikasi jika sudah disetujui.',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: const Color(0xFF777777),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: AppSpacing.xl),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF58CC02),
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(
-                        color: Color(0xFF46A302),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    'Oke, Mengerti!',
-                    style: AppTextStyles.bodyLarge.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
-    _initAnimations();
+    _initSlots();
+    _initAnimation();
   }
 
-  void _initAnimations() {
-    _animController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+  void _initSlots() {
+    _slots = [
+      ProofSlot(
+        type: 'follow',
+        title: 'Follow Instagram',
+        description: 'Follow @luluzzz lalu screenshot',
+        icon: Icons.person_add_rounded,
+        color: const Color(0xFFE4405F),
+      ),
+      ProofSlot(
+        type: 'story',
+        title: 'Share di Story',
+        description: 'Share & screenshot story-mu',
+        icon: Icons.auto_stories_rounded,
+        color: const Color(0xFFAC45E6),
+      ),
+      ProofSlot(
+        type: 'tag',
+        title: 'Tag 3 Teman',
+        description: 'Tag di komentar & screenshot',
+        icon: Icons.alternate_email_rounded,
+        color: const Color(0xFF1CB0F6),
+      ),
+    ];
+  }
+
+  void _initAnimation() {
+    _enterAnim = AnimationController(
       vsync: this,
+      duration: const Duration(milliseconds: 500),
     );
-
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
-
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
-          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
-        );
-
-    _animController.forward();
+    _fadeAnim = CurvedAnimation(parent: _enterAnim, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _enterAnim, curve: Curves.easeOutCubic));
+    _enterAnim.forward();
   }
 
   @override
   void dispose() {
-    _animController.dispose();
+    _enterAnim.dispose();
+    _uploadState.dispose();
     super.dispose();
   }
+
+  // ==========================================================================
+  // BUILD
+  // ==========================================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
-        child: Column(
+        // Stack: konten + notifikasi floating (kanan bawah)
+        child: Stack(
           children: [
-            _buildAppBar(),
-            Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Responsive: tentukan apakah desktop/tablet/mobile
-                      final isDesktop = constraints.maxWidth > 1200;
-                      final isTablet =
-                          constraints.maxWidth > 600 &&
-                          constraints.maxWidth <= 1200;
-
-                      return Center(
-                        child: Container(
-                          constraints: BoxConstraints(
-                            maxWidth: isDesktop
-                                ? 800
-                                : (isTablet ? 600 : double.infinity),
-                          ),
-                          child: SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
-                            padding: EdgeInsets.all(
-                              isDesktop ? AppSpacing.xxl : AppSpacing.xl,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _buildTryoutInfoCard(),
-                                SizedBox(height: AppSpacing.xl),
-                                _buildOptionSelector(),
-                                SizedBox(height: AppSpacing.xl),
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 300),
-                                  switchInCurve: Curves.easeOut,
-                                  switchOutCurve: Curves.easeIn,
-                                  child: _selectedOption == 'free'
-                                      ? _buildFreeOptionContent()
-                                      : _buildPaidOptionContent(),
-                                ),
-                                SizedBox(height: AppSpacing.xxl),
-                                _buildActionButton(),
-                                SizedBox(height: AppSpacing.lg),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+            Column(
+              children: [
+                _buildAppBar(),
+                Expanded(
+                  child: FadeTransition(
+                    opacity: _fadeAnim,
+                    child: SlideTransition(
+                      position: _slideAnim,
+                      child: _buildBody(),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
+
+            // ── Notifikasi floating kanan bawah ──────────────────────────
+            _buildFloatingNotification(),
           ],
         ),
       ),
     );
   }
 
-  // APP BAR tidak berubah
+  Widget _buildBody() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxW = constraints.maxWidth > 1200
+            ? 800.0
+            : constraints.maxWidth > 600
+            ? 600.0
+            : double.infinity;
+
+        return Center(
+          child: Container(
+            constraints: BoxConstraints(maxWidth: maxW),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildTryoutInfoCard(),
+                  SizedBox(height: AppSpacing.xl),
+                  _buildOptionSelector(),
+                  SizedBox(height: AppSpacing.xl),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    switchInCurve: Curves.easeOut,
+                    child: _selectedOption == 'free'
+                        ? _buildFreeContent()
+                        : _buildPaidContent(),
+                  ),
+                  SizedBox(height: AppSpacing.xl),
+                  _buildSubmitButton(),
+                  SizedBox(height: AppSpacing.xxl),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ==========================================================================
+  // APP BAR
+  // ==========================================================================
+
   Widget _buildAppBar() {
     return Container(
       padding: EdgeInsets.symmetric(
@@ -1343,234 +1298,33 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E5E5), width: 2)),
-      ),
-      child: Row(
-        children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => Navigator.pop(context),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF7F7F7),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE5E5E5), width: 2),
-                ),
-                child: const Icon(
-                  Icons.arrow_back_rounded,
-                  size: 24,
-                  color: Color(0xFF4B4B4B),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Dapatkan Try Out',
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1A1A1A),
-                  ),
-                ),
-                Text(
-                  'Pilih metode yang kamu inginkan',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: const Color(0xFF777777),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Sisanya sama, hanya ubah _buildFreeOptionContent untuk grid di desktop
-  Widget _buildFreeOptionContent() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth > 900;
-
-        if (isDesktop) {
-          // GRID untuk Desktop
-          return Column(
-            key: const ValueKey('free'),
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildInfoCard(),
-              SizedBox(height: AppSpacing.xl),
-              // Grid 3 kolom
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildUploadCard(
-                      number: 1,
-                      title: 'Follow Instagram',
-                      description: 'Follow @lulusasn',
-                      icon: Icons.person_add_rounded,
-                      color: const Color(0xFFE4405F),
-                      imageBytes: _followProofBytes,
-                      imageName: _followProofName,
-                      onTap: () => _pickImage('follow'),
-                      onRemove: () => setState(() {
-                        _followProofBytes = null;
-                        _followProofName = null;
-                      }),
-                    ),
-                  ),
-                  SizedBox(width: AppSpacing.lg),
-                  Expanded(
-                    child: _buildUploadCard(
-                      number: 2,
-                      title: 'Share Story',
-                      description: 'Screenshot story',
-                      icon: Icons.auto_stories_rounded,
-                      color: const Color(0xFFAC45E6),
-                      imageBytes: _storyProofBytes,
-                      imageName: _storyProofName,
-                      onTap: () => _pickImage('story'),
-                      onRemove: () => setState(() {
-                        _storyProofBytes = null;
-                        _storyProofName = null;
-                      }),
-                    ),
-                  ),
-                  SizedBox(width: AppSpacing.lg),
-                  Expanded(
-                    child: _buildUploadCard(
-                      number: 3,
-                      title: 'Tag 3 Teman',
-                      description: 'Screenshot komentar',
-                      icon: Icons.alternate_email_rounded,
-                      color: const Color(0xFF1CB0F6),
-                      imageBytes: _tagProofBytes,
-                      imageName: _tagProofName,
-                      onTap: () => _pickImage('tag'),
-                      onRemove: () => setState(() {
-                        _tagProofBytes = null;
-                        _tagProofName = null;
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          );
-        } else {
-          // VERTIKAL untuk Mobile/Tablet
-          return Column(
-            key: const ValueKey('free'),
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildInfoCard(),
-              SizedBox(height: AppSpacing.xl),
-              _buildUploadCard(
-                number: 1,
-                title: 'Follow Akun Instagram',
-                description: 'Follow @lulusasn di Instagram',
-                icon: Icons.person_add_rounded,
-                color: const Color(0xFFE4405F),
-                imageBytes: _followProofBytes,
-                imageName: _followProofName,
-                onTap: () => _pickImage('follow'),
-                onRemove: () => setState(() {
-                  _followProofBytes = null;
-                  _followProofName = null;
-                }),
-              ),
-              SizedBox(height: AppSpacing.lg),
-              _buildUploadCard(
-                number: 2,
-                title: 'Share di Instagram Story',
-                description: 'Screenshot story yang sudah di-share',
-                icon: Icons.auto_stories_rounded,
-                color: const Color(0xFFAC45E6),
-                imageBytes: _storyProofBytes,
-                imageName: _storyProofName,
-                onTap: () => _pickImage('story'),
-                onRemove: () => setState(() {
-                  _storyProofBytes = null;
-                  _storyProofName = null;
-                }),
-              ),
-              SizedBox(height: AppSpacing.lg),
-              _buildUploadCard(
-                number: 3,
-                title: 'Tag 3 Teman di Komentar',
-                description: 'Screenshot komentar dengan 3 tag teman',
-                icon: Icons.alternate_email_rounded,
-                color: const Color(0xFF1CB0F6),
-                imageBytes: _tagProofBytes,
-                imageName: _tagProofName,
-                onTap: () => _pickImage('tag'),
-                onRemove: () => setState(() {
-                  _tagProofBytes = null;
-                  _tagProofName = null;
-                }),
-              ),
-            ],
-          );
-        }
-      },
-    );
-  }
-
-  Widget _buildInfoCard() {
-    return Container(
-      padding: EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFD700).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFFFD700).withOpacity(0.3),
-          width: 2,
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE5E5E5), width: 1.5),
         ),
       ),
       child: Row(
         children: [
-          Container(
-            padding: EdgeInsets.all(AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFD700).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.info_outline_rounded,
-              color: Color(0xFFFFD700),
-              size: 24,
-            ),
+          _IconBtn(
+            icon: Icons.arrow_back_rounded,
+            onTap: () => Navigator.pop(context),
           ),
           SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Dapatkan Try Out Gratis!',
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFFD4A800),
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Dapatkan Try Out',
+                style: AppTextStyles.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w800,
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'Upload 3 bukti promosi untuk mendapatkan akses penuh',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: const Color(0xFF777777),
-                    height: 1.3,
-                  ),
+              ),
+              Text(
+                'Pilih metode yang kamu inginkan',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: const Color(0xFF777777),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1578,31 +1332,22 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
   }
 
   // ==========================================================================
-  // TRYOUT INFO CARD
+  // INFO CARD TRYOUT
   // ==========================================================================
+
   Widget _buildTryoutInfoCard() {
+    final isPremium = widget.isPremium;
     return Container(
       padding: EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: widget.isPremium
+          colors: isPremium
               ? [const Color(0xFFFFD700), const Color(0xFFFFA500)]
               : [const Color(0xFF58CC02), const Color(0xFF4CAF50)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color:
-                (widget.isPremium
-                        ? const Color(0xFFFFA500)
-                        : const Color(0xFF46A302))
-                    .withOpacity(0.3),
-            offset: const Offset(0, 8),
-            blurRadius: 24,
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1616,35 +1361,28 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  widget.isPremium ? Icons.star_rounded : Icons.bolt_rounded,
+                  isPremium ? Icons.star_rounded : Icons.bolt_rounded,
                   color: Colors.white,
-                  size: 28,
+                  size: 26,
                 ),
               ),
-              SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        widget.isPremium ? 'PREMIUM' : 'GRATIS',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-                  ],
+              SizedBox(width: AppSpacing.sm),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isPremium ? 'PREMIUM' : 'GRATIS',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
                 ),
               ),
             ],
@@ -1655,15 +1393,13 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
             style: AppTextStyles.headingMedium.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w900,
-              height: 1.2,
             ),
           ),
           SizedBox(height: AppSpacing.xs),
           Text(
             widget.tryoutDescription,
             style: AppTextStyles.bodyMedium.copyWith(
-              color: Colors.white.withOpacity(0.95),
-              height: 1.4,
+              color: Colors.white.withOpacity(0.9),
             ),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -1676,9 +1412,10 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
   // ==========================================================================
   // OPTION SELECTOR (Free vs Paid)
   // ==========================================================================
+
   Widget _buildOptionSelector() {
     return Container(
-      padding: EdgeInsets.all(6),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: const Color(0xFFE5E5E5),
         borderRadius: BorderRadius.circular(16),
@@ -1686,24 +1423,26 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
       child: Row(
         children: [
           Expanded(
-            child: _buildOptionTab(
+            child: _OptionTab(
               label: 'Gratis',
               icon: Icons.celebration_rounded,
-              value: 'free',
+              isSelected: _selectedOption == 'free',
               gradient: const LinearGradient(
                 colors: [Color(0xFF58CC02), Color(0xFF4CAF50)],
               ),
+              onTap: () => setState(() => _selectedOption = 'free'),
             ),
           ),
-          SizedBox(width: 6),
+          const SizedBox(width: 6),
           Expanded(
-            child: _buildOptionTab(
+            child: _OptionTab(
               label: 'Bayar',
               icon: Icons.credit_card_rounded,
-              value: 'paid',
+              isSelected: _selectedOption == 'paid',
               gradient: const LinearGradient(
                 colors: [Color(0xFF1CB0F6), Color(0xFF0F9CD9)],
               ),
+              onTap: () => setState(() => _selectedOption = 'paid'),
             ),
           ),
         ],
@@ -1711,295 +1450,73 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
     );
   }
 
-  Widget _buildOptionTab({
-    required String label,
-    required IconData icon,
-    required String value,
-    required Gradient gradient,
-  }) {
-    final isSelected = _selectedOption == value;
+  // ==========================================================================
+  // KONTEN GRATIS – Upload 3 bukti
+  // ==========================================================================
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => setState(() => _selectedOption = value),
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-          decoration: BoxDecoration(
-            gradient: isSelected ? gradient : null,
-            color: isSelected ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      offset: const Offset(0, 4),
-                      blurRadius: 12,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? Colors.white : const Color(0xFF777777),
-                size: 20,
-              ),
-              SizedBox(width: AppSpacing.xs),
-              Text(
-                label,
-                style: AppTextStyles.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: isSelected ? Colors.white : const Color(0xFF777777),
-                ),
-              ),
-            ],
-          ),
+  Widget _buildFreeContent() {
+    return Column(
+      key: const ValueKey('free'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Info banner
+        _InfoBanner(
+          icon: Icons.info_outline_rounded,
+          color: const Color(0xFFFFD700),
+          title: 'Dapatkan Try Out Gratis!',
+          subtitle: 'Upload 3 bukti promosi untuk mendapatkan akses penuh.',
         ),
-      ),
-    );
-  }
+        SizedBox(height: AppSpacing.lg),
 
-  Widget _buildUploadCard({
-    required int number,
-    required String title,
-    required String description,
-    required IconData icon,
-    required Color color,
-    required Uint8List? imageBytes,
-    required String? imageName,
-    required VoidCallback onTap,
-    required VoidCallback onRemove,
-  }) {
-    final isUploaded = imageBytes != null;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: isUploaded ? null : onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isUploaded ? color : const Color(0xFFE5E5E5),
-              width: 2,
-            ),
-            boxShadow: [
-              if (isUploaded)
-                BoxShadow(
-                  color: color.withOpacity(0.1),
-                  offset: const Offset(0, 4),
-                  blurRadius: 16,
-                ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  // Number badge
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isUploaded
-                            ? [color, color.withOpacity(0.8)]
-                            : [
-                                const Color(0xFFE5E5E5),
-                                const Color(0xFFCCCCCC),
-                              ],
+        // Slot upload – responsive grid
+        LayoutBuilder(
+          builder: (ctx, c) {
+            if (c.maxWidth > 700) {
+              // Desktop: 3 kolom sejajar
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: _slots.map((slot) {
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: slot == _slots.last ? 0 : AppSpacing.md,
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$number',
-                        style: AppTextStyles.headingSmall.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      child: _ProofUploadCard(
+                        slot: slot,
+                        onPick: () => _pickImage(slot),
+                        onRemove: () => setState(() => slot.clear()),
                       ),
                     ),
+                  );
+                }).toList(),
+              );
+            }
+            // Mobile: vertikal
+            return Column(
+              children: _slots.map((slot) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: slot == _slots.last ? 0 : AppSpacing.md,
                   ),
-                  SizedBox(width: AppSpacing.md),
-
-                  // Title & description
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: AppTextStyles.bodyLarge.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1A1A1A),
-                          ),
-                        ),
-                        Text(
-                          description,
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: const Color(0xFF777777),
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: _ProofUploadCard(
+                    slot: slot,
+                    onPick: () => _pickImage(slot),
+                    onRemove: () => setState(() => slot.clear()),
                   ),
-
-                  // Status icon
-                  Container(
-                    padding: EdgeInsets.all(AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: isUploaded
-                          ? color.withOpacity(0.1)
-                          : const Color(0xFFF7F7F7),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      isUploaded ? Icons.check_rounded : icon,
-                      color: isUploaded ? color : const Color(0xFF777777),
-                      size: 24,
-                    ),
-                  ),
-                ],
-              ),
-
-              // Upload preview or button
-              if (isUploaded) ...[
-                SizedBox(height: AppSpacing.md),
-                Container(
-                  padding: EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: color.withOpacity(0.2), width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      // Image preview
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.memory(
-                          imageBytes,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      SizedBox(width: AppSpacing.md),
-
-                      // File info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.check_circle_rounded,
-                                  color: color,
-                                  size: 16,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Berhasil diupload',
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    color: color,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (imageName != null) ...[
-                              SizedBox(height: 2),
-                              Text(
-                                imageName,
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: const Color(0xFF777777),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-
-                      // Remove button
-                      IconButton(
-                        onPressed: onRemove,
-                        icon: const Icon(Icons.close_rounded),
-                        color: const Color(0xFFFF4B4B),
-                        iconSize: 20,
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(
-                            0xFFFF4B4B,
-                          ).withOpacity(0.1),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                SizedBox(height: AppSpacing.md),
-                Container(
-                  padding: EdgeInsets.all(AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF7F7F7),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFFE5E5E5),
-                      width: 2,
-                      style: BorderStyle.solid,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.cloud_upload_rounded,
-                        color: const Color(0xFF777777),
-                        size: 40,
-                      ),
-                      SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Tap untuk upload gambar',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: const Color(0xFF777777),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        'PNG, JPG, JPEG',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: const Color(0xFF999999),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
+                );
+              }).toList(),
+            );
+          },
         ),
-      ),
+      ],
     );
   }
 
   // ==========================================================================
-  // PAID OPTION CONTENT
+  // KONTEN BAYAR – Coming soon
   // ==========================================================================
-  Widget _buildPaidOptionContent() {
+
+  Widget _buildPaidContent() {
     return Container(
       key: const ValueKey('paid'),
       padding: EdgeInsets.all(AppSpacing.xxl),
@@ -2016,10 +1533,10 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
               color: const Color(0xFF1CB0F6).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.construction_rounded,
               size: 64,
-              color: const Color(0xFF1CB0F6),
+              color: Color(0xFF1CB0F6),
             ),
           ),
           SizedBox(height: AppSpacing.xl),
@@ -2027,44 +1544,47 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
             'Coming Soon',
             style: AppTextStyles.headingLarge.copyWith(
               fontWeight: FontWeight.w900,
-              color: const Color(0xFF1A1A1A),
             ),
           ),
           SizedBox(height: AppSpacing.sm),
           Text(
-            'Metode pembayaran sedang dalam pengembangan',
+            'Metode pembayaran sedang dalam pengembangan.',
             style: AppTextStyles.bodyMedium.copyWith(
               color: const Color(0xFF777777),
             ),
             textAlign: TextAlign.center,
           ),
           SizedBox(height: AppSpacing.lg),
-          Container(
-            padding: EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F7),
-              borderRadius: BorderRadius.circular(12),
+          ...[
+            (Icons.qr_code_rounded, 'QRIS Payment', const Color(0xFF1CB0F6)),
+            (Icons.credit_card_rounded, 'Credit Card', const Color(0xFF9333EA)),
+            (
+              Icons.account_balance_rounded,
+              'Bank Transfer',
+              const Color(0xFFFF9600),
             ),
-            child: Column(
-              children: [
-                _buildFeatureItem(
-                  icon: Icons.qr_code_rounded,
-                  text: 'QRIS Payment',
-                  color: const Color(0xFF1CB0F6),
-                ),
-                SizedBox(height: AppSpacing.sm),
-                _buildFeatureItem(
-                  icon: Icons.credit_card_rounded,
-                  text: 'Credit Card',
-                  color: const Color(0xFF9333EA),
-                ),
-                SizedBox(height: AppSpacing.sm),
-                _buildFeatureItem(
-                  icon: Icons.account_balance_rounded,
-                  text: 'Bank Transfer',
-                  color: const Color(0xFFFF9600),
-                ),
-              ],
+          ].map(
+            (e) => Padding(
+              padding: EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(AppSpacing.xs),
+                    decoration: BoxDecoration(
+                      color: e.$3.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(e.$1, size: 20, color: e.$3),
+                  ),
+                  SizedBox(width: AppSpacing.sm),
+                  Text(
+                    e.$2,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -2072,320 +1592,749 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
     );
   }
 
-  Widget _buildFeatureItem({
-    required IconData icon,
-    required String text,
-    required Color color,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(AppSpacing.xs),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+  // ==========================================================================
+  // SUBMIT BUTTON
+  // ==========================================================================
+
+  Widget _buildSubmitButton() {
+    final allUploaded = _slots.every((s) => s.hasFile);
+    final canSubmit = _selectedOption == 'free' && allUploaded;
+
+    return ValueListenableBuilder<UploadState>(
+      valueListenable: _uploadState,
+      builder: (_, state, __) {
+        final isLoading = state.isActive;
+
+        return ElevatedButton(
+          onPressed: (canSubmit && !isLoading) ? _handleSubmit : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF58CC02),
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: const Color(0xFFE5E5E5),
+            disabledForegroundColor: const Color(0xFF999999),
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: canSubmit && !isLoading
+                    ? const Color(0xFF46A302)
+                    : const Color(0xFFCCCCCC),
+                width: 2,
+              ),
+            ),
           ),
-          child: Icon(icon, size: 20, color: color),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isLoading) ...[
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(width: AppSpacing.sm),
+              ] else
+                Icon(
+                  _selectedOption == 'free'
+                      ? Icons.check_circle_rounded
+                      : Icons.lock_rounded,
+                  size: 22,
+                ),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                _selectedOption == 'free'
+                    ? (isLoading ? 'Mengirim...' : 'Dapatkan Try Out Gratis')
+                    : 'Belum Tersedia',
+                style: AppTextStyles.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ==========================================================================
+  // FLOATING NOTIFICATION – kanan bawah, non-blocking
+  // ==========================================================================
+
+  Widget _buildFloatingNotification() {
+    return ValueListenableBuilder<UploadState>(
+      valueListenable: _uploadState,
+      builder: (_, state, __) {
+        // Sembunyikan jika idle
+        if (state.stage == UploadStage.idle) return const SizedBox.shrink();
+
+        return Positioned(
+          bottom: 24,
+          right: 24,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _FloatingNotificationCard(
+              key: ValueKey(state.stage),
+              state: state,
+              onDismiss: state.isError || state.isDone
+                  ? () => _uploadState.value =
+                        const UploadState() // reset ke idle
+                  : null,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ==========================================================================
+  // LOGIC – Pick & compress image
+  // ==========================================================================
+
+  Future<void> _pickImage(ProofSlot slot) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      if (file.bytes == null) return;
+
+      // Tunjukkan notif "kompres"
+      _uploadState.value = const UploadState(
+        stage: UploadStage.compressing,
+        message: 'Memproses gambar...',
+        progress: 0.1,
+      );
+
+      // Kompresi di background tanpa lock UI
+      final compressed = await _compressImage(file.bytes!);
+
+      setState(() {
+        slot.bytes = compressed;
+        slot.fileName = file.name;
+      });
+
+      _uploadState.value = const UploadState(
+        stage: UploadStage.done,
+        message: '✅ Gambar siap!',
+        progress: 1,
+      );
+
+      // Auto dismiss setelah 2 detik
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) _uploadState.value = const UploadState();
+    } catch (e) {
+      _uploadState.value = UploadState(
+        stage: UploadStage.error,
+        message: 'Gagal memproses gambar',
+      );
+    }
+  }
+
+  // ==========================================================================
+  // LOGIC – Submit (upload + simpan Firestore)
+  // ==========================================================================
+
+  Future<void> _handleSubmit() async {
+    _uploadState.value = const UploadState(
+      stage: UploadStage.uploading,
+      message: 'Mengunggah bukti 1/3...',
+      progress: 0.05,
+    );
+
+    try {
+      // Upload 3 file secara berurutan dengan progres
+      final urls = <String>[];
+      for (var i = 0; i < _slots.length; i++) {
+        final slot = _slots[i];
+        _uploadState.value = UploadState(
+          stage: UploadStage.uploading,
+          message: 'Mengunggah bukti ${i + 1}/3...',
+          progress: i / 3 * 0.9,
+        );
+
+        final url = await _uploadFile(
+          bytes: slot.bytes!,
+          fileName: slot.fileName ?? '${slot.type}.jpg',
+          proofType: slot.type,
+          onProgress: (p) {
+            _uploadState.value = UploadState(
+              stage: UploadStage.uploading,
+              message: 'Mengunggah bukti ${i + 1}/3...',
+              progress: (i / 3 + p / 3) * 0.9,
+            );
+          },
+        );
+
+        if (url == null) throw Exception('Gagal upload ${slot.title}');
+        urls.add(url);
+      }
+
+      // Simpan ke Firestore
+      _uploadState.value = const UploadState(
+        stage: UploadStage.saving,
+        message: 'Menyimpan data...',
+        progress: 0.95,
+      );
+
+      await FirebaseFirestore.instance
+          .collection('user_tryouts')
+          .doc('${_userId}_tryout_${widget.tryoutId}')
+          .set({
+            'userId': _userId,
+            'tryoutId': widget.tryoutId,
+            'proofStatus': 'pending_review',
+            'submittedAt': FieldValue.serverTimestamp(),
+            'promotionProofs': {
+              'followProof': urls[0],
+              'storyProof': urls[1],
+              'tagProof': urls[2],
+            },
+            'isActive': false,
+          });
+
+      _uploadState.value = const UploadState(
+        stage: UploadStage.done,
+        message: '✅ Berhasil! Bukti sedang ditinjau admin.',
+        progress: 1.0,
+      );
+
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      _uploadState.value = UploadState(
+        stage: UploadStage.error,
+        message: e.toString().replaceFirst('Exception: ', ''),
+      );
+    }
+  }
+
+  // ==========================================================================
+  // HELPER – Upload satu file
+  // ==========================================================================
+
+  Future<String?> _uploadFile({
+    required Uint8List bytes,
+    required String fileName,
+    required String proofType,
+    required void Function(double) onProgress,
+  }) async {
+    try {
+      final path =
+          'tryout_proofs/$_userId/${widget.tryoutId}/${proofType}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = FirebaseStorage.instance.ref().child(path);
+      final task = ref.putData(
+        bytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      task.snapshotEvents.listen((snap) {
+        if (snap.totalBytes > 0) {
+          onProgress(snap.bytesTransferred / snap.totalBytes);
+        }
+      });
+
+      await task;
+      return await ref.getDownloadURL();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ==========================================================================
+  // HELPER – Kompres gambar (async, tidak lock UI)
+  // ==========================================================================
+
+  /// Kompres via Canvas API browser — non-blocking, tidak menyentuh main isolate.
+  /// Jauh lebih cepat dari package:image untuk Flutter Web.
+  Future<Uint8List> _compressImage(Uint8List bytes) async {
+    try {
+      // Decode bytes → Blob → Object URL
+      final blob = html.Blob([bytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+
+      // Load ke HTMLImageElement (async, browser handle di thread sendiri)
+      final htmlImg = html.ImageElement();
+      htmlImg.src = url;
+      await htmlImg.onLoad.first; // tunggu load selesai, tidak block UI
+
+      html.Url.revokeObjectUrl(url);
+
+      // Hitung ukuran target (max 1200px)
+      final maxSize = 1200;
+      var w = htmlImg.naturalWidth ?? 0;
+      var h = htmlImg.naturalHeight ?? 0;
+      if (w == 0 || h == 0) return bytes;
+
+      if (w > maxSize || h > maxSize) {
+        if (w >= h) {
+          h = (h * maxSize / w).round();
+          w = maxSize;
+        } else {
+          w = (w * maxSize / h).round();
+          h = maxSize;
+        }
+      }
+
+      // Gambar ke Canvas (native GPU-accelerated, tidak block UI)
+      final canvas = html.CanvasElement(width: w, height: h);
+      final ctx = canvas.context2D;
+      ctx.drawImageScaled(htmlImg, 0, 0, w, h);
+
+      // Export ke JPEG blob
+      final completer = Completer<Uint8List>();
+      final dataUrl = canvas.toDataUrl('image/jpeg', 0.85);
+      final base64 = dataUrl.split(',').last;
+      completer.complete(base64Decode(base64));
+
+      return completer.future;
+    } catch (_) {
+      return bytes; // fallback: kembalikan original
+    }
+  }
+}
+
+// =============================================================================
+// WIDGET – Floating Notification Card (kanan bawah)
+// =============================================================================
+
+class _FloatingNotificationCard extends StatelessWidget {
+  final UploadState state;
+  final VoidCallback? onDismiss;
+
+  const _FloatingNotificationCard({
+    super.key,
+    required this.state,
+    this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isError = state.isError;
+    final isDone = state.isDone;
+    final accentColor = isError
+        ? const Color(0xFFFF4B4B)
+        : isDone
+        ? const Color(0xFF58CC02)
+        : const Color(0xFF6C63FF);
+
+    return Material(
+      elevation: 12,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 300,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isError
+              ? const Color(0xFFFFF5F5)
+              : isDone
+              ? const Color(0xFFF0FFF4)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: accentColor.withOpacity(0.4), width: 1.5),
         ),
-        SizedBox(width: AppSpacing.sm),
-        Text(
-          text,
-          style: AppTextStyles.bodyMedium.copyWith(
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF4B4B4B),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Baris atas: ikon + pesan + tombol dismiss
+            Row(
+              children: [
+                // Ikon status
+                if (isError)
+                  Icon(
+                    Icons.error_outline_rounded,
+                    color: accentColor,
+                    size: 22,
+                  )
+                else if (isDone)
+                  Icon(Icons.check_circle_rounded, color: accentColor, size: 22)
+                else
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: accentColor,
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    state.message,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isError
+                          ? const Color(0xFFCC0000)
+                          : const Color(0xFF1E293B),
+                    ),
+                  ),
+                ),
+                if (onDismiss != null)
+                  GestureDetector(
+                    onTap: onDismiss,
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: const Color(0xFF999999),
+                    ),
+                  ),
+              ],
+            ),
+
+            // Progress bar – hanya tampil saat uploading/saving
+            if (state.isActive && state.progress > 0) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: state.progress,
+                  minHeight: 6,
+                  backgroundColor: accentColor.withOpacity(0.15),
+                  valueColor: AlwaysStoppedAnimation(accentColor),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${(state.progress * 100).toInt()}%',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: accentColor,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// WIDGET – ProofUploadCard (slot upload per bukti)
+// =============================================================================
+
+class _ProofUploadCard extends StatelessWidget {
+  final ProofSlot slot;
+  final VoidCallback onPick;
+  final VoidCallback onRemove;
+
+  const _ProofUploadCard({
+    required this.slot,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: slot.hasFile ? slot.color : const Color(0xFFE5E5E5),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              // Nomor badge
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: slot.hasFile ? slot.color : const Color(0xFFE5E5E5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Icon(
+                    slot.hasFile ? Icons.check_rounded : slot.icon,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      slot.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      slot.description,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF777777),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Area preview / tombol upload
+          if (slot.hasFile) _buildPreview() else _buildUploadArea(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreview() {
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(
+            slot.bytes!,
+            height: 140,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        ),
+        // Tombol hapus di pojok kanan atas
+        Positioned(
+          top: 6,
+          right: 6,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.55),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+          ),
+        ),
+        // Label nama file di bawah
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.45),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(12),
+              ),
+            ),
+            child: Text(
+              slot.fileName ?? '',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
       ],
     );
   }
 
-  // ==========================================================================
-  // ACTION BUTTON
-  // ==========================================================================
-  Widget _buildActionButton() {
-    final canProceed = _selectedOption == 'free'
-        ? (_followProofBytes != null &&
-              _storyProofBytes != null &&
-              _tagProofBytes != null)
-        : false;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      child: ElevatedButton(
-        onPressed: canProceed && !_isProcessing ? _handleSubmit : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF58CC02),
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0xFFE5E5E5),
-          disabledForegroundColor: const Color(0xFF999999),
-          padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-          elevation: 0,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: canProceed
-                  ? const Color(0xFF46A302)
-                  : const Color(0xFFCCCCCC),
-              width: 2,
-            ),
+  Widget _buildUploadArea() {
+    return GestureDetector(
+      onTap: onPick,
+      child: Container(
+        height: 120,
+        decoration: BoxDecoration(
+          color: slot.color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: slot.color.withOpacity(0.3),
+            width: 1.5,
+            style: BorderStyle.solid,
           ),
         ),
-        child: _isProcessing
-            ? SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    canProceed ? Colors.white : const Color(0xFF999999),
-                  ),
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _selectedOption == 'free'
-                        ? Icons.check_circle_rounded
-                        : Icons.lock_rounded,
-                    size: 24,
-                  ),
-                  SizedBox(width: AppSpacing.sm),
-                  Text(
-                    _selectedOption == 'free'
-                        ? 'Dapatkan Try Out Gratis'
-                        : 'Belum Tersedia',
-                    style: AppTextStyles.bodyLarge.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.white),
-            SizedBox(width: AppSpacing.sm),
-            Expanded(child: Text(message)),
+            Icon(Icons.cloud_upload_outlined, color: slot.color, size: 36),
+            const SizedBox(height: 6),
+            Text(
+              'Tap untuk upload',
+              style: TextStyle(
+                color: slot.color,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'JPG, PNG',
+              style: TextStyle(color: Color(0xFF999999), fontSize: 11),
+            ),
           ],
         ),
-        backgroundColor: const Color(0xFFFF4B4B),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: EdgeInsets.all(AppSpacing.lg),
       ),
     );
   }
 }
 
-// lib/core/services/tryout_purchase_service.dart
+// =============================================================================
+// WIDGET – Reusable kecil
+// =============================================================================
 
-class TryoutPurchaseService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+class _OptionTab extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final Gradient gradient;
+  final VoidCallback onTap;
 
-  // ============================================================================
-  // PURCHASE TRYOUT
-  // ============================================================================
+  const _OptionTab({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.gradient,
+    required this.onTap,
+  });
 
-  /// Purchase tryout dengan price
-  /// Returns true jika berhasil, throws Exception jika gagal
-  Future<bool> purchaseTryout({
-    required String tryoutId,
-    required int cost, // Harga tryout
-  }) async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) {
-      throw Exception('User not logged in');
-    }
-
-    try {
-      // Gunakan transaction untuk atomic operation
-      return await _firestore.runTransaction<bool>((transaction) async {
-        // 1. Get user document
-        final userRef = _firestore.collection('users').doc(userId);
-        final userDoc = await transaction.get(userRef);
-
-        if (!userDoc.exists) {
-          throw Exception('User not found');
-        }
-
-        final userData = userDoc.data()!;
-        final currentPrice = userData['price'] as int? ?? 0;
-        final ownedTryouts = List<String>.from(userData['ownedTryouts'] ?? []);
-
-        // 2. Check if already owned
-        if (ownedTryouts.contains(tryoutId)) {
-          throw Exception('Tryout sudah dimiliki');
-        }
-
-        // 3. Check if user has enough price
-        if (currentPrice < cost) {
-          throw Exception(
-            'Price tidak cukup. Kamu butuh $cost, tapi hanya punya $currentPrice.',
-          );
-        }
-
-        // 4. Deduct price and add tryout to owned list
-        transaction.update(userRef, {
-          'price': currentPrice - cost,
-          'ownedTryouts': FieldValue.arrayUnion([tryoutId]),
-        });
-
-        // 5. Optional: Create purchase record for audit trail
-        final purchaseRef = _firestore.collection('purchases').doc();
-        transaction.set(purchaseRef, {
-          'userId': userId,
-          'tryoutId': tryoutId,
-          'cost': cost,
-          'purchasedAt': FieldValue.serverTimestamp(),
-          'transactionType': 'price',
-        });
-
-        // 6. Update tryout owner count (optional analytics)
-        final tryoutRef = _firestore.collection('tryouts').doc(tryoutId);
-        final tryoutDoc = await transaction.get(tryoutRef);
-
-        if (tryoutDoc.exists) {
-          transaction.update(tryoutRef, {
-            'ownerCount': FieldValue.increment(1),
-          });
-        }
-
-        debugPrint('✅ Purchase successful: $tryoutId for $cost price');
-        return true;
-      });
-    } on FirebaseException catch (e) {
-      debugPrint('❌ Firebase error during purchase: ${e.code} - ${e.message}');
-      throw Exception('Terjadi kesalahan: ${e.message}');
-    } catch (e) {
-      debugPrint('❌ Purchase error: $e');
-      rethrow;
-    }
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          gradient: isSelected ? gradient : null,
+          color: isSelected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: isSelected
+              ? [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8)]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xFF777777),
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: isSelected ? Colors.white : const Color(0xFF777777),
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
+}
 
-  // ============================================================================
-  // CHECK OWNERSHIP
-  // ============================================================================
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
 
-  /// Check if user owns a tryout
-  Future<bool> checkOwnership(String tryoutId) async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return false;
+  const _IconBtn({required this.icon, required this.onTap});
 
-    try {
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-
-      if (!userDoc.exists) return false;
-
-      final ownedTryouts = List<String>.from(
-        userDoc.data()?['ownedTryouts'] ?? [],
-      );
-
-      return ownedTryouts.contains(tryoutId);
-    } catch (e) {
-      debugPrint('❌ Check ownership error: $e');
-      return false;
-    }
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F7F7),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E5E5), width: 1.5),
+        ),
+        child: Icon(icon, size: 22, color: const Color(0xFF4B4B4B)),
+      ),
+    );
   }
+}
 
-  // ============================================================================
-  // GET OWNED TRYOUTS
-  // ============================================================================
+class _InfoBanner extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
 
-  /// Get all owned tryout IDs
-  Future<List<String>> getOwnedTryoutIds() async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return [];
+  const _InfoBanner({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+  });
 
-    try {
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-
-      if (!userDoc.exists) return [];
-
-      return List<String>.from(userDoc.data()?['ownedTryouts'] ?? []);
-    } catch (e) {
-      debugPrint('❌ Get owned tryouts error: $e');
-      return [];
-    }
-  }
-
-  // ============================================================================
-  // STREAM OWNERSHIP (Real-time)
-  // ============================================================================
-
-  /// Stream untuk real-time ownership check
-  Stream<bool> watchOwnership(String tryoutId) {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return Stream.value(false);
-
-    return _firestore.collection('users').doc(userId).snapshots().map((
-      snapshot,
-    ) {
-      if (!snapshot.exists) return false;
-
-      final ownedTryouts = List<String>.from(
-        snapshot.data()?['ownedTryouts'] ?? [],
-      );
-
-      return ownedTryouts.contains(tryoutId);
-    });
-  }
-
-  /// Stream untuk list owned tryout IDs
-  Stream<List<String>> watchOwnedTryoutIds() {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return Stream.value([]);
-
-    return _firestore.collection('users').doc(userId).snapshots().map((
-      snapshot,
-    ) {
-      if (!snapshot.exists) return [];
-
-      return List<String>.from(snapshot.data()?['ownedTryouts'] ?? []);
-    });
-  }
-
-  // ============================================================================
-  // GET USER CURRENT PRICE
-  // ============================================================================
-
-  /// Get user's current price balance
-  Future<int> getCurrentPrice() async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return 0;
-
-    try {
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-
-      if (!userDoc.exists) return 0;
-
-      return userDoc.data()?['price'] as int? ?? 0;
-    } catch (e) {
-      debugPrint('❌ Get current price error: $e');
-      return 0;
-    }
-  }
-
-  /// Stream user's current price balance
-  Stream<int> watchCurrentPrice() {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return Stream.value(0);
-
-    return _firestore.collection('users').doc(userId).snapshots().map((
-      snapshot,
-    ) {
-      if (!snapshot.exists) return 0;
-
-      return snapshot.data()?['price'] as int? ?? 0;
-    });
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.25), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Color(0xFF777777),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

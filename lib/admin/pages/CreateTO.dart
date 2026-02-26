@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:lulusasn/core/constants/spacing.dart';
 import 'package:lulusasn/core/constants/text_styles.dart';
@@ -83,8 +84,15 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
   int _selectedSubTestIndex = 0;
 
   // Processing state
+  // REPLACE / TAMBAHKAN DI SEKITAR BARIS [cite: 12]
   bool _isProcessing = false;
   String? _errorMessage;
+  // Hapus atau biarkan variabel lama, tapi tambahkan ini:
+  final ValueNotifier<ProcessingStatus?> processStatus = ValueNotifier(null);
+
+  double _parseProgress = 0.0;
+  String _parseStatus = '';
+  bool _isParsing = false;
 
   @override
   void initState() {
@@ -172,22 +180,179 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(AppSpacing.xxl),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      body: Stack(
+        // Gunakan Stack agar notifikasi bisa melayang [cite: 322]
+        children: [
+          SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.xxl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  SizedBox(height: AppSpacing.xl),
+                  _buildTemplateButtons(),
+                  SizedBox(height: AppSpacing.xl),
+                  _buildMainForm(),
+                ],
+              ),
+            ),
+          ),
+
+          // SISIPKAN: Notifikasi Latar Belakang di sini
+          ValueListenableBuilder<ProcessingStatus?>(
+            valueListenable: processStatus,
+            builder: (context, status, child) {
+              if (status == null) return const SizedBox.shrink();
+              return _buildBackgroundNotification(
+                status,
+              ); // Buat widget pembantu ini
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackgroundNotification(ProcessingStatus status) {
+    return Positioned(
+      bottom: 24,
+      right: 24,
+      child: Material(
+        elevation: 10,
+        shadowColor: Colors.black38,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: status.isError ? const Color(0xFFFEF2F2) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: status.isError
+                  ? Colors.red.withOpacity(0.5)
+                  : const Color(0xFFE2E8F0),
+            ),
+          ),
+          child: Row(
             children: [
-              _buildHeader(),
-              SizedBox(height: AppSpacing.xl),
-              _buildTemplateButtons(),
-              SizedBox(height: AppSpacing.xl),
-              _buildMainForm(),
+              if (!status.isError)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Color(0xFF6C63FF),
+                  ),
+                )
+              else
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Colors.red,
+                  size: 24,
+                ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  status.message,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: status.isError
+                        ? Colors.red[900]
+                        : const Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+              if (status.isError)
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () => processStatus.value = null,
+                ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildImagePreview(Map<String, dynamic> question) {
+    return Stack(
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          height: 200,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            image: DecorationImage(
+              image: NetworkImage(question['questionImage']),
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+        Positioned(
+          top: 12,
+          right: 4,
+          child: CircleAvatar(
+            backgroundColor: Colors.red,
+            radius: 16,
+            child: IconButton(
+              icon: const Icon(Icons.delete, size: 16, color: Colors.white),
+              onPressed: () {
+                setState(() {
+                  question['questionImage'] = '';
+                });
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleImageUploadForQuestion(
+    Map<String, dynamic> question,
+  ) async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result == null) return;
+
+    // Mulai proses background
+    processStatus.value = ProcessingStatus(
+      message: "Sedang mengunggah gambar...",
+    );
+
+    try {
+      final file = result.files.first;
+      final path =
+          'questions/${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+
+      // Upload ke Storage
+      final ref = FirebaseStorage.instance.ref().child(path);
+      final uploadTask = ref.putData(file.bytes!);
+
+      final snapshot = await uploadTask;
+      final url = await snapshot.ref.getDownloadURL();
+
+      // Update state soal
+      setState(() {
+        question['questionImage'] = url;
+      });
+
+      processStatus.value = ProcessingStatus(
+        message: "✅ Gambar berhasil dipasang",
+      );
+      Future.delayed(
+        const Duration(seconds: 2),
+        () => processStatus.value = null,
+      );
+    } catch (e) {
+      print(e);
+      processStatus.value = ProcessingStatus(
+        message: "❌ Gagal upload: $e",
+        isError: true,
+      );
+    }
   }
 
   // ==========================================================================
@@ -950,11 +1115,82 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
         ),
         SizedBox(height: AppSpacing.md),
 
-        if (subTest.fileName == null) // ✅ Ubah jadi fileName
+        if (_isParsing)
+          _buildParsingProgress()
+        else if (subTest.fileName == null)
           _buildUploadArea(subTest)
         else
           _buildUploadedFileInfo(subTest),
       ],
+    );
+  }
+
+  Widget _buildParsingProgress() {
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1CB0F6).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF1CB0F6), width: 2),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF1CB0F6),
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  _parseStatus,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: const Color(0xFF1CB0F6),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                '${(_parseProgress * 100).toInt()}%',
+                style: AppTextStyles.bodyLarge.copyWith(
+                  color: const Color(0xFF1CB0F6),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpacing.md),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: _parseProgress,
+              minHeight: 10,
+              backgroundColor: const Color(0xFF1CB0F6).withOpacity(0.2),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF1CB0F6),
+              ),
+            ),
+          ),
+          SizedBox(height: AppSpacing.sm),
+          Text(
+            _parseProgress < 0.3
+                ? '📂 Membaca file Excel...'
+                : _parseProgress < 0.6
+                ? '🔍 Memvalidasi data soal...'
+                : _parseProgress < 0.9
+                ? '⚙️ Memproses soal...'
+                : '✅ Hampir selesai...',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: const Color(0xFF777777),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1120,6 +1356,31 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
     );
   }
 
+  Future<void> _handleExcelUpload(SubTest subTest) async {
+    processStatus.value = ProcessingStatus(message: "Membuka file...");
+
+    try {
+      // Logika parsing Excel Anda...
+      processStatus.value = ProcessingStatus(
+        message: "Sedang memproses soal...",
+      );
+
+      // Setelah selesai
+      processStatus.value = ProcessingStatus(
+        message: "✅ Berhasil memproses ${subTest.questions?.length} soal",
+      );
+      Future.delayed(
+        const Duration(seconds: 3),
+        () => processStatus.value = null,
+      );
+    } catch (e) {
+      processStatus.value = ProcessingStatus(
+        message: "Gagal: $e",
+        isError: true,
+      );
+    }
+  }
+
   Widget _buildQuestionPreviewItem(Map<String, dynamic> question, int number) {
     final isObjective = question['type'] == 'objective';
 
@@ -1203,7 +1464,43 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
+          if (question['questionImage'] != null) ...[
+            SizedBox(height: AppSpacing.sm),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                question['questionImage'],
+                height: 150,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF4B4B).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
+                    child: Text('❌ Gambar tidak dapat dimuat'),
+                  ),
+                ),
+              ),
+            ),
+          ],
           SizedBox(height: AppSpacing.sm),
+
+          // TAMBAHKAN / REPLACE BAGIAN GAMBAR:
+          const SizedBox(height: 12),
+          if (question['questionImage'] != null &&
+              question['questionImage'].isNotEmpty)
+            _buildImagePreview(
+              question,
+            ) // Widget untuk tampilkan & hapus gambar
+          else
+            OutlinedButton.icon(
+              onPressed: () =>
+                  _handleImageUploadForQuestion(question), // Method baru
+              icon: const Icon(Icons.add_a_photo, size: 18),
+              label: const Text("Tambah Gambar"),
+            ),
 
           // Options Preview
           if (question['options'] != null) ...[
@@ -1244,11 +1541,33 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
                     ),
                     SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      child: Text(
-                        option.toString(),
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: const Color(0xFF4B4B4B),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            option.toString(),
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: const Color(0xFF4B4B4B),
+                            ),
+                          ),
+                          if (question['optionImages'] != null &&
+                              i < (question['optionImages'] as List).length &&
+                              question['optionImages'][i] != null) ...[
+                            SizedBox(height: AppSpacing.xs),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.network(
+                                question['optionImages'][i],
+                                height: 80,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Text(
+                                  '❌ Gambar gagal',
+                                  style: TextStyle(fontSize: 10),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     // Show score for Likert
@@ -1807,11 +2126,17 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
   /// Parse Excel file dan extract questions
 
   Future<void> _parseExcelFile(SubTest subTest, List<int> bytes) async {
-    // ✅ Ubah parameter
     setState(() {
-      subTest.fileName = '⏳ Sedang memproses...';
+      _isParsing = true;
+      _parseProgress = 0.0;
+      _parseStatus = 'Membaca file Excel...';
     });
     try {
+      await Future.delayed(const Duration(milliseconds: 100));
+      setState(() {
+        _parseProgress = 0.1;
+        _parseStatus = 'Mendekode file...';
+      });
       final excel = Excel.decodeBytes(bytes);
 
       // Ambil sheet pertama
@@ -1829,8 +2154,21 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
             'file.xlsx'; // ✅ Reset nama
       });
       // Skip header row (index 0), mulai dari row 1
-      for (int i = 1; i < sheet.rows.length; i++) {
+      final totalRows = sheet.rows.length;
+      setState(() {
+        _parseProgress = 0.2;
+        _parseStatus = 'Ditemukan $totalRows baris data...';
+      });
+
+      for (int i = 1; i < totalRows; i++) {
         final row = sheet.rows[i];
+        if (i % 5 == 0 || i == totalRows - 1) {
+          setState(() {
+            _parseProgress = 0.2 + (i / totalRows) * 0.7;
+            _parseStatus = 'Memproses soal $i dari ${totalRows - 1}...';
+          });
+          await Future.delayed(Duration.zero);
+        }
 
         // Skip empty rows
         if (row.isEmpty || row.every((cell) => cell?.value == null)) {
@@ -1854,6 +2192,21 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
         // Skip jika question kosong
         if (question.isEmpty) continue;
 
+        final tags = getCellValue(18);
+        final questionImage = getCellValue(19);
+        final optImgA = getCellValue(20);
+        final optImgB = getCellValue(21);
+        final optImgC = getCellValue(22);
+        final optImgD = getCellValue(23);
+        final optImgE = getCellValue(24);
+        final List<String?> optionImages = [
+          optImgA,
+          optImgB,
+          optImgC,
+          optImgD,
+          optImgE,
+        ].map((e) => e.isNotEmpty ? e : null).toList();
+
         if (type == 'objective') {
           final optionA = getCellValue(5);
           final optionB = getCellValue(6);
@@ -1863,7 +2216,14 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
           final correctIndex = getCellValue(10);
           final explanationShort = getCellValue(16);
           final explanationFull = getCellValue(17);
-          final tags = getCellValue(18);
+
+          final List<String?> optionImages = [
+            optImgA,
+            optImgB,
+            optImgC,
+            optImgD,
+            optImgE,
+          ].map((e) => e.isNotEmpty ? e : null).toList();
 
           questions.add({
             'package': package,
@@ -1886,6 +2246,8 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
                 .map((t) => t.trim())
                 .where((t) => t.isNotEmpty)
                 .toList(),
+            'questionImage': questionImage.isNotEmpty ? questionImage : null,
+            'optionImages': optionImages,
           });
         } else if (type == 'likert') {
           final scoreA = getCellValue(11);
@@ -1924,6 +2286,8 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
                 .map((t) => t.trim())
                 .where((t) => t.isNotEmpty)
                 .toList(),
+            'questionImage': questionImage.isNotEmpty ? questionImage : null,
+            'optionImages': optionImages,
           });
         }
       }
@@ -1933,8 +2297,17 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
       }
 
       setState(() {
+        _parseProgress = 1.0;
+        _parseStatus = 'Selesai! ${questions.length} soal berhasil diproses';
+      });
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      setState(() {
         subTest.questions = questions;
         subTest.questionCount = questions.length;
+        _isParsing = false;
+        _parseProgress = 0.0;
+        _parseStatus = '';
       });
 
       if (mounted) {
@@ -1955,6 +2328,9 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
         subTest.fileName = null;
         subTest.questionCount = null;
         subTest.questions = null;
+        _isParsing = false;
+        _parseProgress = 0.0;
+        _parseStatus = '';
       });
 
       if (mounted) {
@@ -2198,10 +2574,17 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
       TextCellValue('Explanation Short'),
       TextCellValue('Explanation Full'),
       TextCellValue('Tags'),
+      TextCellValue('Question Image URL'),
+      TextCellValue('Option A Image URL'),
+      TextCellValue('Option B Image URL'),
+      TextCellValue('Option C Image URL'),
+      TextCellValue('Option D Image URL'),
+      TextCellValue('Option E Image URL'),
     ]);
 
     // Contoh soal TWK/TIU (Objective)
     final contohSoal = [
+      // Soal 1 - TWK biasa
       [
         'CPNS 2025 Paket 1',
         'TWK',
@@ -2220,9 +2603,16 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
         '',
         '',
         'Sila pertama adalah Ketuhanan YME',
-        'Pancasila memiliki 5 sila. Sila pertama berbunyi "Ketuhanan Yang Maha Esa" yang menegaskan bahwa negara Indonesia berdasarkan kepercayaan kepada Tuhan Yang Maha Esa.',
+        'Pancasila memiliki 5 sila. Sila pertama berbunyi Ketuhanan Yang Maha Esa.',
         'pancasila,dasar negara,twk',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
       ],
+      // Soal 2 - TIU biasa
       [
         'CPNS 2025 Paket 1',
         'TIU',
@@ -2241,9 +2631,16 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
         '',
         '',
         'Pola deret dikali 2',
-        'Deret ini mengikuti pola perkalian 2. Setiap angka adalah hasil kali 2 dari angka sebelumnya: 3×2=6, 6×2=12, 12×2=24, maka 24×2=48.',
-        'deret angka,logika,matematika,tiu',
+        'Deret ini mengikuti pola perkalian 2. 24×2=48.',
+        'deret angka,logika,tiu',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
       ],
+      // Soal 3 - TWK biasa
       [
         'CPNS 2025 Paket 1',
         'TWK',
@@ -2261,9 +2658,73 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
         '',
         '',
         '',
-        'UUD 1945 disahkan tanggal 18 Agustus 1945',
-        'Undang-Undang Dasar Negara Republik Indonesia Tahun 1945 disahkan oleh PPKI (Panitia Persiapan Kemerdekaan Indonesia) pada tanggal 18 Agustus 1945, sehari setelah Proklamasi Kemerdekaan.',
+        'UUD 1945 disahkan 18 Agustus 1945',
+        'UUD 1945 disahkan oleh PPKI pada 18 Agustus 1945.',
         'uud 1945,sejarah,twk',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+      ],
+      // Soal 4 - TIU dengan gambar di soal (grafik/diagram)
+      [
+        'CPNS 2025 Paket 1',
+        'TIU',
+        '40',
+        'Perhatikan diagram batang berikut. Pada bulan manakah penjualan tertinggi?',
+        'objective',
+        'Januari',
+        'Februari',
+        'Maret',
+        'April',
+        'Mei',
+        '2',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'Lihat batang tertinggi di diagram',
+        'Berdasarkan diagram, batang tertinggi berada di bulan Maret.',
+        'diagram,grafik,tiu',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/SimpleBarChartEn.svg/320px-SimpleBarChartEn.svg.png',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+      ],
+      // Soal 5 - TWK dengan gambar di opsi (lambang/simbol)
+      [
+        'CPNS 2025 Paket 1',
+        'TWK',
+        '30',
+        'Gambar di bawah ini merupakan lambang sila ke berapa dalam Pancasila?',
+        'objective',
+        'Sila ke-1',
+        'Sila ke-2',
+        'Sila ke-3',
+        'Sila ke-4',
+        'Sila ke-5',
+        '0',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'Bintang = sila ke-1 Ketuhanan YME',
+        'Lambang bintang emas melambangkan sila pertama Pancasila yaitu Ketuhanan Yang Maha Esa.',
+        'pancasila,lambang,twk',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Star_and_crescent.svg/240px-Star_and_crescent.svg.png',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
       ],
     ];
 
@@ -2306,6 +2767,12 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
       TextCellValue('Explanation Short'),
       TextCellValue('Explanation Full'),
       TextCellValue('Tags'),
+      TextCellValue('Question Image URL'),
+      TextCellValue('Option A Image URL'),
+      TextCellValue('Option B Image URL'),
+      TextCellValue('Option C Image URL'),
+      TextCellValue('Option D Image URL'),
+      TextCellValue('Option E Image URL'),
     ]);
 
     // Contoh soal TKP (Likert)
@@ -2387,5 +2854,109 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
       ..setAttribute('download', 'template_tkp.xlsx')
       ..click();
     html.Url.revokeObjectUrl(url);
+  }
+}
+
+class ProcessingStatus {
+  final String message;
+  final double? progress; // null untuk indeterminate
+  final bool isError;
+
+  ProcessingStatus({
+    required this.message,
+    this.progress,
+    this.isError = false,
+  });
+}
+
+class QuestionReviewCard extends StatefulWidget {
+  final Map<String, dynamic> question;
+  final Function(String url) onImageUploaded;
+
+  const QuestionReviewCard({
+    required this.question,
+    required this.onImageUploaded,
+  });
+
+  @override
+  State<QuestionReviewCard> createState() => _QuestionReviewCardState();
+}
+
+class _QuestionReviewCardState extends State<QuestionReviewCard> {
+  bool _isUploading = false;
+
+  Future<void> _pickAndUploadImage() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result == null) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      // Logika upload ke Firebase Storage
+      final file = result.files.first;
+      final ref = FirebaseStorage.instance.ref().child(
+        'questions/${DateTime.now().millisecondsSinceEpoch}_${file.name}',
+      );
+
+      final uploadTask = ref.putData(file.bytes!);
+
+      // Monitor Progress (Opsional jika ingin detail per gambar)
+      final snapshot = await uploadTask;
+      final url = await snapshot.ref.getDownloadURL();
+
+      widget.onImageUploaded(url);
+    } catch (e) {
+      debugPrint("Upload error: $e");
+    } finally {
+      setState(() => _isUploading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = widget.question['imageUrl'];
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Soal: ${widget.question['questionText']}"),
+            const SizedBox(height: 12),
+
+            // AREA GAMBAR
+            if (imageUrl != null && imageUrl.isNotEmpty)
+              Stack(
+                children: [
+                  Image.network(imageUrl, height: 150, fit: BoxFit.cover),
+                  Positioned(
+                    right: 0,
+                    child: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () => widget.onImageUploaded(''), // Hapus URL
+                    ),
+                  ),
+                ],
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: _isUploading ? null : _pickAndUploadImage,
+                icon: _isUploading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_a_photo),
+                label: Text(
+                  _isUploading ? "Mengunggah..." : "Tambah Gambar Soal",
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

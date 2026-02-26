@@ -29,7 +29,7 @@ class LulusASNApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'LulusASN',
+      title: 'LULUZZZ',
       debugShowCheckedModeBanner: false,
       theme: duolingoTheme,
 

@@ -1,5 +1,9 @@
 # lulusasn
 
+https://console.cloud.google.com/welcome?project=lulusasn-e15a3&authuser=1&cloudshell=true
+
+ini untuk menampilakn cors di localhost, setting disini
+
 A new Flutter project.
 
 ## Getting Started

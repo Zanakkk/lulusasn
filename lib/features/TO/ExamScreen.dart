@@ -233,12 +233,7 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
       _answers[_currentQuestionIndex] = optionIndex;
     });
 
-    // ✅ AUTO ADVANCE LEBIH CEPAT (600ms → 400ms)
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (mounted && _currentQuestionIndex < _questions.length - 1) {
-        _goToNext();
-      }
-    });
+
   }
 
   // ==========================================================================
@@ -1059,7 +1054,9 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
 
   Widget _buildQuestionCard(Map<String, dynamic> question, int index) {
     final questionText = question['question'] as String? ?? '';
+    final questionImage = question['questionImage'] as String?;
     final options = question['options'] as List<dynamic>? ?? [];
+    final optionImages = question['optionImages'] as List<dynamic>?;
     final selectedAnswer = _answers[index];
 
     return FadeTransition(
@@ -1078,10 +1075,7 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFFE5E5E5),
-                      width: 3,
-                    ),
+                    border: Border.all(color: const Color(0xFFE5E5E5), width: 3),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.05),
@@ -1090,14 +1084,45 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                       ),
                     ],
                   ),
-                  child: Text(
-                    questionText,
-                    style: AppTextStyles.headingMedium.copyWith(
-                      color: const Color(0xFF1A1A1A),
-                      height: 1.6,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        questionText,
+                        style: AppTextStyles.headingMedium.copyWith(
+                          color: const Color(0xFF1A1A1A),
+                          height: 1.6,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 20,
+                        ),
+                      ),
+                      if (questionImage != null && questionImage.isNotEmpty) ...[
+                        SizedBox(height: AppSpacing.lg),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            questionImage,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (_, child, progress) => progress == null
+                                ? child
+                                : const SizedBox(
+                              height: 160,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFF1CB0F6), strokeWidth: 2),
+                              ),
+                            ),
+                            errorBuilder: (_, __, ___) => Container(
+                              height: 60,
+                              alignment: Alignment.center,
+                              child: const Text('❌ Gambar tidak dapat dimuat',
+                                  style: TextStyle(
+                                      color: Color(0xFF777777), fontSize: 12)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
 
@@ -1105,10 +1130,12 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
 
                 // Options
                 ...List.generate(options.length, (optionIndex) {
-                  final optionLabel = String.fromCharCode(
-                    65 + optionIndex,
-                  ); // A, B, C...
+                  final optionLabel = String.fromCharCode(65 + optionIndex);
                   final optionText = options[optionIndex].toString();
+                  final optionImage = (optionImages != null &&
+                      optionIndex < optionImages.length)
+                      ? optionImages[optionIndex] as String?
+                      : null;
                   final isSelected = selectedAnswer == optionIndex;
 
                   return Padding(
@@ -1116,6 +1143,7 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                     child: _buildOptionCard(
                       label: optionLabel,
                       text: optionText,
+                      optionImage: optionImage,
                       optionIndex: optionIndex,
                       isSelected: isSelected,
                     ),
@@ -1132,6 +1160,7 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
   Widget _buildOptionCard({
     required String label,
     required String text,
+    required String? optionImage,
     required int optionIndex,
     required bool isSelected,
   }) {
@@ -1200,13 +1229,37 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
 
             // Option text
             Expanded(
-              child: Text(
-                text,
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: isSelected ? Colors.white : const Color(0xFF1A1A1A),
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text,
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      color: isSelected ? Colors.white : const Color(0xFF1A1A1A),
+                      fontWeight: FontWeight.w600,
+                      height: 1.5,
+                    ),
+                  ),
+                  if (optionImage != null && optionImage.isNotEmpty) ...[
+                    SizedBox(height: AppSpacing.sm),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        optionImage,
+                        height: 100,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (_, child, progress) => progress == null
+                            ? child
+                            : const SizedBox(height: 100,
+                            child: Center(child: CircularProgressIndicator(
+                                color: Color(0xFF1CB0F6), strokeWidth: 2))),
+                        errorBuilder: (_, __, ___) =>
+                        const Text('❌ Gambar gagal',
+                            style: TextStyle(fontSize: 11, color: Color(0xFF777777))),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
 
