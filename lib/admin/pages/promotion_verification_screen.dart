@@ -1,73 +1,137 @@
 // ============================================================================
 // lib/admin/pages/promotion_verification_screen.dart
-// 2-Screen: TryoutList → UserSubmissionList
-// Modern UI — no TabBar, pill filter, card design
+// Redesigned using Luluzzz Design System
+// Navy · Gold · White | Plus Jakarta Sans | 8-pt Grid
 // ============================================================================
+
+// ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:lulusasn/core/constants/text_styles.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/theme.dart';
 
+// ============================================================================
+// SCREEN 1: TRYOUT LIST
+// ============================================================================
 class PromotionVerificationScreen extends StatelessWidget {
   const PromotionVerificationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Warna abu-abu sangat muda (Slate 50)
-      body: Row(
-        children: [
-          // Jika ini dashboard admin, biasanya ada Sidebar/Nav Rail di sini
-          // Kita langsung ke Body utama
-          Expanded(
-            child: CustomScrollView(
-              slivers: [
-                _buildModernHeader(context),
-                _buildStatsOverview(),
-                _buildSectionTitle('Daftar Tryout Aktif'),
-                _buildTryoutGrid(context),
-              ],
-            ),
-          ),
+      backgroundColor: AppColors.bg,
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverHeader(),
+          _buildStatsRow(),
+          _buildSectionLabel('Tryout Aktif'),
+          _buildTryoutGrid(context),
+          const SliverToBoxAdapter(child: AppSpacing.vxl),
         ],
       ),
     );
   }
 
-  // 1. HEADER: Desain yang lebih flat dan elegan
-  Widget _buildModernHeader(BuildContext context) {
+  // ── 1. HEADER ─────────────────────────────────────────────────────────────
+  Widget _buildSliverHeader() {
     return SliverToBoxAdapter(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(32, 40, 32, 20),
+        decoration: const BoxDecoration(gradient: AppGradient.navy),
+        padding: const EdgeInsets.fromLTRB(32, 48, 32, 32),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Verifikasi Promosi',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1E293B),
-                    letterSpacing: -0.5,
+            // Left: Breadcrumb + Title
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.shield_rounded,
+                        color: AppColors.gold,
+                        size: 14,
+                      ),
+                      AppSpacing.hxs,
+                      Text(
+                        'Admin Panel',
+                        style: AppText.caption.copyWith(color: AppColors.gold),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.white.withOpacity(0.4),
+                          size: 14,
+                        ),
+                      ),
+                      Text(
+                        'Verifikasi Promosi',
+                        style: AppText.caption.copyWith(
+                          color: AppColors.white.withOpacity(0.5),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Kelola dan validasi akses tryout gratis user.',
-                  style: TextStyle(color: Colors.blueGrey[400], fontSize: 14),
-                ),
-              ],
+                  AppSpacing.vsm,
+                  Text(
+                    'Verifikasi Promosi',
+                    style: AppText.display.copyWith(color: AppColors.white),
+                  ),
+                  AppSpacing.vxs,
+                  Text(
+                    'Kelola dan validasi akses tryout gratis pengguna.',
+                    style: AppText.body.copyWith(
+                      color: AppColors.white.withOpacity(0.55),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            // User Profile atau Quick Action bisa di sini
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: const Color(0xFF6C63FF).withOpacity(0.1),
-              child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF6C63FF)),
+            AppSpacing.hlg,
+            // Right: Admin Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.white.withOpacity(0.07),
+                borderRadius: AppRadius.bMd,
+                border: Border.all(color: AppColors.white.withOpacity(0.12)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: AppGradient.gold,
+                      borderRadius: AppRadius.bSm,
+                    ),
+                    child: const Icon(
+                      Icons.admin_panel_settings_rounded,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                  ),
+                  AppSpacing.hsm,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Administrator',
+                        style: AppText.label.copyWith(color: AppColors.white),
+                      ),
+                      Text(
+                        'Super Admin',
+                        style: AppText.caption.copyWith(
+                          color: AppColors.white.withOpacity(0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -75,23 +139,58 @@ class PromotionVerificationScreen extends StatelessWidget {
     );
   }
 
-  // 2. STATS OVERVIEW: Kartu ringkasan di bagian atas
-  Widget _buildStatsOverview() {
+  // ── 2. STATS ROW ──────────────────────────────────────────────────────────
+  Widget _buildStatsRow() {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        padding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
         child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('user_tryouts').snapshots(),
+          stream: FirebaseFirestore.instance
+              .collection('user_tryouts')
+              .snapshots(),
           builder: (context, snap) {
             final docs = snap.data?.docs ?? [];
-            final pending = docs.where((d) => (d.data() as Map)['proofStatus'] == 'pending_review').length;
-            final total = docs.length;
+            final pending = docs
+                .where(
+                  (d) => (d.data() as Map)['proofStatus'] == 'pending_review',
+                )
+                .length;
+            final approved = docs
+                .where((d) => (d.data() as Map)['proofStatus'] == 'approved')
+                .length;
+            final rejected = docs
+                .where((d) => (d.data() as Map)['proofStatus'] == 'rejected')
+                .length;
 
             return Row(
               children: [
-                _statCard('Total Pengajuan', total.toString(), Icons.assignment_ind_rounded, Colors.blue),
-                const SizedBox(width: 20),
-                _statCard('Menunggu Review', pending.toString(), Icons.pending_actions_rounded, const Color(0xFFFF9600)),
+                _StatCard(
+                  label: 'Total Pengajuan',
+                  value: docs.length.toString(),
+                  icon: Icons.assignment_ind_rounded,
+                  accent: AppColors.info,
+                ),
+                AppSpacing.hmd,
+                _StatCard(
+                  label: 'Menunggu Review',
+                  value: pending.toString(),
+                  icon: Icons.pending_actions_rounded,
+                  accent: AppColors.warning,
+                ),
+                AppSpacing.hmd,
+                _StatCard(
+                  label: 'Disetujui',
+                  value: approved.toString(),
+                  icon: Icons.check_circle_rounded,
+                  accent: AppColors.success,
+                ),
+                AppSpacing.hmd,
+                _StatCard(
+                  label: 'Ditolak',
+                  value: rejected.toString(),
+                  icon: Icons.cancel_rounded,
+                  accent: AppColors.error,
+                ),
               ],
             );
           },
@@ -100,49 +199,29 @@ class PromotionVerificationScreen extends StatelessWidget {
     );
   }
 
-  Widget _statCard(String label, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
+  Widget _buildSectionLabel(String title) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(32, 28, 32, 12),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
-              child: Icon(icon, color: color, size: 28),
+              width: 4,
+              height: 18,
+              decoration: BoxDecoration(
+                gradient: AppGradient.gold,
+                borderRadius: AppRadius.bFull,
+              ),
             ),
-            const SizedBox(width: 20),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
-                Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
-              ],
-            ),
+            AppSpacing.hsm,
+            Text(title, style: AppText.h3),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(32, 24, 32, 12),
-        child: Text(
-          title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF334155)),
-        ),
-      ),
-    );
-  }
-
-  // 3. TRYOUT GRID: Grid yang lebih bersih
+  // ── 3. TRYOUT GRID ────────────────────────────────────────────────────────
   Widget _buildTryoutGrid(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -151,37 +230,40 @@ class PromotionVerificationScreen extends StatelessWidget {
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snap) {
-        if (!snap.hasData) return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
-
+        if (!snap.hasData) {
+          return const SliverToBoxAdapter(
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
         final docs = snap.data!.docs;
         return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(32, 0, 32, 40),
+          padding: const EdgeInsets.fromLTRB(32, 0, 32, 0),
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 450,
-              mainAxisExtent: 180,
-              crossAxisSpacing: 20,
-              mainAxisSpacing: 20,
+              maxCrossAxisExtent: 420,
+              mainAxisExtent: 190,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
             ),
-            delegate: SliverChildBuilderDelegate(
-                  (ctx, i) {
-                final d = docs[i];
-                final data = d.data() as Map<String, dynamic>;
-                return _ModernTryoutCard(
-                  tryoutId: d.id,
-                  title: data['title'] ?? 'Untitled',
-                  examTypeName: data['examTypeName'] ?? 'Kategori',
-                  isPremium: data['isPremium'] ?? false,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => SubmissionListScreen( // Screen 2 split-screen kita
+            delegate: SliverChildBuilderDelegate((ctx, i) {
+              final d = docs[i];
+              final data = d.data() as Map<String, dynamic>;
+              return _TryoutCard(
+                tryoutId: d.id,
+                title: data['title'] ?? 'Untitled',
+                examTypeName: data['examTypeName'] ?? 'Kategori',
+                isPremium: data['isPremium'] ?? false,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SubmissionListScreen(
                       tryoutId: d.id,
                       tryoutTitle: data['title'] ?? 'Untitled',
                     ),
-                  )),
-                );
-              },
-              childCount: docs.length,
-            ),
+                  ),
+                ),
+              );
+            }, childCount: docs.length),
           ),
         );
       },
@@ -189,112 +271,68 @@ class PromotionVerificationScreen extends StatelessWidget {
   }
 }
 
-// 4. KARTU ITEM: Fokus pada keterbacaan dan status
-class _ModernTryoutCard extends StatelessWidget {
-  final String tryoutId;
-  final String title;
-  final String examTypeName;
-  final bool isPremium;
-  final VoidCallback onTap;
+// ── Stat Card ─────────────────────────────────────────────────────────────────
+class _StatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color accent;
 
-  const _ModernTryoutCard({
-    required this.tryoutId, required this.title,
-    required this.examTypeName, required this.isPremium, required this.onTap
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.accent,
   });
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('user_tryouts')
-          .where('tryoutId', isEqualTo: tryoutId)
-          .snapshots(),
-      builder: (context, snap) {
-        final docs = snap.data?.docs ?? [];
-        final pending = docs.where((d) => (d.data() as Map)['proofStatus'] == 'pending_review').length;
-
-        return InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: pending > 0 ? const Color(0xFF6C63FF).withOpacity(0.3) : const Color(0xFFE2E8F0),
-                width: pending > 0 ? 2 : 1,
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadius.bLg,
+          border: Border.all(color: AppColors.border),
+          boxShadow: AppShadow.sm,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.softBg(accent),
+                borderRadius: AppRadius.bMd,
               ),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
-              ],
+              child: Icon(icon, color: accent, size: 22),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6C63FF).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        examTypeName.toUpperCase(),
-                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF6C63FF)),
-                      ),
-                    ),
-                    const Spacer(),
-                    if (isPremium) const Icon(Icons.stars_rounded, color: Color(0xFFFFD700), size: 20),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Spacer(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.people_alt_rounded, size: 16, color: Color(0xFF94A3B8)),
-                        const SizedBox(width: 6),
-                        Text('${docs.length} Users', style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
-                      ],
-                    ),
-                    if (pending > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: const Color(0xFFFF4B4B), borderRadius: BorderRadius.circular(20)),
-                        child: Text('$pending Pending', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
-                      ),
-                  ],
-                )
-              ],
+            AppSpacing.hmd,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: AppText.caption),
+                  const SizedBox(height: 2),
+                  Text(value, style: AppText.h1),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
 
-// ============================================================================
-// TRYOUT SUMMARY CARD (Screen 1)
-// ============================================================================
-class _TryoutSummaryCard extends StatelessWidget {
+// ── Tryout Card ───────────────────────────────────────────────────────────────
+class _TryoutCard extends StatelessWidget {
   final String tryoutId;
   final String title;
   final String examTypeName;
   final bool isPremium;
   final VoidCallback onTap;
 
-  const _TryoutSummaryCard({
+  const _TryoutCard({
     required this.tryoutId,
     required this.title,
     required this.examTypeName,
@@ -309,89 +347,159 @@ class _TryoutSummaryCard extends StatelessWidget {
           .collection('user_tryouts')
           .where('tryoutId', isEqualTo: tryoutId)
           .snapshots(),
-      builder: (_, snap) {
-        final all = snap.data?.docs ?? [];
-        final pending = all.where((d) =>
-        (d.data() as Map)['proofStatus'] == 'pending_review').length;
-        final approved = all.where((d) =>
-        (d.data() as Map)['proofStatus'] == 'approved').length;
-        final rejected = all.where((d) =>
-        (d.data() as Map)['proofStatus'] == 'rejected').length;
+      builder: (context, snap) {
+        final docs = snap.data?.docs ?? [];
+        final pending = docs
+            .where((d) => (d.data() as Map)['proofStatus'] == 'pending_review')
+            .length;
+        final hasPending = pending > 0;
 
         return Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.all(20),
+            borderRadius: AppRadius.bLg,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 16, offset: const Offset(0, 4))],
-                border: pending > 0
-                    ? Border.all(color: const Color(0xFFFF9600).withOpacity(0.4), width: 2)
-                    : Border.all(color: Colors.transparent, width: 2),
+                color: AppColors.surface,
+                borderRadius: AppRadius.bLg,
+                border: Border.all(
+                  color: hasPending
+                      ? AppColors.warning.withOpacity(0.5)
+                      : AppColors.border,
+                  width: hasPending ? 1.5 : 1,
+                ),
+                boxShadow: hasPending ? AppShadow.md : AppShadow.sm,
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Icon
-                  Container(
-                    width: 52, height: 52,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isPremium
-                            ? [const Color(0xFFFFD700), const Color(0xFFFFA500)]
-                            : [const Color(0xFF6C63FF), const Color(0xFF3B82F6)],
+                  // Top row: Category chip + Premium + Pending badge
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.softBg(AppColors.primary),
+                          borderRadius: AppRadius.bFull,
+                        ),
+                        child: Text(
+                          examTypeName.toUpperCase(),
+                          style: AppText.label.copyWith(
+                            color: AppColors.primary,
+                            fontSize: 10,
+                          ),
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(
-                        isPremium ? Icons.star_rounded : Icons.bolt_rounded,
-                        color: Colors.white, size: 28),
-                  ),
-                  const SizedBox(width: 16),
-                  // Info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (examTypeName.isNotEmpty)
-                          Text(examTypeName,
-                              style: AppTextStyles.bodySmall.copyWith(
-                                  color: const Color(0xFF6C63FF),
-                                  fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 2),
-                        Text(title,
-                            style: AppTextStyles.bodyLarge.copyWith(
-                                fontWeight: FontWeight.w800, color: const Color(0xFF1A1A2E)),
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 8),
-                        // Stats chips
-                        Wrap(spacing: 6, children: [
-                          _StatPill(label: '$pending menunggu',
-                              color: const Color(0xFFFF9600), show: pending > 0),
-                          _StatPill(label: '$approved disetujui',
-                              color: const Color(0xFF10B981), show: true),
-                          _StatPill(label: '$rejected ditolak',
-                              color: const Color(0xFFFF4B4B), show: rejected > 0),
-                        ]),
+                      if (isPremium) ...[
+                        AppSpacing.hxs,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: AppGradient.gold,
+                            borderRadius: AppRadius.bFull,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.stars_rounded,
+                                size: 10,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                'PREMIUM',
+                                style: AppText.label.copyWith(
+                                  color: AppColors.primary,
+                                  fontSize: 9,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
-                    ),
+                      const Spacer(),
+                      if (hasPending)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.softBg(AppColors.warning),
+                            borderRadius: AppRadius.bFull,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.warning,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                '$pending Pending',
+                                style: AppText.label.copyWith(
+                                  color: AppColors.warning,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  // Arrow
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6C63FF).withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.arrow_forward_ios_rounded,
-                        color: Color(0xFF6C63FF), size: 16),
+                  AppSpacing.vmd,
+                  // Title
+                  Text(
+                    title,
+                    style: AppText.h3,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Spacer(),
+                  // Footer: users count + arrow
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.people_alt_rounded,
+                            size: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                          AppSpacing.hxs,
+                          Text(
+                            '${docs.length} pengguna',
+                            style: AppText.bodySm,
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: AppRadius.bSm,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 14,
+                          color: AppColors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -403,36 +511,18 @@ class _TryoutSummaryCard extends StatelessWidget {
   }
 }
 
-class _StatPill extends StatelessWidget {
-  final String label;
-  final Color color;
-  final bool show;
-  const _StatPill({required this.label, required this.color, required this.show});
-
-  @override
-  Widget build(BuildContext context) {
-    if (!show) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Text(label,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
-    );
-  }
-}
-
 // ============================================================================
-// SCREEN 2: SUBMISSION LIST PER TRYOUT (SPLIT-SCREEN MODE)
+// SCREEN 2: SUBMISSION LIST — SPLIT PANEL
 // ============================================================================
 class SubmissionListScreen extends StatefulWidget {
   final String tryoutId;
   final String tryoutTitle;
+
   const SubmissionListScreen({
-    super.key, required this.tryoutId, required this.tryoutTitle});
+    super.key,
+    required this.tryoutId,
+    required this.tryoutTitle,
+  });
 
   @override
   State<SubmissionListScreen> createState() => _SubmissionListScreenState();
@@ -440,35 +530,35 @@ class SubmissionListScreen extends StatefulWidget {
 
 class _SubmissionListScreenState extends State<SubmissionListScreen> {
   String _filter = 'pending_review';
-  QueryDocumentSnapshot? _selectedDoc; // Dokumen yang sedang aktif di panel kanan
+  QueryDocumentSnapshot? _selectedDoc;
 
   static const _filters = [
-    {'val': 'pending_review', 'label': 'Menunggu',  'color': Color(0xFFFF9600)},
-    {'val': 'approved',       'label': 'Disetujui', 'color': Color(0xFF10B981)},
-    {'val': 'rejected',       'label': 'Ditolak',   'color': Color(0xFFFF4B4B)},
-    {'val': 'all',            'label': 'Semua',     'color': Color(0xFF6C63FF)},
+    {'val': 'pending_review', 'label': 'Menunggu', 'color': AppColors.warning},
+    {'val': 'approved', 'label': 'Disetujui', 'color': AppColors.success},
+    {'val': 'rejected', 'label': 'Ditolak', 'color': AppColors.error},
+    {'val': 'all', 'label': 'Semua', 'color': AppColors.primary},
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: // ══════════════════════════════════════════════════════
-// DI DALAM ROW PADA SubmissionListScreen
-// ══════════════════════════════════════════════════════
-      Row(
+      backgroundColor: AppColors.bg,
+      body: Row(
         children: [
-          // PANEL KIRI: LIST & FILTER
-          Expanded(
-            flex: 1, // Diatur menjadi 1
+          // ── PANEL KIRI ───────────────────────────────────────────────────
+          SizedBox(
+            width: 400,
             child: Container(
-              // Tambahkan border kanan agar pemisah terlihat jelas
               decoration: const BoxDecoration(
-                border: Border(right: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+                color: AppColors.surface,
+                border: Border(
+                  right: BorderSide(color: AppColors.border, width: 1),
+                ),
+                boxShadow: AppShadow.md,
               ),
               child: Column(
                 children: [
-                  _buildHeader(context),
+                  _buildLeftHeader(context),
                   _buildFilterPills(),
                   Expanded(child: _buildList()),
                 ],
@@ -476,83 +566,107 @@ class _SubmissionListScreenState extends State<SubmissionListScreen> {
             ),
           ),
 
-          // PANEL KANAN: REVIEW DETAIL
+          // ── PANEL KANAN ──────────────────────────────────────────────────
           Expanded(
-            flex: 1, // Diatur menjadi 1 agar sama besar (50/50)
+            child: _selectedDoc == null
+                ? _buildEmptyState()
+                : _ReviewPanel(
+                    key: ValueKey(_selectedDoc!.id),
+                    doc: _selectedDoc!,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Left Header ─────────────────────────────────────────────────────────
+  Widget _buildLeftHeader(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(gradient: AppGradient.navy),
+      padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Back button
+          InkWell(
+            onTap: () => Navigator.pop(context),
+            borderRadius: AppRadius.bSm,
             child: Container(
-              color: Colors.white,
-              // Hapus width: 480 karena sudah menggunakan Expanded
-              child: _selectedDoc == null
-                  ? _buildEmptySelection()
-                  : _ReviewPanelDetail(
-                key: ValueKey(_selectedDoc!.id),
-                doc: _selectedDoc!,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.white.withOpacity(0.08),
+                borderRadius: AppRadius.bSm,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.arrow_back_rounded,
+                    color: AppColors.white,
+                    size: 16,
+                  ),
+                  AppSpacing.hxs,
+                  Text(
+                    'Kembali',
+                    style: AppText.label.copyWith(
+                      color: AppColors.white,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF6C63FF), Color(0xFF3B82F6)]),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          AppSpacing.vmd,
+          Text(
+            'Daftar Pengajuan',
+            style: AppText.caption.copyWith(color: AppColors.gold),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Daftar Pengajuan', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
-                Text(widget.tryoutTitle,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
+          AppSpacing.vxs,
+          Text(
+            widget.tryoutTitle,
+            style: AppText.h2.copyWith(color: AppColors.white),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
 
+  // ── Filter Pills ────────────────────────────────────────────────────────
   Widget _buildFilterPills() {
     return Container(
-      height: 60,
+      height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+        color: AppColors.surfaceAlt,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
+      child: Row(
         children: _filters.map((f) {
           final isActive = _filter == f['val'];
           final color = f['color'] as Color;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Center(
-              child: ChoiceChip(
-                label: Text(f['label'] as String),
-                selected: isActive,
-                onSelected: (val) => setState(() => _filter = f['val'] as String),
-                selectedColor: color,
-                labelStyle: TextStyle(
-                    color: isActive ? Colors.white : color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _filter = f['val'] as String),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isActive ? color : Colors.transparent,
+                  borderRadius: AppRadius.bSm,
                 ),
-                backgroundColor: color.withOpacity(0.05),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                side: BorderSide(color: isActive ? color : color.withOpacity(0.2)),
+                child: Text(
+                  f['label'] as String,
+                  textAlign: TextAlign.center,
+                  style: AppText.label.copyWith(
+                    color: isActive ? AppColors.white : AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
               ),
             ),
           );
@@ -561,6 +675,7 @@ class _SubmissionListScreenState extends State<SubmissionListScreen> {
     );
   }
 
+  // ── List ─────────────────────────────────────────────────────────────────
   Widget _buildList() {
     var q = FirebaseFirestore.instance
         .collection('user_tryouts')
@@ -570,20 +685,31 @@ class _SubmissionListScreenState extends State<SubmissionListScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: q.orderBy('submittedAt', descending: true).snapshots(),
       builder: (_, snap) {
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snap.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
         final docs = snap.data!.docs;
-        if (docs.isEmpty) return const Center(child: Text("Tidak ada data"));
-
+        if (docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.inbox_rounded, size: 48, color: AppColors.textHint),
+                AppSpacing.vsm,
+                Text('Tidak ada data', style: AppText.bodySm),
+              ],
+            ),
+          );
+        }
         return ListView.separated(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          separatorBuilder: (_, __) => AppSpacing.vsm,
           itemBuilder: (_, i) {
             final doc = docs[i];
-            final isSelected = _selectedDoc?.id == doc.id;
-            return _SimpleUserCard(
+            return _UserCard(
               doc: doc,
-              isSelected: isSelected,
+              isSelected: _selectedDoc?.id == doc.id,
               onTap: () => setState(() => _selectedDoc = doc),
             );
           },
@@ -592,79 +718,36 @@ class _SubmissionListScreenState extends State<SubmissionListScreen> {
     );
   }
 
-  Widget _buildEmptySelection() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.touch_app_rounded, size: 64, color: Colors.blueGrey[50]),
-        const SizedBox(height: 16),
-        const Text("Pilih pengajuan di sisi kiri\nuntuk melihat bukti detail",
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
-        ),
-      ],
-    );
-  }
-}
-
-// ============================================================================
-// WIDGET: SIMPLE USER CARD (KIRI)
-// ============================================================================
-class _SimpleUserCard extends StatelessWidget {
-  final QueryDocumentSnapshot doc;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _SimpleUserCard({required this.doc, required this.isSelected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final data = doc.data() as Map<String, dynamic>;
-    final status = data['proofStatus'] ?? 'pending_review';
-
-    Color statusColor = const Color(0xFFFF9600);
-    if (status == 'approved') statusColor = const Color(0xFF10B981);
-    if (status == 'rejected') statusColor = const Color(0xFFFF4B4B);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF6C63FF) : const Color(0xFFE2E8F0),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF6C63FF).withOpacity(0.1), blurRadius: 10)] : null,
-        ),
-        child: Row(
+  // ── Empty State ──────────────────────────────────────────────────────────
+  Widget _buildEmptyState() {
+    return Container(
+      color: AppColors.bg,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-              backgroundColor: isSelected ? const Color(0xFF6C63FF) : Colors.grey[100],
-              child: Icon(Icons.person_rounded, color: isSelected ? Colors.white : Colors.grey),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(data['userId'] ?? '-',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 4),
-                  Text(
-                    DateFormat('dd MMM yyyy · HH:mm').format((data['submittedAt'] as Timestamp).toDate()),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                  ),
-                ],
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+                boxShadow: AppShadow.md,
+              ),
+              child: Icon(
+                Icons.touch_app_rounded,
+                size: 48,
+                color: AppColors.textHint,
               ),
             ),
-            Container(
-              width: 10, height: 10,
-              decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+            AppSpacing.vlg,
+            Text(
+              'Pilih Pengajuan',
+              style: AppText.h3.copyWith(color: AppColors.textSecondary),
+            ),
+            AppSpacing.vsm,
+            Text(
+              'Pilih item di sisi kiri untuk mereview bukti.',
+              style: AppText.bodySm,
             ),
           ],
         ),
@@ -674,17 +757,133 @@ class _SimpleUserCard extends StatelessWidget {
 }
 
 // ============================================================================
-// WIDGET: REVIEW PANEL DETAIL (KANAN - FIXED)
+// WIDGET: USER CARD (Panel Kiri)
 // ============================================================================
-class _ReviewPanelDetail extends StatefulWidget {
+class _UserCard extends StatelessWidget {
   final QueryDocumentSnapshot doc;
-  const _ReviewPanelDetail({required this.doc, super.key});
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _UserCard({
+    required this.doc,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
-  State<_ReviewPanelDetail> createState() => _ReviewPanelDetailState();
+  Widget build(BuildContext context) {
+    final data = doc.data() as Map<String, dynamic>;
+    final status = data['proofStatus'] ?? 'pending_review';
+
+    final Color statusColor = switch (status) {
+      'approved' => AppColors.success,
+      'rejected' => AppColors.error,
+      _ => AppColors.warning,
+    };
+
+    final String statusLabel = switch (status) {
+      'approved' => 'Disetujui',
+      'rejected' => 'Ditolak',
+      _ => 'Menunggu',
+    };
+
+    final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.bMd,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppColors.softBg(AppColors.primary)
+                : AppColors.surface,
+            borderRadius: AppRadius.bMd,
+            border: Border.all(
+              color: isSelected ? AppColors.primary : AppColors.border,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Avatar
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.primary : AppColors.surfaceAlt,
+                  borderRadius: AppRadius.bMd,
+                ),
+                child: Icon(
+                  Icons.person_rounded,
+                  color: isSelected ? AppColors.white : AppColors.textSecondary,
+                  size: 20,
+                ),
+              ),
+              AppSpacing.hmd,
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data['userId'] ?? '-',
+                      style: AppText.bodyLg.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    AppSpacing.vxs,
+                    if (submittedAt != null)
+                      Text(
+                        DateFormat('dd MMM yyyy · HH:mm').format(submittedAt),
+                        style: AppText.caption,
+                      ),
+                  ],
+                ),
+              ),
+              AppSpacing.hsm,
+              // Status chip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.softBg(statusColor),
+                  borderRadius: AppRadius.bFull,
+                ),
+                child: Text(
+                  statusLabel,
+                  style: AppText.label.copyWith(
+                    color: statusColor,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _ReviewPanelDetailState extends State<_ReviewPanelDetail> {
+// ============================================================================
+// WIDGET: REVIEW PANEL (Panel Kanan)
+// ============================================================================
+class _ReviewPanel extends StatefulWidget {
+  final QueryDocumentSnapshot doc;
+
+  const _ReviewPanel({required this.doc, super.key});
+
+  @override
+  State<_ReviewPanel> createState() => _ReviewPanelState();
+}
+
+class _ReviewPanelState extends State<_ReviewPanel> {
   bool _isProcessing = false;
 
   Map<String, dynamic> get data => widget.doc.data() as Map<String, dynamic>;
@@ -693,11 +892,32 @@ class _ReviewPanelDetailState extends State<_ReviewPanelDetail> {
   Future<void> _updateStatus(String newStatus) async {
     setState(() => _isProcessing = true);
     try {
-      await FirebaseFirestore.instance.collection('user_tryouts').doc(widget.doc.id).update({
-        'proofStatus': newStatus,
-        'isActive': newStatus == 'approved',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      await FirebaseFirestore.instance
+          .collection('user_tryouts')
+          .doc(widget.doc.id)
+          .update({
+            'proofStatus': newStatus,
+            'isActive': newStatus == 'approved',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              newStatus == 'approved'
+                  ? '✓ Pengajuan berhasil disetujui'
+                  : '✗ Pengajuan ditolak',
+            ),
+            backgroundColor: newStatus == 'approved'
+                ? AppColors.success
+                : AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.bSm),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -707,134 +927,349 @@ class _ReviewPanelDetailState extends State<_ReviewPanelDetail> {
   Widget build(BuildContext context) {
     final status = data['proofStatus'] ?? 'pending_review';
     final isApproved = status == 'approved';
+    final isPending = status == 'pending_review';
+    final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
 
-    return Column(
-      children: [
-        // Header Panel
-        Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Review Pengajuan", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-              Text("User ID: ${data['userId']}", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-            ],
-          ),
-        ),
+    final Color statusColor = switch (status) {
+      'approved' => AppColors.success,
+      'rejected' => AppColors.error,
+      _ => AppColors.warning,
+    };
 
-        // Scrollable Images
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            children: [
-              _buildProofItem("BUKTI FOLLOW", proofs['followProof'], const Color(0xFFE4405F)),
-              _buildProofItem("BUKTI STORY", proofs['storyProof'], const Color(0xFFAC45E6)),
-              _buildProofItem("BUKTI TAG", proofs['tagProof'], const Color(0xFF3B82F6)),
-            ],
-          ),
-        ),
-
-        // Bottom Actions
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey[100]!)),
-          ),
-          child: Column(
-            children: [
-              if (_isProcessing)
-                const LinearProgressIndicator()
-              else if (status == 'pending_review') ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: _actionBtn("Tolak", const Color(0xFFFF4B4B), () => _updateStatus('rejected'), true),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _actionBtn("Setujui", const Color(0xFF10B981), () => _updateStatus('approved'), false),
-                    ),
-                  ],
+    return Container(
+      color: AppColors.bg,
+      child: Column(
+        children: [
+          // ── Top Toolbar ───────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(bottom: BorderSide(color: AppColors.border)),
+            ),
+            child: Row(
+              children: [
+                // User info
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceAlt,
+                    borderRadius: AppRadius.bMd,
+                  ),
+                  child: const Icon(
+                    Icons.person_rounded,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-              ] else ...[
-                _actionBtn(
-                    isApproved ? "Cabut Akses (Reject)" : "Aktifkan Kembali",
-                    isApproved ? const Color(0xFFFF4B4B) : const Color(0xFF10B981),
-                        () => _updateStatus(isApproved ? 'rejected' : 'approved'),
-                    true
+                AppSpacing.hmd,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(data['userId'] ?? '-', style: AppText.h3),
+                      if (submittedAt != null) ...[
+                        AppSpacing.vxs,
+                        Text(
+                          'Diajukan: ${DateFormat('dd MMM yyyy, HH:mm').format(submittedAt)}',
+                          style: AppText.caption,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                // Status Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.softBg(statusColor),
+                    borderRadius: AppRadius.bFull,
+                    border: Border.all(color: statusColor.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      AppSpacing.hxs,
+                      Text(switch (status) {
+                        'approved' => 'Disetujui',
+                        'rejected' => 'Ditolak',
+                        _ => 'Menunggu Review',
+                      }, style: AppText.label.copyWith(color: statusColor)),
+                    ],
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
-      ],
-    );
-  }
 
-  Widget _buildProofItem(String label, String? url, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          // Anda bisa menaikkan height menjadi 400-500 jika ingin gambar sangat besar
-          height: 450,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: url == null || url.isEmpty
-              ? const Center(child: Text("Gambar tidak tersedia"))
-              : ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: InteractiveViewer(
-              // User bisa zoom in/out di area yang luas ini
-              minScale: 1.0,
-              maxScale: 4.0,
-              child: Image.network(
-                url,
-                fit: BoxFit.contain, // Contain agar gambar asli terlihat utuh tanpa terpotong
-                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey),
+          // ── Proof Images ─────────────────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Bukti Promosi', style: AppText.h2),
+                  AppSpacing.vsm,
+                  Text(
+                    'Periksa setiap bukti sebelum memberikan keputusan.',
+                    style: AppText.bodySm,
+                  ),
+                  AppSpacing.vlg,
+                  _ProofRow(
+                    label: 'Bukti Follow',
+                    icon: Icons.person_add_rounded,
+                    url: proofs['followProof'],
+                    color: const Color(0xFFE4405F),
+                  ),
+                  AppSpacing.vlg,
+                  _ProofRow(
+                    label: 'Bukti Story',
+                    icon: Icons.slideshow_rounded,
+                    url: proofs['storyProof'],
+                    color: const Color(0xFFAC45E6),
+                  ),
+                  AppSpacing.vlg,
+                  _ProofRow(
+                    label: 'Bukti Tag',
+                    icon: Icons.label_rounded,
+                    url: proofs['tagProof'],
+                    color: AppColors.info,
+                  ),
+                ],
               ),
             ),
           ),
+
+          // ── Action Bar ───────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(top: BorderSide(color: AppColors.border)),
+              boxShadow: AppShadow.md,
+            ),
+            child: Column(
+              children: [
+                if (_isProcessing)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: LinearProgressIndicator(color: AppColors.primary),
+                  ),
+                if (isPending)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ActionButton(
+                          label: 'Tolak',
+                          icon: Icons.close_rounded,
+                          color: AppColors.error,
+                          isOutlined: true,
+                          onPressed: () => _updateStatus('rejected'),
+                        ),
+                      ),
+                      AppSpacing.hmd,
+                      Expanded(
+                        child: _ActionButton(
+                          label: 'Setujui',
+                          icon: Icons.check_rounded,
+                          color: AppColors.success,
+                          isOutlined: false,
+                          onPressed: () => _updateStatus('approved'),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  _ActionButton(
+                    label: isApproved ? 'Cabut Akses' : 'Aktifkan Kembali',
+                    icon: isApproved
+                        ? Icons.block_rounded
+                        : Icons.refresh_rounded,
+                    color: isApproved ? AppColors.error : AppColors.success,
+                    isOutlined: isApproved,
+                    onPressed: () =>
+                        _updateStatus(isApproved ? 'rejected' : 'approved'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Proof Row ─────────────────────────────────────────────────────────────────
+class _ProofRow extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final String? url;
+  final Color color;
+
+  const _ProofRow({
+    required this.label,
+    required this.icon,
+    required this.url,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label row
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.softBg(color),
+                borderRadius: AppRadius.bSm,
+              ),
+              child: Icon(icon, color: color, size: 14),
+            ),
+            AppSpacing.hsm,
+            Text(
+              label,
+              style: AppText.label.copyWith(color: AppColors.textPrimary),
+            ),
+          ],
         ),
-        const SizedBox(height: 32),
+        AppSpacing.vsm,
+        // Image Container
+        Container(
+          height: 420,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceAlt,
+            borderRadius: AppRadius.bLg,
+            border: Border.all(color: AppColors.border),
+          ),
+          child: url == null || url!.isEmpty
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.image_not_supported_rounded,
+                      size: 40,
+                      color: AppColors.textHint,
+                    ),
+                    AppSpacing.vsm,
+                    Text('Gambar tidak tersedia', style: AppText.bodySm),
+                  ],
+                )
+              : ClipRRect(
+                  borderRadius: AppRadius.bLg,
+                  child: InteractiveViewer(
+                    minScale: 1.0,
+                    maxScale: 5.0,
+                    child: Image.network(
+                      url!,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (_, child, progress) {
+                        if (progress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: progress.expectedTotalBytes != null
+                                ? progress.cumulativeBytesLoaded /
+                                      progress.expectedTotalBytes!
+                                : null,
+                            color: AppColors.primary,
+                          ),
+                        );
+                      },
+                      errorBuilder: (_, __, ___) => Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.broken_image_rounded,
+                            size: 40,
+                            color: AppColors.textHint,
+                          ),
+                          AppSpacing.vsm,
+                          Text('Gagal memuat gambar', style: AppText.bodySm),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+        ),
       ],
     );
   }
+}
 
-  Widget _actionBtn(String label, Color color, VoidCallback onPressed, bool isOutlined) {
+// ── Action Button ─────────────────────────────────────────────────────────────
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool isOutlined;
+  final VoidCallback onPressed;
+
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.isOutlined,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 18, color: isOutlined ? color : AppColors.white),
+        AppSpacing.hsm,
+        Text(
+          label,
+          style: AppText.btnMd.copyWith(
+            color: isOutlined ? color : AppColors.white,
+          ),
+        ),
+      ],
+    );
+
+    if (isOutlined) {
+      return SizedBox(
+        height: 50,
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: color, width: 1.5),
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+          ),
+          child: content,
+        ),
+      );
+    }
+
     return SizedBox(
       height: 50,
       width: double.infinity,
-      child: isOutlined
-          ? OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: color, width: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-      )
-          : ElevatedButton(
+      child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
+          foregroundColor: AppColors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
         ),
-        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        child: content,
       ),
     );
   }

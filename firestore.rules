@@ -19,7 +19,9 @@ service cloud.firestore {
 
     // ── Users ───────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read: if isLoggedIn() && (isOwner(userId) || isAdmin());
+      // isOwner tidak perlu panggil isAdmin(), aman dari infinite loop
+      allow get: if isLoggedIn() && isOwner(userId);
+      allow list: if isAdmin();
       allow create: if isLoggedIn() && isOwner(userId);
       allow update: if isLoggedIn() && (isOwner(userId) || isAdmin());
       allow delete: if isAdmin();

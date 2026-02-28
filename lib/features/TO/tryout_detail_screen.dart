@@ -1,157 +1,125 @@
 // lib/features/tryout/screens/tryout_detail_screen.dart
-
 // ignore_for_file: deprecated_member_use
 
 import 'dart:async';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:lulusasn/core/constants/spacing.dart';
-import 'package:lulusasn/core/constants/text_styles.dart';
-import 'package:lulusasn/core/widgets/brutalist_button.dart';
-import 'package:lulusasn/features/TO/ExamScreen.dart';
-import 'package:lulusasn/features/TO/exam_review_screen.dart';
+import 'package:intl/intl.dart';
+import '../../app/theme.dart';
+import 'ExamScreen.dart';
+import 'exam_review_screen.dart';
 
-/// Tryout Detail Screen - Duolingo Style
-///
-/// Features:
-/// - Detail tryout info (title, description, stats)
-/// - List of subtests dengan status progress
-/// - Purchase/Start CTA
-/// - Responsive layout
-/// - Clean Duolingo design
+// ─── FIRESTORE STRATEGY ───────────────────────────────────────────────────────
+// READ:
+//   1. tryouts/{id}          → 1 read (full doc, embedded subtests)
+//   2. user_tryouts/{uid_id} → 1 stream (real-time progress, no polling)
+// WRITE:
+//   - Init user_tryouts → 1 write (set, hanya jika belum ada)
+//   - Progress update   → di ExamSessionScreen (update only)
+// TOTAL: 1 read + 1 stream listener. Tidak ada write berulang.
+// ─────────────────────────────────────────────────────────────────────────────
+
 class TryoutDetailScreen extends StatefulWidget {
   final String tryoutId;
-
   const TryoutDetailScreen({super.key, required this.tryoutId});
 
   @override
   State<TryoutDetailScreen> createState() => _TryoutDetailScreenState();
 }
 
-class _TryoutDetailScreenState extends State<TryoutDetailScreen> {
+class _TryoutDetailScreenState extends State<TryoutDetailScreen>
+    with SingleTickerProviderStateMixin {
+
+  // ── State ──────────────────────────────────────────────────────────────────
   bool _isLoading = true;
-  Map<String, dynamic>? _tryoutData;
-  Map<String, dynamic>? _userProgress;
-  String? _error;
   bool _isReloading = false;
+  String? _error;
+  Map<String, dynamic>? _tryout;
+  Map<String, dynamic>? _progress;
 
-  StreamSubscription<DocumentSnapshot>? _progressSubscription; // ← TAMBAH INI
+  StreamSubscription<DocumentSnapshot>? _progressSub;
+  late AnimationController _headerAnim;
+  late Animation<double> _headerFade;
 
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _loadData();
-    _listenToProgress(); // ← TAMBAH INI
+    _headerAnim = AnimationController(
+        duration: const Duration(milliseconds: 500), vsync: this);
+    _headerFade =
+        CurvedAnimation(parent: _headerAnim, curve: Curves.easeOut);
+    _loadTryout();
   }
 
   @override
   void dispose() {
-    _progressSubscription?.cancel(); // ← TAMBAH INI
+    _progressSub?.cancel();
+    _headerAnim.dispose();
     super.dispose();
   }
 
-  void _listenToProgress() {
-    try {
-      final String currentUserId = getCurrentUserIdSafe();
-
-      final userTryoutRef = FirebaseFirestore.instance
-          .collection('user_tryouts')
-          .doc('${currentUserId}_tryout_${widget.tryoutId}');
-
-      // ✅ REAL-TIME LISTENER
-      _progressSubscription = userTryoutRef.snapshots().listen((snapshot) {
-        if (snapshot.exists && mounted) {
-          setState(() {
-            _userProgress = snapshot.data();
-          });
-        }
-      });
-    } catch (e) {
-      debugPrint('Error listening to progress: $e');
+  // ── Data Loading ───────────────────────────────────────────────────────────
+  Future<void> _loadTryout({bool reload = false}) async {
+    if (reload) {
+      setState(() => _isReloading = true);
+    } else {
+      setState(() { _isLoading = true; _error = null; });
     }
-  }
-
-  String getCurrentUserIdSafe() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      return user.uid;
-    }
-    throw Exception('User not logged in');
-  }
-
-  Future<void> _loadData({bool isReload = false}) async {
-    setState(() {
-      if (isReload) {
-        _isReloading = true;
-      } else {
-        _isLoading = true;
-      }
-      _error = null;
-    });
 
     try {
-      final String currentUserId = getCurrentUserIdSafe();
-
-      // ✅ Load tryout data
-      final tryoutDoc = await FirebaseFirestore.instance
+      // 1. Fetch tryout (1 read)
+      final snap = await FirebaseFirestore.instance
           .collection('tryouts')
           .doc(widget.tryoutId)
           .get();
 
-      if (!tryoutDoc.exists) {
-        throw Exception('Try out tidak ditemukan');
-      }
+      if (!snap.exists) throw Exception('Tryout tidak ditemukan');
+      _tryout = snap.data()!;
 
-      final tryoutData = tryoutDoc.data()!;
-
-      // ✅ Load user progress
-      final userTryoutRef = FirebaseFirestore.instance
+      // 2. Ensure user_tryouts dokumen ada (1 conditional write)
+      final progressRef = FirebaseFirestore.instance
           .collection('user_tryouts')
-          .doc('${currentUserId}_tryout_${widget.tryoutId}');
+          .doc('${_uid}_tryout_${widget.tryoutId}');
 
-      final userTryoutDoc = await userTryoutRef.get();
-
-      // ✅ HANYA CREATE jika belum ada, JANGAN overwrite kalau sudah ada
-      if (!userTryoutDoc.exists) {
-        final subtests = tryoutData['subtests'] as List<dynamic>? ?? [];
-        final Map<String, dynamic> subtestProgress = {};
-
-        for (var subtest in subtests) {
-          final subtestId = subtest['id'] ?? subtest['name'];
-          subtestProgress[subtestId] = {
+      final progressSnap = await progressRef.get();
+      if (!progressSnap.exists) {
+        final subtests = _tryout!['subtests'] as List<dynamic>? ?? [];
+        final initProgress = <String, dynamic>{};
+        for (final s in subtests) {
+          final sid = (s as Map<String, dynamic>)['id'] ?? s['name'];
+          initProgress[sid] = {
             'status': 'not_started',
             'attempts': 0,
             'bestScore': null,
             'lastAttemptAt': null,
           };
         }
-
-        // ✅ CREATE document baru (hanya sekali)
-        await userTryoutRef.set({
-          'userId': currentUserId,
+        await progressRef.set({
+          'userId': _uid,
           'tryoutId': widget.tryoutId,
-          'status': 'not_started',
+          'subtestProgress': initProgress,
           'totalAttempts': 0,
-          'bestScore': null,
-          'lastAttemptAt': null,
-          'subtestProgress': subtestProgress,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
 
-      // ✅ READ ulang setelah ensure dokumen ada
-      final finalUserTryoutDoc = await userTryoutRef.get();
-
-      setState(() {
-        _tryoutData = tryoutData;
-        _userProgress = finalUserTryoutDoc.data();
-        _isLoading = false;
-        _isReloading = false;
+      // 3. Real-time listener untuk progress (stream, bukan polling)
+      _progressSub?.cancel();
+      _progressSub = progressRef.snapshots().listen((s) {
+        if (s.exists && mounted) {
+          setState(() => _progress = s.data());
+        }
       });
+
+      _headerAnim.forward();
+      setState(() { _isLoading = false; _isReloading = false; });
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -161,115 +129,81 @@ class _TryoutDetailScreenState extends State<TryoutDetailScreen> {
     }
   }
 
-  void _handleStartSubtest(Map<String, dynamic> subtest) {
+  // ── Navigation ─────────────────────────────────────────────────────────────
+  void _startSubtest(Map<String, dynamic> subtest) {
     HapticFeedback.mediumImpact();
-
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ExamSessionScreen(
+        builder: (_) => ExamSessionScreen(
           tryoutId: widget.tryoutId,
           subtestId: subtest['id'] ?? subtest['name'],
           subtestData: subtest,
         ),
       ),
-    ).then((_) {
-      // ✅ RELOAD dengan isReload: true untuk mini loading
-      _loadData(isReload: true);
-    });
+    ).then((_) => _loadTryout(reload: true));
   }
 
-  void _handleReviewSubtest(Map<String, dynamic> subtest) async {
+  Future<void> _reviewSubtest(Map<String, dynamic> subtest) async {
     HapticFeedback.mediumImpact();
-
     try {
-      final String currentUserId = getCurrentUserIdSafe();
-      final subtestId = subtest['id'] ?? subtest['name'];
-
-      // Get latest result for this subtest
+      final sid = subtest['id'] ?? subtest['name'];
       final results = await FirebaseFirestore.instance
           .collection('exam_results')
-          .where('userId', isEqualTo: currentUserId)
+          .where('userId', isEqualTo: _uid)
           .where('tryoutId', isEqualTo: widget.tryoutId)
-          .where('subtestId', isEqualTo: subtestId)
+          .where('subtestId', isEqualTo: sid)
           .orderBy('completedAt', descending: true)
           .limit(1)
           .get();
 
-      if (results.docs.isEmpty) {
-        throw Exception('Belum ada hasil ujian untuk subtest ini');
-      }
+      if (results.docs.isEmpty) throw Exception('Belum ada hasil ujian');
+      if (!mounted) return;
 
-      final resultId = results.docs.first.id;
-
-      // Navigate to review screen
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => ExamReviewScreen(resultId: resultId),
+          builder: (_) => ExamReviewScreen(resultId: results.docs.first.id),
         ),
       );
     } catch (e) {
-      print(e);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline_rounded, color: Colors.white),
-              SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  'Error: ${e.toString().replaceAll('Exception: ', '')}',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFFFF4B4B),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: EdgeInsets.all(AppSpacing.md),
-        ),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceAll('Exception: ', ''),
+            style: AppText.body.copyWith(color: AppColors.white)),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+        margin: const EdgeInsets.all(16),
+      ));
     }
   }
 
+  // ============================================================================
+  // BUILD
+  // ============================================================================
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF7F7F7),
-        body: const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(Color(0xFF58CC02)),
-          ),
-        ),
-      );
-    }
-
-    if (_error != null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF7F7F7),
-        body: _buildErrorView(),
-      );
-    }
+    if (_isLoading) return _buildLoadingScaffold();
+    if (_error != null) return _buildErrorScaffold();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: AppColors.bg,
       body: Stack(
         children: [
-          _buildResponsiveLayout(),
-
-          // ✅ MINI LOADING INDICATOR untuk reload
+          LayoutBuilder(builder: (ctx, box) {
+            return box.maxWidth > 1024
+                ? _buildDesktop()
+                : _buildMobile();
+          }),
+          // Reload indicator strip
           if (_isReloading)
             Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
+              top: 0, left: 0, right: 0,
               child: LinearProgressIndicator(
-                backgroundColor: const Color(0xFFE5E5E5),
-                valueColor: AlwaysStoppedAnimation(Color(0xFF58CC02)),
+                backgroundColor: AppColors.border,
+                color: AppColors.gold,
+                minHeight: 3,
               ),
             ),
         ],
@@ -277,79 +211,36 @@ class _TryoutDetailScreenState extends State<TryoutDetailScreen> {
     );
   }
 
-  Widget _buildResponsiveLayout() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth > 1024;
-
-        if (isDesktop) {
-          return _buildDesktopLayout();
-        } else {
-          return _buildMobileLayout();
-        }
-      },
-    );
-  }
-
-  // ==========================================================================
-  // MOBILE/TABLET LAYOUT
-  // ==========================================================================
-  Widget _buildMobileLayout() {
-    return RefreshIndicator(
-      onRefresh: () => _loadData(isReload: true),
-      color: const Color(0xFF58CC02),
-      child: CustomScrollView(
-        slivers: [
-          _buildAppBar(),
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                _buildHeaderSection(),
-                _buildStatsSection(),
-                _buildDescriptionSection(),
-                _buildSubtestsSection(),
-                SizedBox(height: AppSpacing.xxl),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==========================================================================
+  // ============================================================================
   // DESKTOP LAYOUT
-  // ==========================================================================
-  Widget _buildDesktopLayout() {
+  // ============================================================================
+  Widget _buildDesktop() {
     return CustomScrollView(
       slivers: [
-        _buildAppBar(),
+        _buildSliverAppBar(),
         SliverToBoxAdapter(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
+              constraints: const BoxConstraints(maxWidth: 1100),
               child: Padding(
-                padding: EdgeInsets.all(AppSpacing.xl * 2),
+                padding: const EdgeInsets.fromLTRB(32, 0, 32, 48),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Left Column - Info
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        children: [
-                          _buildHeaderSection(),
-                          _buildDescriptionSection(),
-                          _buildStatsSection(),
-                        ],
-                      ),
+                    // Left
+                    SizedBox(
+                      width: 340,
+                      child: Column(children: [
+                        _buildInfoCard(),
+                        AppSpacing.vmd,
+                        _buildStatsCard(),
+                        AppSpacing.vmd,
+                        _buildDescCard(),
+                      ]),
                     ),
-                    SizedBox(width: AppSpacing.xl),
-                    // Right Column - Subtests
-                    Expanded(
-                      flex: 3,
-                      child: Column(children: [_buildSubtestsSection()]),
-                    ),
+                    AppSpacing.hlg,
+                    // Right — subtests
+                    Expanded(child: _buildSubtestsCard()),
                   ],
                 ),
               ),
@@ -360,427 +251,327 @@ class _TryoutDetailScreenState extends State<TryoutDetailScreen> {
     );
   }
 
-  // ==========================================================================
-  // APP BAR
-  // ==========================================================================
-  Widget _buildAppBar() {
+  // ============================================================================
+  // MOBILE LAYOUT
+  // ============================================================================
+  Widget _buildMobile() {
+    return RefreshIndicator(
+      onRefresh: () => _loadTryout(reload: true),
+      color: AppColors.gold,
+      backgroundColor: AppColors.surface,
+      child: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 48),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _buildInfoCard(),
+                AppSpacing.vmd,
+                _buildStatsCard(),
+                AppSpacing.vmd,
+                _buildDescCard(),
+                AppSpacing.vmd,
+                _buildSubtestsCard(),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================================
+  // SLIVER APP BAR
+  // ============================================================================
+  Widget _buildSliverAppBar() {
+    final title = _tryout?['title'] ?? '';
+    final examType = _tryout?['examTypeName'] ?? '';
+
     return SliverAppBar(
-      expandedHeight: 0,
-      floating: true,
+      expandedHeight: 200,
       pinned: true,
-      backgroundColor: const Color(0xFF58CC02),
-      elevation: 0,
+      stretch: true,
+      backgroundColor: AppColors.primary,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+        icon: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppColors.white.withOpacity(0.15),
+            borderRadius: AppRadius.bSm,
+          ),
+          child: const Icon(Icons.arrow_back_rounded,
+              color: AppColors.white, size: 18),
+        ),
         onPressed: () => Navigator.pop(context),
       ),
-      title: Text(
-        'Detail Try Out',
-        style: AppTextStyles.headingMedium.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-
-  // ==========================================================================
-  // HEADER SECTION
-  // ==========================================================================
-  Widget _buildHeaderSection() {
-    final title = _tryoutData?['title'] ?? 'Untitled';
-    final examTypeName = _tryoutData?['examTypeName'] ?? 'Ujian';
-    final isPremium = _tryoutData?['isPremium'] ?? false;
-
-    return Container(
-      margin: EdgeInsets.all(AppSpacing.lg),
-      padding: EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isPremium
-              ? [const Color(0xFFFFD700), const Color(0xFFFFA500)]
-              : [const Color(0xFF58CC02), const Color(0xFF4CAF50)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isPremium ? const Color(0xFFFFA500) : const Color(0xFF46A302),
-          width: 3,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color:
-                (isPremium ? const Color(0xFFFFA500) : const Color(0xFF46A302))
-                    .withOpacity(0.3),
-            offset: const Offset(0, 6),
-            blurRadius: 0,
-          ),
+      flexibleSpace: FlexibleSpaceBar(
+        stretchModes: const [
+          StretchMode.zoomBackground,
+          StretchMode.fadeTitle,
         ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Badges Row
-          Row(
+        titlePadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        title: FadeTransition(
+          opacity: _headerFade,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isPremium
-                        ? const Color(0xFFFFD700)
-                        : const Color(0xFF58CC02),
-                    width: 2,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.school_rounded,
-                      size: 18,
-                      color: isPremium
-                          ? const Color(0xFFFFD700)
-                          : const Color(0xFF58CC02),
-                    ),
-                    SizedBox(width: AppSpacing.xs),
-                    Text(
-                      examTypeName,
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: isPremium
-                            ? const Color(0xFFFFD700)
-                            : const Color(0xFF58CC02),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: AppSpacing.sm),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isPremium
-                        ? const Color(0xFFFFD700)
-                        : const Color(0xFF58CC02),
-                    width: 2,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isPremium ? Icons.star_rounded : Icons.check_circle,
-                      size: 18,
-                      color: isPremium
-                          ? const Color(0xFFFFD700)
-                          : const Color(0xFF58CC02),
-                    ),
-                    SizedBox(width: AppSpacing.xs),
-                    Text(
-                      isPremium ? 'Premium' : 'Gratis',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: isPremium
-                            ? const Color(0xFFFFD700)
-                            : const Color(0xFF58CC02),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppSpacing.lg),
-          // Title
-          Text(
-            title,
-            style: AppTextStyles.headingLarge.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 28,
-              height: 1.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==========================================================================
-  // STATS SECTION
-  // ==========================================================================
-  Widget _buildStatsSection() {
-    final totalQuestions = _tryoutData?['totalQuestions'] ?? 0;
-    final totalMinutes = _tryoutData?['totalEstimatedMinutes'] ?? 0;
-    final subTestCount = _tryoutData?['subTestCount'] ?? 0;
-    final totalAttempts = _tryoutData?['totalAttempts'] ?? 0;
-    final averageScore = _tryoutData?['averageScore'] ?? 0.0;
-
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      padding: EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E5E5), width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            offset: const Offset(0, 4),
-            blurRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1CB0F6).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.analytics_rounded,
-                  color: Color(0xFF1CB0F6),
-                  size: 24,
-                ),
-              ),
-              SizedBox(width: AppSpacing.md),
-              Text(
-                'Statistik Try Out',
-                style: AppTextStyles.headingSmall.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppSpacing.lg),
-          // Stats Grid
-          Wrap(
-            spacing: AppSpacing.md,
-            runSpacing: AppSpacing.md,
-            children: [
-              _buildStatCard(
-                icon: Icons.quiz_rounded,
-                label: 'Total Soal',
-                value: '$totalQuestions',
-                color: const Color(0xFF1CB0F6),
-              ),
-              _buildStatCard(
-                icon: Icons.timer_rounded,
-                label: 'Durasi',
-                value: '$totalMinutes mnt',
-                color: const Color(0xFFFF9600),
-              ),
-              _buildStatCard(
-                icon: Icons.layers_rounded,
-                label: 'Subtes',
-                value: '$subTestCount',
-                color: const Color(0xFF58CC02),
-              ),
-              if (totalAttempts > 0)
-                _buildStatCard(
-                  icon: Icons.people_rounded,
-                  label: 'Peserta',
-                  value: '$totalAttempts',
-                  color: const Color(0xFF9333EA),
-                ),
-              if (averageScore > 0)
-                _buildStatCard(
-                  icon: Icons.star_rounded,
-                  label: 'Rata-rata',
-                  value: averageScore.toStringAsFixed(1),
-                  color: const Color(0xFFFFD700),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3), width: 2),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28),
-          SizedBox(height: AppSpacing.xs),
-          Text(
-            value,
-            style: AppTextStyles.headingMedium.copyWith(
-              color: color,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          Text(
-            label,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: const Color(0xFF777777),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==========================================================================
-  // DESCRIPTION SECTION
-  // ==========================================================================
-  Widget _buildDescriptionSection() {
-    final description = _tryoutData?['description'] ?? '';
-
-    if (description.isEmpty) return const SizedBox();
-
-    return Container(
-      margin: EdgeInsets.all(AppSpacing.lg),
-      padding: EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E5E5), width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            offset: const Offset(0, 4),
-            blurRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF58CC02).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.description_rounded,
-                  color: Color(0xFF58CC02),
-                  size: 24,
-                ),
-              ),
-              SizedBox(width: AppSpacing.md),
-              Text(
-                'Deskripsi',
-                style: AppTextStyles.headingSmall.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppSpacing.md),
-          Text(
-            description,
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: const Color(0xFF4B4B4B),
-              height: 1.6,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==========================================================================
-  // SUBTESTS SECTION
-  // ==========================================================================
-  Widget _buildSubtestsSection() {
-    final subtests = _tryoutData?['subtests'] as List<dynamic>? ?? [];
-
-    if (subtests.isEmpty) {
-      return const SizedBox();
-    }
-
-    return Container(
-      margin: EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E5E5), width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            offset: const Offset(0, 4),
-            blurRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: EdgeInsets.all(AppSpacing.lg),
-            child: Row(
-              children: [
+              if (examType.isNotEmpty)
                 Container(
-                  padding: EdgeInsets.all(AppSpacing.sm),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF9600).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    gradient: AppGradient.gold,
+                    borderRadius: AppRadius.bFull,
                   ),
-                  child: const Icon(
-                    Icons.list_alt_rounded,
-                    color: Color(0xFFFF9600),
-                    size: 24,
-                  ),
+                  child: Text(examType,
+                      style: AppText.caption.copyWith(
+                          color: AppColors.primary, fontSize: 9)),
                 ),
-                SizedBox(width: AppSpacing.md),
-                Text(
-                  'Daftar Subtes (${subtests.length})',
-                  style: AppTextStyles.headingSmall.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+              const SizedBox(height: 3),
+              Text(title,
+                  style: AppText.h3.copyWith(
+                      color: AppColors.white, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+        background: Container(
+          decoration: const BoxDecoration(gradient: AppGradient.navy),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+            child: FadeTransition(
+              opacity: _headerFade,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Breadcrumb
+                  Row(children: [
+                    const Icon(Icons.home_rounded,
+                        size: 12, color: AppColors.gold),
+                    AppSpacing.hxs,
+                    Text('Try Out',
+                        style: AppText.caption.copyWith(
+                            color: AppColors.gold, fontSize: 10)),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 12,
+                        color: AppColors.white.withOpacity(0.4)),
+                    Text(examType,
+                        style: AppText.caption.copyWith(
+                            color: AppColors.white.withOpacity(0.5),
+                            fontSize: 10)),
+                  ]),
+                  AppSpacing.vsm,
+                  Text(title,
+                      style: AppText.h1.copyWith(
+                          color: AppColors.white, fontSize: 22),
+                      maxLines: 2),
+                  AppSpacing.vsm,
+                  // Quick stats strip
+                  Row(children: [
+                    _AppBarChip(
+                        '${_tryout?['totalQuestions'] ?? 0} Soal',
+                        Icons.quiz_rounded),
+                    AppSpacing.hsm,
+                    _AppBarChip(
+                        '${_tryout?['totalEstimatedMinutes'] ?? 0} Menit',
+                        Icons.timer_rounded),
+                    AppSpacing.hsm,
+                    _AppBarChip(
+                        '${_tryout?['subTestCount'] ?? 0} Subtes',
+                        Icons.layers_rounded),
+                  ]),
+                ],
+              ),
             ),
           ),
+        ),
+      ),
+    );
+  }
 
-          const Divider(height: 1, thickness: 2, color: Color(0xFFE5E5E5)),
+  // ============================================================================
+  // INFO CARD
+  // ============================================================================
+  Widget _buildInfoCard() {
+    final isActive = _tryout?['isActive'] == true;
+    final isFlexible = _tryout?['isFlexibleDate'] == true;
+    final price = _tryout?['price'] ?? 0;
+    final examType = _tryout?['examTypeName'] ?? '-';
+    final createdAt = (_tryout?['createdAt'] as Timestamp?)?.toDate();
 
-          // Subtest List
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CardHeader('Informasi Tryout', Icons.info_outline_rounded,
+              AppColors.primary),
+          AppSpacing.vmd,
+          _InfoRow2('Tipe Ujian', examType, Icons.school_rounded,
+              AppColors.info),
+          _InfoRow2(
+              'Status',
+              isActive ? 'Aktif & Tersedia' : 'Tidak Aktif',
+              isActive
+                  ? Icons.check_circle_rounded
+                  : Icons.cancel_rounded,
+              isActive ? AppColors.success : AppColors.textSecondary),
+          _InfoRow2(
+              'Periode',
+              isFlexible ? 'Tanggal Bebas' : 'Terjadwal',
+              Icons.calendar_today_rounded,
+              AppColors.warning),
+          _InfoRow2(
+              'Biaya',
+              price == 0 ? 'Gratis' : 'Rp $price',
+              Icons.attach_money_rounded,
+              price == 0 ? AppColors.success : AppColors.gold),
+          if (createdAt != null)
+            _InfoRow2(
+                'Dibuat',
+                DateFormat('dd MMM yyyy').format(createdAt),
+                Icons.schedule_rounded,
+                AppColors.textSecondary),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================================
+  // STATS CARD
+  // ============================================================================
+  Widget _buildStatsCard() {
+    final totalQ = _tryout?['totalQuestions'] ?? 0;
+    final totalMin = _tryout?['totalEstimatedMinutes'] ?? 0;
+    final subCount = _tryout?['subTestCount'] ?? 0;
+
+    // Hitung progress dari user_progress
+    final subtestMap =
+        _progress?['subtestProgress'] as Map<String, dynamic>? ?? {};
+    final completed =
+        subtestMap.values.where((v) => v['status'] == 'completed').length;
+    final pct = subCount > 0 ? completed / subCount : 0.0;
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CardHeader('Statistik', Icons.analytics_rounded, AppColors.info),
+          AppSpacing.vmd,
+          Row(children: [
+            _StatBox('$totalQ', 'Soal', Icons.quiz_rounded, AppColors.primary),
+            AppSpacing.hmd,
+            _StatBox('${totalMin}m', 'Durasi', Icons.timer_rounded,
+                AppColors.warning),
+            AppSpacing.hmd,
+            _StatBox('$subCount', 'Subtes', Icons.layers_rounded,
+                AppColors.info),
+          ]),
+          if (_progress != null) ...[
+            AppSpacing.vmd,
+            Row(children: [
+              Text('Progress: $completed/$subCount',
+                  style: AppText.label
+                      .copyWith(color: AppColors.textSecondary)),
+              const Spacer(),
+              Text('${(pct * 100).toInt()}%',
+                  style: AppText.label
+                      .copyWith(color: AppColors.success)),
+            ]),
+            AppSpacing.vxs,
+            ClipRRect(
+              borderRadius: AppRadius.bFull,
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 6,
+                backgroundColor: AppColors.border,
+                color: AppColors.success,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ============================================================================
+  // DESCRIPTION CARD
+  // ============================================================================
+  Widget _buildDescCard() {
+    final desc = _tryout?['description'] ?? '';
+    if (desc.isEmpty) return const SizedBox.shrink();
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CardHeader('Deskripsi', Icons.description_rounded,
+              AppColors.textSecondary),
+          AppSpacing.vmd,
+          Text(desc,
+              style: AppText.body.copyWith(
+                  height: 1.65,
+                  color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================================
+  // SUBTESTS CARD
+  // ============================================================================
+  Widget _buildSubtestsCard() {
+    final subtests = _tryout?['subtests'] as List<dynamic>? ?? [];
+    if (subtests.isEmpty) return const SizedBox.shrink();
+
+    final subtestMap =
+        _progress?['subtestProgress'] as Map<String, dynamic>? ?? {};
+
+    return _Card(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: _CardHeader(
+                'Daftar Subtes (${subtests.length})',
+                Icons.list_alt_rounded,
+                AppColors.warning),
+          ),
+          const Divider(height: 1, color: AppColors.border),
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.all(14),
             itemCount: subtests.length,
-            separatorBuilder: (context, index) =>
-                SizedBox(height: AppSpacing.md),
-            itemBuilder: (context, index) {
-              final subtest = subtests[index] as Map<String, dynamic>;
-              return _buildSubtestCard(subtest, index + 1);
+            separatorBuilder: (_, __) => AppSpacing.vsm,
+            itemBuilder: (_, i) {
+              final sub = subtests[i] as Map<String, dynamic>;
+              final sid = sub['id'] ?? sub['name'];
+              final prog =
+                  subtestMap[sid] as Map<String, dynamic>? ?? {};
+
+              // Sequential unlock
+              bool unlocked = i == 0;
+              if (i > 0) {
+                final prevSub =
+                subtests[i - 1] as Map<String, dynamic>;
+                final prevId = prevSub['id'] ?? prevSub['name'];
+                final prevProg =
+                    subtestMap[prevId] as Map<String, dynamic>? ?? {};
+                unlocked = prevProg['status'] == 'completed';
+              }
+
+              return _SubtestCard(
+                subtest: sub,
+                progress: prog,
+                number: i + 1,
+                unlocked: unlocked,
+                onStart: () => _startSubtest(sub),
+                onReview: () => _reviewSubtest(sub),
+              );
             },
           ),
         ],
@@ -788,393 +579,564 @@ class _TryoutDetailScreenState extends State<TryoutDetailScreen> {
     );
   }
 
-  Widget _buildSubtestCard(Map<String, dynamic> subtest, int number) {
-    final name = subtest['name'] ?? 'Untitled';
-    final description = subtest['description'] ?? '';
-    final category = subtest['category'] ?? 'N/A';
-    final difficulty = subtest['difficulty'] ?? 'medium';
-    final estimatedMinutes = subtest['estimatedMinutes'] ?? 0;
-    final questionCount = subtest['questionCount'] ?? 0;
-    final subtestId = subtest['id'] ?? name;
-
-    // Get progress
-    Map<String, dynamic>? subtestMap;
-    if (_userProgress != null) {
-      subtestMap = _userProgress!['subtestProgress'] as Map<String, dynamic>?;
-    }
-
-    final progress = subtestMap?[subtestId];
-    final status = progress?['status']?.toString() ?? 'not_started';
-    final bestScore = progress?['bestScore'] is int
-        ? progress!['bestScore']
-        : int.tryParse(progress?['bestScore']?.toString() ?? '');
-    final attempts = progress?['attempts'] is int
-        ? progress!['attempts']
-        : int.tryParse(progress?['attempts']?.toString() ?? '') ?? 0;
-
-    // ✅ LOGIK SEQUENTIAL UNLOCK
-    bool isUnlocked = number == 1; // Subtes pertama selalu unlock
-
-    if (number > 1) {
-      // Cek apakah subtes sebelumnya sudah completed
-      final subtests = _tryoutData?['subtests'] as List<dynamic>? ?? [];
-      if (number - 2 < subtests.length) {
-        final prevSubtest = subtests[number - 2] as Map<String, dynamic>;
-        final prevSubtestId = prevSubtest['id'] ?? prevSubtest['name'];
-        final prevProgress = subtestMap?[prevSubtestId];
-        final prevStatus = prevProgress?['status']?.toString() ?? 'not_started';
-
-        isUnlocked = prevStatus == 'completed';
-      }
-    }
-
-    // Status colors & icons
-    Color statusColor;
-    IconData statusIcon;
-    String statusText;
-
-    if (!isUnlocked) {
-      // 🔒 LOCKED STATE
-      statusColor = const Color(0xFFBBBBBB);
-      statusIcon = Icons.lock_rounded;
-      statusText = 'Terkunci';
-    } else if (status == 'completed') {
-      // ✅ COMPLETED STATE
-      statusColor = const Color(0xFF58CC02);
-      statusIcon = Icons.check_circle_rounded;
-      statusText = 'Selesai';
-    } else if (status == 'in_progress') {
-      // 🔄 IN PROGRESS STATE
-      statusColor = const Color(0xFF1CB0F6);
-      statusIcon = Icons.play_circle_rounded;
-      statusText = 'Sedang Dikerjakan';
-    } else {
-      // 🟢 UNLOCKED BUT NOT STARTED
-      statusColor = const Color(0xFF58CC02);
-      statusIcon = Icons.radio_button_unchecked_rounded;
-      statusText = 'Siap Dikerjakan';
-    }
-
-    // Difficulty color
-    Color difficultyColor;
-    switch (difficulty) {
-      case 'easy':
-        difficultyColor = const Color(0xFF58CC02);
-        break;
-      case 'hard':
-        difficultyColor = const Color(0xFFFF4B4B);
-        break;
-      default:
-        difficultyColor = const Color(0xFFFF9600);
-    }
-
-    return Opacity(
-      opacity: isUnlocked ? 1.0 : 0.6, // Dim kalau locked
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7F7F7),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isUnlocked
-                ? const Color(0xFFE5E5E5)
-                : const Color(0xFFCCCCCC),
-            width: 2,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Container(
-              padding: EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(14),
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Number Badge
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: statusColor, width: 2),
-                    ),
-                    child: Center(
-                      child: isUnlocked
-                          ? Text(
-                              '$number',
-                              style: AppTextStyles.bodyLarge.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            )
-                          : Icon(
-                              Icons.lock_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                    ),
-                  ),
-                  SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: AppTextStyles.headingSmall.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: isUnlocked ? null : const Color(0xFF999999),
-                          ),
-                        ),
-                        if (description.isNotEmpty)
-                          Text(
-                            description,
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: const Color(0xFF777777),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Content
-            Padding(
-              padding: EdgeInsets.all(AppSpacing.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Tags Row
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.xs,
-                    children: [
-                      _buildSubtestTag(
-                        icon: Icons.category_rounded,
-                        label: category,
-                        color: const Color(0xFF1CB0F6),
-                      ),
-                      _buildSubtestTag(
-                        icon: Icons.trending_up_rounded,
-                        label: difficulty == 'easy'
-                            ? 'Mudah'
-                            : difficulty == 'hard'
-                            ? 'Sulit'
-                            : 'Menengah',
-                        color: difficultyColor,
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: AppSpacing.md),
-
-                  // Stats Row
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.help_outline_rounded,
-                        size: 16,
-                        color: const Color(0xFF777777),
-                      ),
-                      SizedBox(width: AppSpacing.xs),
-                      Text(
-                        '$questionCount soal',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: const Color(0xFF777777),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(width: AppSpacing.md),
-                      Icon(
-                        Icons.timer_rounded,
-                        size: 16,
-                        color: const Color(0xFF777777),
-                      ),
-                      SizedBox(width: AppSpacing.xs),
-                      Text(
-                        '$estimatedMinutes menit',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: const Color(0xFF777777),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  SizedBox(height: AppSpacing.md),
-
-                  // Status Container
-                  Container(
-                    padding: EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: statusColor, width: 2),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(statusIcon, color: statusColor, size: 20),
-                        SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                statusText,
-                                style: AppTextStyles.bodyMedium.copyWith(
-                                  color: statusColor,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              if (bestScore != null)
-                                Text(
-                                  'Skor Terbaik: $bestScore/100',
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    color: statusColor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              if (attempts > 0)
-                                Text(
-                                  'Percobaan: $attempts kali',
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    color: const Color(0xFF777777),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              if (!isUnlocked)
-                                Text(
-                                  'Selesaikan subtes sebelumnya',
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    color: const Color(0xFF999999),
-                                    fontWeight: FontWeight.w600,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Action Buttons
-                  SizedBox(height: AppSpacing.md),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DuolingoButton.primary(
-                          text: status == 'completed' ? 'ULANGI' : 'MULAI',
-                          onPressed: isUnlocked
-                              ? () => _handleStartSubtest(subtest)
-                              : null, // Disable kalau locked
-                        ),
-                      ),
-                      if (status == 'completed') ...[
-                        SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: DuolingoButton.secondary(
-                            text: 'REVIEW',
-                            onPressed: () => _handleReviewSubtest(subtest),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSubtestTag({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  // ==========================================================================
-  // ERROR VIEW
-  // ==========================================================================
-  Widget _buildErrorView() {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(AppSpacing.xl),
+  // ============================================================================
+  // LOADING & ERROR
+  // ============================================================================
+  Widget _buildLoadingScaffold() {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: EdgeInsets.all(AppSpacing.xl),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF4B4B).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
+                  gradient: AppGradient.navy, shape: BoxShape.circle),
+              child: const CircularProgressIndicator(
+                  color: AppColors.gold, strokeWidth: 3),
+            ),
+            AppSpacing.vlg,
+            Text('Memuat Tryout...',
+                style: AppText.h3),
+            AppSpacing.vsm,
+            Text('Mohon tunggu', style: AppText.bodySm),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorScaffold() {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.softBg(AppColors.error),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.error_outline_rounded,
+                    color: AppColors.error, size: 44),
               ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                size: 64,
-                color: Color(0xFFFF4B4B),
+              AppSpacing.vlg,
+              Text('Gagal Memuat', style: AppText.h2),
+              AppSpacing.vsm,
+              Text(_error ?? 'Error tidak diketahui',
+                  style: AppText.bodySm, textAlign: TextAlign.center),
+              AppSpacing.vxl,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 130,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                        side: const BorderSide(color: AppColors.border),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.bMd),
+                        minimumSize: const Size.fromHeight(44),
+                      ),
+                      child: const Text('Kembali'),
+                    ),
+                  ),
+                  AppSpacing.hmd,
+                  SizedBox(
+                    width: 130,
+                    child: ElevatedButton(
+                      onPressed: _loadTryout,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.bMd),
+                        minimumSize: const Size.fromHeight(44),
+                      ),
+                      child: const Text('Coba Lagi'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// SUBTEST CARD WIDGET
+// ============================================================================
+class _SubtestCard extends StatelessWidget {
+  final Map<String, dynamic> subtest;
+  final Map<String, dynamic> progress;
+  final int number;
+  final bool unlocked;
+  final VoidCallback onStart;
+  final VoidCallback onReview;
+
+  const _SubtestCard({
+    required this.subtest,
+    required this.progress,
+    required this.number,
+    required this.unlocked,
+    required this.onStart,
+    required this.onReview,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final name = subtest['name'] ?? 'Subtes $number';
+    final desc = subtest['description'] ?? '';
+    final category = subtest['category'] ?? '';
+    final difficulty = subtest['difficulty'] ?? 'medium';
+    final minutes = subtest['estimatedMinutes'] ?? 0;
+    final qCount = subtest['questionCount'] ?? 0;
+
+    final status = progress['status']?.toString() ?? 'not_started';
+    final bestScore = progress['bestScore'] is int
+        ? progress['bestScore'] as int
+        : int.tryParse(progress['bestScore']?.toString() ?? '');
+    final attempts = progress['attempts'] is int
+        ? progress['attempts'] as int
+        : int.tryParse(progress['attempts']?.toString() ?? '') ?? 0;
+
+    final isCompleted = status == 'completed';
+
+    // Colors
+    final Color stateColor = !unlocked
+        ? AppColors.textHint
+        : isCompleted
+        ? AppColors.success
+        : AppColors.primary;
+
+    final Color diffColor = switch (difficulty) {
+      'easy' => AppColors.success,
+      'hard' => AppColors.error,
+      _ => AppColors.warning,
+    };
+
+    final String diffLabel = switch (difficulty) {
+      'easy' => 'Mudah',
+      'hard' => 'Sulit',
+      _ => 'Menengah',
+    };
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 300),
+      opacity: unlocked ? 1.0 : 0.55,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadius.bMd,
+          border: Border.all(
+            color: isCompleted
+                ? AppColors.success.withOpacity(0.4)
+                : AppColors.border,
+            width: isCompleted ? 1.5 : 1,
+          ),
+          boxShadow: AppShadow.sm,
+        ),
+        child: Column(
+          children: [
+            // ── Header strip ───────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              decoration: BoxDecoration(
+                color: AppColors.softBg(stateColor),
+                borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppRadius.md)),
+              ),
+              child: Row(
+                children: [
+                  // Number / lock badge
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: stateColor,
+                      borderRadius: AppRadius.bSm,
+                    ),
+                    child: Center(
+                      child: unlocked
+                          ? Text('$number',
+                          style: AppText.label.copyWith(
+                              color: AppColors.white, fontSize: 13))
+                          : const Icon(Icons.lock_rounded,
+                          color: AppColors.white, size: 16),
+                    ),
+                  ),
+                  AppSpacing.hmd,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            style: AppText.bodyLg.copyWith(
+                                fontWeight: FontWeight.w700)),
+                        if (desc.isNotEmpty)
+                          Text(desc,
+                              style: AppText.caption,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  // Status badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.softBg(stateColor),
+                      borderRadius: AppRadius.bFull,
+                      border: Border.all(
+                          color: stateColor.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          !unlocked
+                              ? Icons.lock_rounded
+                              : isCompleted
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          size: 10,
+                          color: stateColor,
+                        ),
+                        AppSpacing.hxs,
+                        Text(
+                          !unlocked
+                              ? 'Terkunci'
+                              : isCompleted
+                              ? 'Selesai'
+                              : 'Belum',
+                          style: AppText.label.copyWith(
+                              color: stateColor, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(height: AppSpacing.lg),
-            Text(
-              'Terjadi Kesalahan',
-              style: AppTextStyles.headingMedium.copyWith(
-                fontWeight: FontWeight.w800,
+
+            // ── Body ───────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Meta chips
+                  Row(children: [
+                    if (category.isNotEmpty) ...[
+                      _Tag(category, AppColors.info),
+                      AppSpacing.hxs,
+                    ],
+                    _Tag(diffLabel, diffColor),
+                    AppSpacing.hxs,
+                    _Tag('$qCount soal', AppColors.primary),
+                    AppSpacing.hxs,
+                    _Tag('${minutes}m', AppColors.warning),
+                  ]),
+
+                  // Score / locked info
+                  if (isCompleted && bestScore != null) ...[
+                    AppSpacing.vmd,
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.softBg(AppColors.success),
+                        borderRadius: AppRadius.bMd,
+                        border: Border.all(
+                            color: AppColors.success.withOpacity(0.25)),
+                      ),
+                      child: Row(children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.success,
+                            borderRadius: AppRadius.bSm,
+                          ),
+                          child: const Icon(Icons.emoji_events_rounded,
+                              color: AppColors.white, size: 16),
+                        ),
+                        AppSpacing.hmd,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Skor Terbaik',
+                                style: AppText.caption),
+                            Row(children: [
+                              Text('$bestScore',
+                                  style: AppText.h2.copyWith(
+                                      color: AppColors.success)),
+                              Text('/100',
+                                  style: AppText.bodySm),
+                            ]),
+                          ],
+                        ),
+                        const Spacer(),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('Percobaan',
+                                style: AppText.caption),
+                            Text('$attempts kali',
+                                style: AppText.bodyLg.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textSecondary)),
+                          ],
+                        ),
+                      ]),
+                    ),
+                  ],
+
+                  if (!unlocked) ...[
+                    AppSpacing.vmd,
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceAlt,
+                        borderRadius: AppRadius.bMd,
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.info_outline_rounded,
+                            size: 14,
+                            color: AppColors.textSecondary),
+                        AppSpacing.hxs,
+                        Text(
+                          'Selesaikan subtes sebelumnya untuk membuka.',
+                          style: AppText.bodySm,
+                        ),
+                      ]),
+                    ),
+                  ],
+
+                  AppSpacing.vmd,
+
+                  // Action buttons
+                  Row(children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          onPressed: unlocked ? onStart : null,
+                          icon: Icon(
+                            isCompleted
+                                ? Icons.replay_rounded
+                                : Icons.play_arrow_rounded,
+                            size: 15,
+                          ),
+                          label: Text(isCompleted ? 'Ulangi' : 'Mulai'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: unlocked
+                                ? AppColors.primary
+                                : AppColors.surfaceAlt,
+                            foregroundColor: unlocked
+                                ? AppColors.white
+                                : AppColors.textHint,
+                            disabledBackgroundColor: AppColors.surfaceAlt,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: AppRadius.bMd),
+                            textStyle: AppText.btnSm,
+                            // Hapus minimumSize agar tidak konflik
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (isCompleted) ...[
+                      AppSpacing.hxs,
+                      // Ganti SizedBox + OutlinedButton → Expanded + SizedBox
+                      Expanded(
+                        child: SizedBox(
+                          height: 40,
+                          child: OutlinedButton.icon(
+                            onPressed: onReview,
+                            icon: const Icon(Icons.bar_chart_rounded, size: 15),
+                            label: const Text('Review'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.border),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: AppRadius.bMd),
+                              textStyle: AppText.btnSm
+                                  .copyWith(color: AppColors.primary),
+                              // Hapus minimumSize agar tidak konflik
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ]),
+                ],
               ),
-            ),
-            SizedBox(height: AppSpacing.sm),
-            Text(
-              _error ?? 'Unknown error',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: const Color(0xFF777777),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: AppSpacing.xl),
-            DuolingoButton.primary(
-              text: 'KEMBALI',
-              onPressed: () => Navigator.pop(context),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ============================================================================
+// SMALL REUSABLE WIDGETS
+// ============================================================================
+
+class _Card extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  const _Card({required this.child, this.padding});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: padding ?? const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.bLg,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.sm,
+      ),
+      child: child,
+    );
+  }
+}
+
+class _CardHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  const _CardHeader(this.title, this.icon, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          color: AppColors.softBg(color),
+          borderRadius: AppRadius.bSm,
+        ),
+        child: Icon(icon, size: 15, color: color),
+      ),
+      AppSpacing.hsm,
+      Text(title,
+          style: AppText.label.copyWith(color: AppColors.textPrimary)),
+    ]);
+  }
+}
+
+class _InfoRow2 extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  const _InfoRow2(this.label, this.value, this.icon, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(children: [
+        Icon(icon, size: 14, color: color),
+        AppSpacing.hxs,
+        SizedBox(
+          width: 90,
+          child: Text(label, style: AppText.bodySm),
+        ),
+        Expanded(
+          child: Text(value,
+              style: AppText.body.copyWith(
+                  fontWeight: FontWeight.w600)),
+        ),
+      ]),
+    );
+  }
+}
+
+class _StatBox extends StatelessWidget {
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _StatBox(this.value, this.label, this.icon, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.softBg(color),
+          borderRadius: AppRadius.bMd,
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(children: [
+          Icon(icon, color: color, size: 18),
+          AppSpacing.vxs,
+          Text(value,
+              style: AppText.h3.copyWith(color: color)),
+          Text(label, style: AppText.caption.copyWith(fontSize: 10)),
+        ]),
+      ),
+    );
+  }
+}
+
+class _Tag extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _Tag(this.label, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.softBg(color),
+        borderRadius: AppRadius.bFull,
+      ),
+      child: Text(label,
+          style: AppText.caption.copyWith(color: color, fontSize: 10)),
+    );
+  }
+}
+
+class _AppBarChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _AppBarChip(this.label, this.icon);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.white.withOpacity(0.1),
+        borderRadius: AppRadius.bFull,
+        border: Border.all(color: AppColors.white.withOpacity(0.2)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 11, color: AppColors.gold),
+        AppSpacing.hxs,
+        Text(label,
+            style: AppText.label.copyWith(
+                color: AppColors.white, fontSize: 10)),
+      ]),
     );
   }
 }

@@ -1,117 +1,105 @@
 // lib/features/tryout/screens/exam_review_screen.dart
-
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:lulusasn/core/constants/spacing.dart';
-import 'package:lulusasn/core/constants/text_styles.dart';
+import 'package:intl/intl.dart';
+import '../../app/theme.dart';
 
-/// Exam Review Screen - Review exam results with detailed feedback
-///
-/// Features:
-/// - Score summary with breakdown
-/// - Question-by-question review with explanations
-/// - Correct/Wrong/Unanswered filter
-/// - Category performance stats
-/// - Expandable question cards
-/// - Professional Duolingo-style design
-/// - Responsive layout
+// ─── FIRESTORE STRATEGY ───────────────────────────────────────────────────────
+// 1. exam_results/{resultId}  → 1 read
+// 2. tryouts/{tryoutId}       → 1 read (ambil subtest + questions)
+// TOTAL: 2 reads, tidak ada stream (data statis — hasil ujian tidak berubah)
+// ─────────────────────────────────────────────────────────────────────────────
+
 class ExamReviewScreen extends StatefulWidget {
   final String resultId;
-
   const ExamReviewScreen({super.key, required this.resultId});
 
   @override
   State<ExamReviewScreen> createState() => _ExamReviewScreenState();
 }
 
-class _ExamReviewScreenState extends State<ExamReviewScreen> {
+class _ExamReviewScreenState extends State<ExamReviewScreen>
+    with SingleTickerProviderStateMixin {
+  // ── State ──────────────────────────────────────────────────────────────────
   bool _isLoading = true;
   String? _error;
-
-  // Result data
-  Map<String, dynamic>? _resultData;
+  Map<String, dynamic>? _result;
   List<Map<String, dynamic>> _questions = [];
+  String _filter = 'all';
 
-  // Filter state
-  String _filter = 'all'; // 'all', 'correct', 'wrong', 'unanswered'
+  late AnimationController _fadeCtrl;
+  late Animation<double> _fadeAnim;
 
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _loadReviewData();
+    _fadeCtrl = AnimationController(
+      duration: const Duration(milliseconds: 450),
+      vsync: this,
+    );
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+    _load();
   }
 
-  Future<void> _loadReviewData() async {
+  @override
+  void dispose() {
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
-
     try {
-      // Load exam result
-      final resultDoc = await FirebaseFirestore.instance
+      // 1. Fetch result
+      final rSnap = await FirebaseFirestore.instance
           .collection('exam_results')
           .doc(widget.resultId)
           .get();
+      if (!rSnap.exists) throw Exception('Hasil ujian tidak ditemukan');
+      final resultData = rSnap.data()!;
 
-      if (!resultDoc.exists) {
-        throw Exception('Hasil ujian tidak ditemukan');
-      }
-
-      final resultData = resultDoc.data()!;
-
-      // Load questions from tryout
-      final subtestId = resultData['subtestId'] as String;
-      final tryoutId = resultData['tryoutId'] as String;
-
-      final tryoutDoc = await FirebaseFirestore.instance
+      // 2. Fetch tryout (untuk soal + kunci jawaban)
+      final tSnap = await FirebaseFirestore.instance
           .collection('tryouts')
-          .doc(tryoutId)
+          .doc(resultData['tryoutId'] as String)
           .get();
+      if (!tSnap.exists) throw Exception('Data tryout tidak ditemukan');
 
-      if (!tryoutDoc.exists) {
-        throw Exception('Data tryout tidak ditemukan');
-      }
+      final subtests = tSnap.data()!['subtests'] as List<dynamic>;
+      final subtestId = resultData['subtestId'] as String;
+      final subtest =
+          subtests.firstWhere(
+                (s) => ((s as Map)['id'] ?? s['name']) == subtestId,
+                orElse: () => null,
+              )
+              as Map<String, dynamic>?;
+      if (subtest == null) throw Exception('Subtest tidak ditemukan');
 
-      final tryoutData = tryoutDoc.data()!;
-      final subtests = tryoutData['subtests'] as List<dynamic>;
-
-      // Find the correct subtest
-      final subtest = subtests.firstWhere(
-        (s) => (s['id'] ?? s['name']) == subtestId,
-        orElse: () => null,
-      );
-
-      if (subtest == null) {
-        throw Exception('Subtest tidak ditemukan');
-      }
-
-      final questionsList = subtest['questions'] as List<dynamic>;
+      final qList = subtest['questions'] as List<dynamic>;
       final answers = resultData['answers'] as List<dynamic>;
 
-      // Merge questions with user answers
-      final mergedQuestions = <Map<String, dynamic>>[];
-      for (int i = 0; i < questionsList.length; i++) {
-        final question = Map<String, dynamic>.from(questionsList[i]);
-        final answer = answers[i] as Map<String, dynamic>;
-
-        mergedQuestions.add({
-          ...question,
-          'userAnswer': answer['userAnswer'],
-          'isCorrect': answer['isCorrect'],
-        });
-      }
-
-      setState(() {
-        _resultData = resultData;
-        _questions = mergedQuestions;
-        _isLoading = false;
+      // Merge soal + jawaban user
+      _questions = List.generate(qList.length, (i) {
+        final q = Map<String, dynamic>.from(qList[i] as Map);
+        final a = answers[i] as Map<String, dynamic>;
+        return {
+          ...q,
+          'userAnswer': a['userAnswer'],
+          'isCorrect': a['isCorrect'] ?? false,
+        };
       });
+
+      _result = resultData;
+      _fadeCtrl.forward();
+      setState(() => _isLoading = false);
     } catch (e) {
-      print(e);
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -119,127 +107,116 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filteredQuestions {
-    if (_filter == 'all') return _questions;
+  // ── Filter ─────────────────────────────────────────────────────────────────
+  List<Map<String, dynamic>> get _filtered => _questions.where((q) {
+    final ok = q['isCorrect'] == true;
+    final ua = q['userAnswer'];
+    return switch (_filter) {
+      'correct' => ok,
+      'wrong' => !ok && ua != null,
+      'unanswered' => ua == null,
+      _ => true,
+    };
+  }).toList();
 
-    return _questions.where((q) {
-      final isCorrect = q['isCorrect'] as bool;
-      final userAnswer = q['userAnswer'];
+  int get _correctCount =>
+      _questions.where((q) => q['isCorrect'] == true).length;
+  int get _wrongCount => _questions
+      .where((q) => q['isCorrect'] != true && q['userAnswer'] != null)
+      .length;
+  int get _unansweredCount =>
+      _questions.where((q) => q['userAnswer'] == null).length;
 
-      if (_filter == 'correct') return isCorrect;
-      if (_filter == 'wrong') return !isCorrect && userAnswer != null;
-      if (_filter == 'unanswered') return userAnswer == null;
-
-      return true;
-    }).toList();
+  // ── Score semantics ────────────────────────────────────────────────────────
+  _ScoreInfo get _scoreInfo {
+    final s = _result?['score'] as int? ?? 0;
+    if (s >= 80) {
+      return _ScoreInfo(
+        s,
+        'Luar Biasa!',
+        Icons.emoji_events_rounded,
+        AppColors.success,
+      );
+    }
+    if (s >= 60) {
+      return _ScoreInfo(s, 'Bagus!', Icons.thumb_up_rounded, AppColors.info);
+    }
+    if (s >= 40) {
+      return _ScoreInfo(
+        s,
+        'Cukup Baik',
+        Icons.psychology_rounded,
+        AppColors.warning,
+      );
+    }
+    return _ScoreInfo(
+      s,
+      'Perlu Belajar Lagi',
+      Icons.auto_awesome_rounded,
+      AppColors.error,
+    );
   }
 
+  // ============================================================================
+  // BUILD
+  // ============================================================================
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF7F7F7),
-        body: _buildLoadingView(),
-      );
-    }
+    if (_isLoading) return _scaffold(_buildLoading());
+    if (_error != null) return _scaffold(_buildError());
 
-    if (_error != null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF7F7F7),
-        body: _buildErrorView(),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
-      body: _buildResponsiveLayout(),
-    );
-  }
-
-  Widget _buildResponsiveLayout() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth > 1024;
-
-        if (isDesktop) {
-          return _buildDesktopLayout();
-        } else {
-          return _buildMobileLayout();
-        }
-      },
-    );
-  }
-
-  // ==========================================================================
-  // MOBILE LAYOUT
-  // ==========================================================================
-  Widget _buildMobileLayout() {
-    return CustomScrollView(
-      slivers: [
-        _buildAppBar(),
-        SliverToBoxAdapter(
-          child: Column(
-            children: [
-              _buildScoreCard(),
-              _buildCategoryStats(),
-              _buildFilterTabs(),
-              SizedBox(height: AppSpacing.md),
-            ],
-          ),
+    return _scaffold(
+      FadeTransition(
+        opacity: _fadeAnim,
+        child: LayoutBuilder(
+          builder: (ctx, box) {
+            return box.maxWidth > 1024 ? _buildDesktop() : _buildMobile();
+          },
         ),
-        _buildQuestionList(),
-        SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
-      ],
+      ),
     );
   }
 
-  // ==========================================================================
-  // DESKTOP LAYOUT
-  // ==========================================================================
-  Widget _buildDesktopLayout() {
+  Scaffold _scaffold(Widget body) =>
+      Scaffold(backgroundColor: AppColors.bg, body: body);
+
+  // ============================================================================
+  // DESKTOP
+  // ============================================================================
+  Widget _buildDesktop() {
     return CustomScrollView(
       slivers: [
         _buildAppBar(),
         SliverPadding(
-          padding: EdgeInsets.all(AppSpacing.xl),
+          padding: const EdgeInsets.fromLTRB(32, 0, 32, 48),
           sliver: SliverToBoxAdapter(
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
+                constraints: const BoxConstraints(maxWidth: 1100),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // LEFT COLUMN - Stats (sticky-like)
-                    Expanded(
-                      flex: 2,
+                    // Left — score + category
+                    SizedBox(
+                      width: 320,
                       child: Column(
                         children: [
                           _buildScoreCard(),
-                          SizedBox(height: AppSpacing.lg),
-                          _buildCategoryStats(),
+                          AppSpacing.vmd,
+                          _buildTimeCard(),
+                          AppSpacing.vmd,
+                          _buildCategoryCard(),
                         ],
                       ),
                     ),
-
-                    SizedBox(width: AppSpacing.xl),
-
-                    // RIGHT COLUMN - Filter + Questions
+                    AppSpacing.hlg,
+                    // Right — filter + questions
                     Expanded(
-                      flex: 3,
                       child: Column(
                         children: [
-                          _buildFilterTabs(),
-                          SizedBox(height: AppSpacing.lg),
-                          // Questions list
-                          ..._filteredQuestions.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final question = entry.value;
-                            final globalIndex = _questions.indexOf(question);
-                            return _buildQuestionItem(
-                              question,
-                              globalIndex + 1,
-                            );
-                          }).toList(),
+                          _buildFilterBar(),
+                          AppSpacing.vmd,
+                          _buildQuestionsList(),
                         ],
                       ),
                     ),
@@ -249,458 +226,533 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
             ),
           ),
         ),
-        SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
       ],
     );
   }
 
-  // ==========================================================================
-  // APP BAR
-  // ==========================================================================
+  // ============================================================================
+  // MOBILE
+  // ============================================================================
+  Widget _buildMobile() {
+    return CustomScrollView(
+      slivers: [
+        _buildAppBar(),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 48),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              _buildScoreCard(),
+              AppSpacing.vmd,
+              _buildTimeCard(),
+              AppSpacing.vmd,
+              _buildCategoryCard(),
+              AppSpacing.vmd,
+              _buildFilterBar(),
+              AppSpacing.vmd,
+              _buildQuestionsList(),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================================
+  // SLIVER APP BAR
+  // ============================================================================
   Widget _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 0,
-      floating: true,
       pinned: true,
-      backgroundColor: const Color(0xFF58CC02),
+      floating: true,
+      backgroundColor: AppColors.primary,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+        icon: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppColors.white.withOpacity(0.15),
+            borderRadius: AppRadius.bSm,
+          ),
+          child: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.white,
+            size: 18,
+          ),
+        ),
         onPressed: () => Navigator.pop(context),
       ),
-      title: Text(
-        'Review Ujian',
-        style: AppTextStyles.headingMedium.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.share_rounded, color: Colors.white),
-          onPressed: () {
-            // TODO: Share functionality
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Fitur berbagi segera hadir!'),
-                backgroundColor: const Color(0xFF1CB0F6),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Review Ujian',
+            style: AppText.h3.copyWith(color: AppColors.white),
+          ),
+          if (_result != null)
+            Text(
+              'Skor: ${_result!['score']} · ${_result!['totalQuestions']} Soal',
+              style: AppText.caption.copyWith(
+                color: AppColors.white.withOpacity(0.6),
               ),
-            );
-          },
-        ),
-      ],
+            ),
+        ],
+      ),
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(gradient: AppGradient.navy),
+      ),
     );
   }
 
-  // ==========================================================================
+  // ============================================================================
   // SCORE CARD
-  // ==========================================================================
+  // ============================================================================
   Widget _buildScoreCard() {
-    final score = _resultData?['score'] ?? 0;
-    final correctAnswers = _resultData?['correctAnswers'] ?? 0;
-    final wrongAnswers = _resultData?['wrongAnswers'] ?? 0;
-    final unanswered = _resultData?['unanswered'] ?? 0;
-    final totalQuestions = _resultData?['totalQuestions'] ?? 0;
-
-    Color scoreColor;
-    String scoreLabel;
-    IconData scoreIcon;
-
-    if (score >= 80) {
-      scoreColor = const Color(0xFF58CC02);
-      scoreLabel = 'Luar Biasa!';
-      scoreIcon = Icons.emoji_events_rounded;
-    } else if (score >= 60) {
-      scoreColor = const Color(0xFF1CB0F6);
-      scoreLabel = 'Bagus!';
-      scoreIcon = Icons.thumb_up_rounded;
-    } else if (score >= 40) {
-      scoreColor = const Color(0xFFFF9600);
-      scoreLabel = 'Cukup Baik';
-      scoreIcon = Icons.psychology_rounded;
-    } else {
-      scoreColor = const Color(0xFFFF4B4B);
-      scoreLabel = 'Perlu Belajar Lagi';
-      scoreIcon = Icons.auto_awesome_rounded;
-    }
+    final si = _scoreInfo;
+    final total = _result?['totalQuestions'] as int? ?? 0;
 
     return Container(
-      margin: EdgeInsets.all(AppSpacing.lg),
-      padding: EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [scoreColor, scoreColor.withOpacity(0.8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: scoreColor.withOpacity(0.5), width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: scoreColor.withOpacity(0.3),
-            offset: const Offset(0, 8),
-            blurRadius: 0,
+        gradient: AppGradient.navy,
+        borderRadius: AppRadius.bLg,
+        boxShadow: AppShadow.lg,
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          // Icon + score
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: si.color.withOpacity(0.2),
+                  borderRadius: AppRadius.bMd,
+                  border: Border.all(color: si.color.withOpacity(0.4)),
+                ),
+                child: Icon(si.icon, color: si.color, size: 28),
+              ),
+              AppSpacing.hmd,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${si.score}',
+                    style: TextStyle(
+                      fontSize: 52,
+                      fontWeight: FontWeight.w900,
+                      color: si.color,
+                      height: 1,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  Text(
+                    si.label,
+                    style: AppText.bodyLg.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              // Circular progress
+              SizedBox(
+                width: 64,
+                height: 64,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: si.score / 100,
+                      strokeWidth: 6,
+                      backgroundColor: AppColors.white.withOpacity(0.1),
+                      color: si.color,
+                    ),
+                    Text(
+                      '${si.score}%',
+                      style: AppText.label.copyWith(
+                        color: AppColors.white,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          AppSpacing.vmd,
+          Divider(color: AppColors.white.withOpacity(0.1), height: 1),
+          AppSpacing.vmd,
+
+          // Breakdown row
+          Row(
+            children: [
+              Expanded(
+                child: _ScoreStat(
+                  icon: Icons.check_circle_rounded,
+                  label: 'Benar',
+                  value: '${_result?['correctAnswers'] ?? 0}',
+                  color: AppColors.success,
+                ),
+              ),
+              _VertDivider(),
+              Expanded(
+                child: _ScoreStat(
+                  icon: Icons.cancel_rounded,
+                  label: 'Salah',
+                  value: '${_result?['wrongAnswers'] ?? 0}',
+                  color: AppColors.error,
+                ),
+              ),
+              _VertDivider(),
+              Expanded(
+                child: _ScoreStat(
+                  icon: Icons.radio_button_unchecked_rounded,
+                  label: 'Kosong',
+                  value: '${_result?['unanswered'] ?? 0}',
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              _VertDivider(),
+              Expanded(
+                child: _ScoreStat(
+                  icon: Icons.quiz_rounded,
+                  label: 'Total',
+                  value: '$total',
+                  color: AppColors.gold,
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      child: Column(
+    );
+  }
+
+  // ============================================================================
+  // TIME CARD
+  // ============================================================================
+  Widget _buildTimeCard() {
+    final completedAt = (_result?['completedAt'] as Timestamp?)?.toDate();
+    final totalSec = _result?['totalTimeSeconds'] as int? ?? 0;
+    final min = totalSec ~/ 60;
+    final sec = totalSec % 60;
+
+    return _Card(
+      child: Row(
         children: [
-          // Icon
           Container(
-            padding: EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
+              color: AppColors.softBg(AppColors.info),
+              borderRadius: AppRadius.bSm,
             ),
-            child: Icon(scoreIcon, size: 48, color: Colors.white),
-          ),
-
-          SizedBox(height: AppSpacing.lg),
-
-          // Score
-          Text(
-            '$score',
-            style: const TextStyle(
-              fontSize: 72,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              height: 1,
+            child: const Icon(
+              Icons.timer_rounded,
+              color: AppColors.info,
+              size: 18,
             ),
           ),
-
-          Text(
-            scoreLabel,
-            style: AppTextStyles.headingMedium.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-
-          SizedBox(height: AppSpacing.xl),
-
-          // Breakdown
-          Container(
-            padding: EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+          AppSpacing.hmd,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildScoreStat(
-                  icon: Icons.check_circle_rounded,
-                  label: 'Benar',
-                  value: '$correctAnswers',
-                  color: Colors.white,
-                ),
-                Container(
-                  width: 2,
-                  height: 40,
-                  color: Colors.white.withOpacity(0.3),
-                ),
-                _buildScoreStat(
-                  icon: Icons.cancel_rounded,
-                  label: 'Salah',
-                  value: '$wrongAnswers',
-                  color: Colors.white,
-                ),
-                Container(
-                  width: 2,
-                  height: 40,
-                  color: Colors.white.withOpacity(0.3),
-                ),
-                _buildScoreStat(
-                  icon: Icons.radio_button_unchecked_rounded,
-                  label: 'Kosong',
-                  value: '$unanswered',
-                  color: Colors.white,
+                Text('Waktu Pengerjaan', style: AppText.bodySm),
+                Text(
+                  '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}',
+                  style: AppText.h3.copyWith(
+                    color: AppColors.info,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ],
             ),
           ),
-
-          SizedBox(height: AppSpacing.md),
-
-          // Total questions
-          Text(
-            'Total: $totalQuestions Soal',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: Colors.white.withOpacity(0.9),
-              fontWeight: FontWeight.w700,
+          if (completedAt != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('Selesai', style: AppText.caption),
+                Text(
+                  DateFormat('dd MMM, HH:mm').format(completedAt),
+                  style: AppText.label.copyWith(color: AppColors.textSecondary),
+                ),
+              ],
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildScoreStat({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 24),
-        SizedBox(height: AppSpacing.xs),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            color: color,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: color.withOpacity(0.9),
-          ),
-        ),
-      ],
-    );
-  }
+  // ============================================================================
+  // CATEGORY CARD
+  // ============================================================================
+  Widget _buildCategoryCard() {
+    final cats = _result?['categoryScores'] as Map<String, dynamic>? ?? {};
+    if (cats.isEmpty) return const SizedBox.shrink();
 
-  // ==========================================================================
-  // CATEGORY STATS
-  // ==========================================================================
-  Widget _buildCategoryStats() {
-    final categoryScores =
-        _resultData?['categoryScores'] as Map<String, dynamic>? ?? {};
-
-    if (categoryScores.isEmpty) return const SizedBox();
-
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      padding: EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E5E5), width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, 4),
-            blurRadius: 12,
-          ),
-        ],
-      ),
+    return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(AppSpacing.sm),
+                padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF9333EA).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.softBg(AppColors.info),
+                  borderRadius: AppRadius.bSm,
                 ),
                 child: const Icon(
                   Icons.analytics_rounded,
-                  color: Color(0xFF9333EA),
-                  size: 24,
+                  color: AppColors.info,
+                  size: 15,
                 ),
               ),
-              SizedBox(width: AppSpacing.md),
-              Text(
-                'Performa Per Kategori',
-                style: AppTextStyles.headingSmall.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              AppSpacing.hsm,
+              Text('Performa Per Kategori', style: AppText.label),
             ],
           ),
-          SizedBox(height: AppSpacing.lg),
-          ...categoryScores.entries.map((entry) {
-            final category = entry.key;
-            final data = entry.value as Map<String, dynamic>;
-            final correct = data['correct'] ?? 0;
-            final total = data['total'] ?? 1;
-            final percentage = data['percentage'] ?? 0;
+          AppSpacing.vmd,
+          ...cats.entries.map((e) {
+            final d = e.value as Map<String, dynamic>;
+            final correct = d['correct'] as int? ?? 0;
+            final total = d['total'] as int? ?? 1;
+            final pct = d['percentage'] as int? ?? 0;
 
-            Color barColor;
-            if (percentage >= 80) {
-              barColor = const Color(0xFF58CC02);
-            } else if (percentage >= 60) {
-              barColor = const Color(0xFF1CB0F6);
-            } else if (percentage >= 40) {
-              barColor = const Color(0xFFFF9600);
-            } else {
-              barColor = const Color(0xFFFF4B4B);
-            }
+            final barColor = pct >= 80
+                ? AppColors.success
+                : pct >= 60
+                ? AppColors.info
+                : pct >= 40
+                ? AppColors.warning
+                : AppColors.error;
 
             return Padding(
-              padding: EdgeInsets.only(bottom: AppSpacing.md),
+              padding: const EdgeInsets.only(bottom: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        category,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w700,
+                      Expanded(
+                        child: Text(
+                          e.key,
+                          style: AppText.body.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                      Text(
-                        '$correct/$total',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: const Color(0xFF777777),
-                          fontWeight: FontWeight.w600,
+                      Text('$correct/$total', style: AppText.caption),
+                      AppSpacing.hxs,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.softBg(barColor),
+                          borderRadius: AppRadius.bFull,
+                        ),
+                        child: Text(
+                          '$pct%',
+                          style: AppText.label.copyWith(
+                            color: barColor,
+                            fontSize: 10,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: AppSpacing.xs),
+                  AppSpacing.vxs,
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Stack(
-                      children: [
-                        Container(
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE5E5E5),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        FractionallySizedBox(
-                          widthFactor: percentage / 100,
-                          child: Container(
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: barColor,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    '$percentage%',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                    borderRadius: AppRadius.bFull,
+                    child: LinearProgressIndicator(
+                      value: pct / 100,
+                      minHeight: 6,
+                      backgroundColor: AppColors.border,
                       color: barColor,
                     ),
                   ),
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
   }
 
-  // ==========================================================================
-  // FILTER TABS
-  // ==========================================================================
-  Widget _buildFilterTabs() {
-    final correctCount = _questions.where((q) => q['isCorrect'] == true).length;
-    final wrongCount = _questions
-        .where((q) => q['isCorrect'] == false && q['userAnswer'] != null)
-        .length;
-    final unansweredCount = _questions
-        .where((q) => q['userAnswer'] == null)
-        .length;
+  // ============================================================================
+  // FILTER BAR
+  // ============================================================================
+  Widget _buildFilterBar() {
+    final filters = [
+      ('all', 'Semua', _questions.length, AppColors.primary),
+      ('correct', 'Benar', _correctCount, AppColors.success),
+      ('wrong', 'Salah', _wrongCount, AppColors.error),
+      ('unanswered', 'Kosong', _unansweredCount, AppColors.textSecondary),
+    ];
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      padding: EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E5E5), width: 3),
+        color: AppColors.surface,
+        borderRadius: AppRadius.bMd,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.sm,
       ),
+      padding: const EdgeInsets.all(4),
       child: Row(
+        children: filters.map((f) {
+          final active = _filter == f.$1;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _filter = f.$1);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: active ? AppColors.softBg(f.$4) : Colors.transparent,
+                  borderRadius: AppRadius.bSm,
+                  border: active
+                      ? Border.all(color: f.$4.withOpacity(0.3))
+                      : null,
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      '${f.$3}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: active ? f.$4 : AppColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      f.$2,
+                      style: AppText.label.copyWith(
+                        fontSize: 10,
+                        color: active ? f.$4 : AppColors.textHint,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ============================================================================
+  // QUESTIONS LIST
+  // ============================================================================
+  Widget _buildQuestionsList() {
+    final qs = _filtered;
+    if (qs.isEmpty) {
+      return _Card(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.filter_list_off_rounded,
+                  size: 40,
+                  color: AppColors.textHint,
+                ),
+                AppSpacing.vsm,
+                Text('Tidak ada soal', style: AppText.bodySm),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: qs.map((q) {
+        final globalIdx = _questions.indexOf(q);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _QuestionCard(question: q, number: globalIdx + 1),
+        );
+      }).toList(),
+    );
+  }
+
+  // ============================================================================
+  // LOADING & ERROR
+  // ============================================================================
+  Widget _buildLoading() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Expanded(
-            child: _buildFilterButton(
-              label: 'Semua',
-              count: _questions.length,
-              value: 'all',
-              color: const Color(0xFF1CB0F6),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: AppGradient.navy,
+              shape: BoxShape.circle,
+            ),
+            child: const CircularProgressIndicator(
+              color: AppColors.gold,
+              strokeWidth: 3,
             ),
           ),
-          Expanded(
-            child: _buildFilterButton(
-              label: 'Benar',
-              count: correctCount,
-              value: 'correct',
-              color: const Color(0xFF58CC02),
-            ),
-          ),
-          Expanded(
-            child: _buildFilterButton(
-              label: 'Salah',
-              count: wrongCount,
-              value: 'wrong',
-              color: const Color(0xFFFF4B4B),
-            ),
-          ),
-          Expanded(
-            child: _buildFilterButton(
-              label: 'Kosong',
-              count: unansweredCount,
-              value: 'unanswered',
-              color: const Color(0xFF999999),
-            ),
-          ),
+          AppSpacing.vlg,
+          Text('Memuat Hasil Ujian...', style: AppText.h3),
         ],
       ),
     );
   }
 
-  Widget _buildFilterButton({
-    required String label,
-    required int count,
-    required String value,
-    required Color color,
-  }) {
-    final isActive = _filter == value;
-
-    return InkWell(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        setState(() => _filter = value);
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: isActive ? color : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: isActive ? Colors.white : color,
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.softBg(AppColors.error),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: AppColors.error,
+                size: 44,
               ),
             ),
+            AppSpacing.vlg,
+            Text('Gagal Memuat', style: AppText.h2),
+            AppSpacing.vsm,
             Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: isActive
-                    ? Colors.white.withOpacity(0.9)
-                    : const Color(0xFF777777),
+              _error ?? '',
+              style: AppText.bodySm,
+              textAlign: TextAlign.center,
+            ),
+            AppSpacing.vxl,
+            SizedBox(
+              width: 140,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.white,
+                  elevation: 0,
+                  minimumSize: const Size.fromHeight(44),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+                ),
+                child: const Text('Kembali'),
               ),
             ),
           ],
@@ -708,629 +760,404 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
       ),
     );
   }
+}
 
-  // ==========================================================================
-  // QUESTION LIST
-  // ==========================================================================
-  Widget _buildQuestionList() {
-    final questions = _filteredQuestions;
+// ============================================================================
+// QUESTION CARD (ExpansionTile-based)
+// ============================================================================
+class _QuestionCard extends StatefulWidget {
+  final Map<String, dynamic> question;
+  final int number;
+  const _QuestionCard({required this.question, required this.number});
 
-    if (questions.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Container(
-          margin: EdgeInsets.all(AppSpacing.lg),
-          padding: EdgeInsets.all(AppSpacing.xl),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE5E5E5), width: 3),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                Icons.filter_list_off_rounded,
-                size: 48,
-                color: const Color(0xFF999999),
-              ),
-              SizedBox(height: AppSpacing.md),
-              Text(
-                'Tidak ada soal',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: const Color(0xFF999999),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+  @override
+  State<_QuestionCard> createState() => _QuestionCardState();
+}
 
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate((context, index) {
-          final question = questions[index];
-          final globalIndex = _questions.indexOf(question);
-          return _buildQuestionItem(question, globalIndex + 1);
-        }, childCount: questions.length),
-      ),
+class _QuestionCardState extends State<_QuestionCard>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late AnimationController _arrowCtrl;
+  late Animation<double> _arrowAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _arrowCtrl = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
     );
+    _arrowAnim = Tween<double>(begin: 0, end: 0.5).animate(_arrowCtrl);
   }
 
-  Widget _buildQuestionItem(Map<String, dynamic> question, int number) {
-    final isCorrect = question['isCorrect'] as bool? ?? false;
-    final userAnswer = question['userAnswer'] as int?;
-    final correctAnswer = question['correctIndex'] as int? ?? 0;
-    final questionText = question['question'] as String? ?? '';
-    final options = question['options'] as List<dynamic>? ?? [];
-    final optionImages = question['optionImages'] as List<dynamic>?;
-    final questionImage = question['questionImage'] as String?;
-    final category = question['category'] as String? ?? '';
-    final difficulty = question['difficulty'] as String? ?? 'medium';
-    final explanationShort = question['explanationShort'] as String? ?? '';
-    final explanationFull = question['explanationFull'] as String? ?? '';
+  @override
+  void dispose() {
+    _arrowCtrl.dispose();
+    super.dispose();
+  }
 
-    Color statusColor;
-    String statusText;
-    String statusEmoji;
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    _expanded ? _arrowCtrl.forward() : _arrowCtrl.reverse();
+    HapticFeedback.selectionClick();
+  }
 
-    if (userAnswer == null) {
-      statusColor = const Color(0xFF999999);
-      statusText = 'Tidak Dijawab';
-      statusEmoji = '⚪';
-    } else if (isCorrect) {
-      statusColor = const Color(0xFF58CC02);
-      statusText = 'Jawaban Benar!';
-      statusEmoji = '🎉';
-    } else {
-      statusColor = const Color(0xFFFF4B4B);
-      statusText = 'Jawaban Salah';
-      statusEmoji = '💭';
-    }
+  @override
+  Widget build(BuildContext context) {
+    final q = widget.question;
+    final isCorrect = q['isCorrect'] == true;
+    final userAnswer = q['userAnswer'] as int?;
+    final correctAnswer = q['correctIndex'] as int? ?? 0;
+    final questionText = q['question'] as String? ?? '';
+    final qImage = q['questionImage'] as String?;
+    final options = q['options'] as List<dynamic>? ?? [];
+    final optImages = q['optionImages'] as List<dynamic>?;
+    final category = q['category'] as String? ?? '';
+    final difficulty = q['difficulty'] as String? ?? 'medium';
+    final expShort = q['explanationShort'] as String? ?? '';
+    final expFull = q['explanationFull'] as String? ?? '';
 
-    Color difficultyColor;
-    String difficultyLabel;
-    switch (difficulty.toLowerCase()) {
-      case 'easy':
-        difficultyColor = const Color(0xFF58CC02);
-        difficultyLabel = 'Mudah';
-        break;
-      case 'hard':
-        difficultyColor = const Color(0xFFFF4B4B);
-        difficultyLabel = 'Sulit';
-        break;
-      default:
-        difficultyColor = const Color(0xFF1CB0F6);
-        difficultyLabel = 'Sedang';
-    }
+    final _QStatus status = userAnswer == null
+        ? _QStatus(
+            'Tidak Dijawab',
+            Icons.radio_button_unchecked_rounded,
+            AppColors.textSecondary,
+          )
+        : isCorrect
+        ? _QStatus(
+            'Jawaban Benar',
+            Icons.check_circle_rounded,
+            AppColors.success,
+          )
+        : _QStatus('Jawaban Salah', Icons.cancel_rounded, AppColors.error);
+
+    final diffColor = switch (difficulty.toLowerCase()) {
+      'easy' => AppColors.success,
+      'hard' => AppColors.error,
+      _ => AppColors.warning,
+    };
+    final diffLabel = switch (difficulty.toLowerCase()) {
+      'easy' => 'Mudah',
+      'hard' => 'Sulit',
+      _ => 'Sedang',
+    };
 
     return Container(
-      margin: EdgeInsets.only(bottom: AppSpacing.lg),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E5E5), width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: statusColor.withOpacity(0.1),
-            offset: const Offset(0, 4),
-            blurRadius: 12,
-          ),
-        ],
+        color: AppColors.surface,
+        borderRadius: AppRadius.bLg,
+        border: Border.all(color: status.color.withOpacity(0.25), width: 1.5),
+        boxShadow: AppShadow.sm,
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          dividerColor: Colors.transparent,
-          splashColor: statusColor.withOpacity(0.05),
-          highlightColor: statusColor.withOpacity(0.03),
-        ),
-        child: ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          childrenPadding: EdgeInsets.zero,
-          initiallyExpanded: false,
-          trailing: const SizedBox.shrink(), // ← FIX: Remove default arrow
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Container(
-            padding: EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  statusColor.withOpacity(0.15),
-                  statusColor.withOpacity(0.05),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      child: Column(
+        children: [
+          // ── Header (tap to expand) ─────────────────────────────────────
+          InkWell(
+            onTap: _toggle,
+            borderRadius: _expanded
+                ? const BorderRadius.vertical(
+                    top: Radius.circular(AppRadius.lg),
+                  )
+                : AppRadius.bLg,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.softBg(status.color),
+                borderRadius: _expanded
+                    ? const BorderRadius.vertical(
+                        top: Radius.circular(AppRadius.lg),
+                      )
+                    : AppRadius.bLg,
               ),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(17),
-              ),
-            ),
-            child: Row(
-              children: [
-                // Question number badge
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [statusColor, statusColor.withOpacity(0.8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Number badge
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: status.color,
+                      borderRadius: AppRadius.bSm,
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: statusColor.withOpacity(0.3),
-                        offset: const Offset(0, 4),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      '$number',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
+                    child: Center(
+                      child: Text(
+                        '${widget.number}',
+                        style: AppText.label.copyWith(
+                          color: AppColors.white,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(width: AppSpacing.md),
-
-                // Status & Question
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            statusEmoji,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          SizedBox(width: AppSpacing.xs),
-                          Flexible(
-                            child: Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: statusColor,
-                                letterSpacing: -0.3,
+                  AppSpacing.hmd,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Status + tags
+                        Row(
+                          children: [
+                            Icon(status.icon, size: 13, color: status.color),
+                            AppSpacing.hxs,
+                            Text(
+                              status.label,
+                              style: AppText.label.copyWith(
+                                color: status.color,
                               ),
-                              overflow: TextOverflow.ellipsis,
+                            ),
+                            AppSpacing.hxs,
+                            if (category.isNotEmpty) ...[
+                              _Tag(category, AppColors.info),
+                              AppSpacing.hxs,
+                            ],
+                            _Tag(diffLabel, diffColor),
+                          ],
+                        ),
+                        AppSpacing.vxs,
+                        // Question preview
+                        Text(
+                          questionText,
+                          style: AppText.body.copyWith(
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                          ),
+                          maxLines: _expanded ? 100 : 2,
+                          overflow: _expanded
+                              ? TextOverflow.visible
+                              : TextOverflow.ellipsis,
+                        ),
+                        if (qImage != null &&
+                            qImage.isNotEmpty &&
+                            _expanded) ...[
+                          AppSpacing.vsm,
+                          ClipRRect(
+                            borderRadius: AppRadius.bSm,
+                            child: Image.network(
+                              qImage,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) =>
+                                  Text('Gambar gagal', style: AppText.caption),
                             ),
                           ),
                         ],
-                      ),
-                      if (category.isNotEmpty) ...[
-                        SizedBox(height: 4),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF9333EA,
-                                ).withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                category,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF9333EA),
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: difficultyColor.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                difficultyLabel,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: difficultyColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
-                      SizedBox(height: AppSpacing.sm),
-                      // Question preview
-                      // Question preview
-                      Text(
-                        questionText,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w600,
-                          height: 1.4,
-                          color: const Color(0xFF4B4B4B),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (questionImage != null && questionImage.isNotEmpty) ...[
-                        SizedBox(height: AppSpacing.sm),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            questionImage,
-
-                            width: double.infinity,
-                            fit: BoxFit.contain,
-                            loadingBuilder: (_, child, progress) => progress == null
-                                ? child
-                                : const SizedBox(height: 80,
-                                child: Center(child: CircularProgressIndicator(
-                                    color: Color(0xFF1CB0F6), strokeWidth: 2))),
-                            errorBuilder: (_, __, ___) => const Text(
-                                '❌ Gambar tidak dapat dimuat',
-                                style: TextStyle(fontSize: 11, color: Color(0xFF777777))),
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
-                ),
-
-                SizedBox(width: AppSpacing.sm),
-
-                // Custom arrow icon
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: statusColor,
-                  size: 28,
-                ),
-              ],
+                  AppSpacing.hsm,
+                  RotationTransition(
+                    turns: _arrowAnim,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: status.color,
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                0,
-                AppSpacing.md,
-                AppSpacing.md,
+
+          // ── Expanded body ──────────────────────────────────────────────
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 250),
+            crossFadeState: _expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: const SizedBox.shrink(),
+            secondChild: Container(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: AppColors.border)),
               ),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Options (NO duplicate question!)
-                  ...List.generate(options.length, (index) {
-                    final optionLabel = String.fromCharCode(65 + index);
-                    final optionText = options[index].toString();
-                    final isUserAnswer = userAnswer == index;
-                    final isCorrectAnswer = correctAnswer == index;
+                  // Options
+                  ...List.generate(options.length, (i) {
+                    final label = String.fromCharCode(65 + i);
+                    final text = options[i].toString();
+                    final img = (optImages != null && i < optImages.length)
+                        ? optImages[i] as String?
+                        : null;
 
-                    Color? optionColor;
-                    Color? optionBgColor;
-                    IconData? optionIcon;
-                    String? optionBadge;
+                    final isUserAns = userAnswer == i;
+                    final isCorrectAns = correctAnswer == i;
 
-                    if (isCorrectAnswer) {
-                      optionColor = const Color(0xFF58CC02);
-                      optionBgColor = const Color(0xFF58CC02).withOpacity(0.12);
-                      optionIcon = Icons.check_circle_rounded;
-                      optionBadge = '✓ Jawaban Benar';
-                    } else if (isUserAnswer && !isCorrect) {
-                      optionColor = const Color(0xFFFF4B4B);
-                      optionBgColor = const Color(0xFFFF4B4B).withOpacity(0.12);
-                      optionIcon = Icons.cancel_rounded;
-                      optionBadge = '✗ Jawaban Anda';
+                    Color? col;
+                    String? badge;
+                    if (isCorrectAns) {
+                      col = AppColors.success;
+                      badge = '✓ Jawaban Benar';
+                    } else if (isUserAns && !isCorrect) {
+                      col = AppColors.error;
+                      badge = '✗ Jawaban Anda';
                     }
 
-                    return Container(
-                      margin: EdgeInsets.only(bottom: AppSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: optionBgColor ?? Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: optionColor ?? const Color(0xFFE5E5E5),
-                          width: optionColor != null ? 3 : 2,
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: col != null
+                              ? AppColors.softBg(col)
+                              : AppColors.surfaceAlt,
+                          borderRadius: AppRadius.bMd,
+                          border: Border.all(
+                            color: col?.withOpacity(0.4) ?? AppColors.border,
+                            width: col != null ? 1.5 : 1,
+                          ),
                         ),
-                        boxShadow: optionColor != null
-                            ? [
-                                BoxShadow(
-                                  color: optionColor.withOpacity(0.2),
-                                  offset: const Offset(0, 4),
-                                  blurRadius: 8,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Badge strip
+                            if (badge != null)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 5,
                                 ),
-                              ]
-                            : null,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (optionBadge != null)
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: optionColor!.withOpacity(0.15),
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(11),
+                                decoration: BoxDecoration(
+                                  color: col!.withOpacity(0.15),
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(AppRadius.md),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isCorrectAns
+                                          ? Icons.check_circle_rounded
+                                          : Icons.cancel_rounded,
+                                      size: 12,
+                                      color: col,
+                                    ),
+                                    AppSpacing.hxs,
+                                    Text(
+                                      badge,
+                                      style: AppText.label.copyWith(
+                                        color: col,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
                               child: Row(
                                 children: [
-                                  Icon(
-                                    optionIcon,
-                                    size: 14,
-                                    color: optionColor,
+                                  // Label box
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: col ?? AppColors.border,
+                                      borderRadius: AppRadius.bSm,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        label,
+                                        style: AppText.label.copyWith(
+                                          color: col != null
+                                              ? AppColors.white
+                                              : AppColors.textSecondary,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    optionBadge,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      color: optionColor,
+                                  AppSpacing.hmd,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          text,
+                                          style: AppText.body.copyWith(
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                        if (img != null && img.isNotEmpty) ...[
+                                          AppSpacing.vsm,
+                                          ClipRRect(
+                                            borderRadius: AppRadius.bSm,
+                                            child: Image.network(
+                                              img,
+                                              height: 80,
+                                              fit: BoxFit.contain,
+                                              errorBuilder: (_, __, ___) =>
+                                                  Text(
+                                                    'Gambar gagal',
+                                                    style: AppText.caption,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          Padding(
-                            padding: EdgeInsets.all(AppSpacing.md),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    gradient: optionColor != null
-                                        ? LinearGradient(
-                                            colors: [
-                                              optionColor,
-                                              optionColor.withOpacity(0.8),
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          )
-                                        : null,
-                                    color: optionColor == null
-                                        ? const Color(0xFFE5E5E5)
-                                        : null,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      optionLabel,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w900,
-                                        color: optionColor != null
-                                            ? Colors.white
-                                            : const Color(0xFF777777),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: AppSpacing.md),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        optionText,
-                                        style: AppTextStyles.bodyMedium.copyWith(
-                                          color: const Color(0xFF1F1F1F),
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                      if (optionImages != null &&
-                                          index < optionImages.length &&
-                                          optionImages[index] != null &&
-                                          (optionImages[index] as String).isNotEmpty) ...[
-                                        SizedBox(height: AppSpacing.sm),
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image.network(
-                                            optionImages[index] as String,
-                                            height: 80,
-                                            fit: BoxFit.contain,
-                                            loadingBuilder: (_, child, progress) => progress == null
-                                                ? child
-                                                : const SizedBox(height: 80,
-                                                child: Center(child: CircularProgressIndicator(
-                                                    color: Color(0xFF1CB0F6), strokeWidth: 2))),
-                                            errorBuilder: (_, __, ___) => const Text(
-                                                '❌ Gambar gagal',
-                                                style: TextStyle(fontSize: 11, color: Color(0xFF777777))),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
                   }),
 
                   // Explanation
-                  if (explanationShort.isNotEmpty ||
-                      explanationFull.isNotEmpty) ...[
-                    SizedBox(height: AppSpacing.lg),
+                  if (expShort.isNotEmpty || expFull.isNotEmpty) ...[
+                    AppSpacing.vmd,
                     Container(
-                      padding: EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFF1CB0F6).withOpacity(0.1),
-                            const Color(0xFF1CB0F6).withOpacity(0.05),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
+                        color: AppColors.softBg(AppColors.info),
+                        borderRadius: AppRadius.bMd,
                         border: Border.all(
-                          color: const Color(0xFF1CB0F6).withOpacity(0.3),
-                          width: 2,
+                          color: AppColors.info.withOpacity(0.25),
                         ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(AppSpacing.sm),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1CB0F6),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFF1CB0F6,
-                                      ).withOpacity(0.3),
-                                      offset: const Offset(0, 4),
-                                      blurRadius: 8,
-                                    ),
-                                  ],
+                          // Header
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.info,
+                                    borderRadius: AppRadius.bSm,
+                                  ),
+                                  child: const Icon(
+                                    Icons.lightbulb_rounded,
+                                    color: AppColors.white,
+                                    size: 14,
+                                  ),
                                 ),
-                                child: const Icon(
-                                  Icons.lightbulb_rounded,
-                                  color: Colors.white,
-                                  size: 20,
+                                AppSpacing.hxs,
+                                Text(
+                                  'Pembahasan',
+                                  style: AppText.label.copyWith(
+                                    color: AppColors.info,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: AppSpacing.sm),
-                              Text(
-                                'Pembahasan',
-                                style: AppTextStyles.bodyLarge.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF1CB0F6),
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                          if (explanationShort.isNotEmpty) ...[
-                            SizedBox(height: AppSpacing.md),
-                            Container(
-                              padding: EdgeInsets.all(AppSpacing.md),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color(
-                                    0xFF1CB0F6,
-                                  ).withOpacity(0.2),
-                                  width: 2,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFF1CB0F6,
-                                      ).withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      'Ringkasan',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF1CB0F6),
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(height: AppSpacing.sm),
-                                  Text(
-                                    explanationShort,
-                                    style: AppTextStyles.bodyMedium.copyWith(
-                                      height: 1.6,
-                                      color: const Color(0xFF4B4B4B),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          if (expShort.isNotEmpty)
+                            _ExpBlock('Ringkasan', expShort, AppColors.info),
+                          if (expFull.isNotEmpty)
+                            _ExpBlock(
+                              'Penjelasan Lengkap',
+                              expFull,
+                              AppColors.primary,
                             ),
-                          ],
-                          if (explanationFull.isNotEmpty) ...[
-                            SizedBox(height: AppSpacing.sm),
-                            Container(
-                              padding: EdgeInsets.all(AppSpacing.md),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color(
-                                    0xFF1CB0F6,
-                                  ).withOpacity(0.2),
-                                  width: 2,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFF9333EA,
-                                      ).withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      'Penjelasan Lengkap',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF9333EA),
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(height: AppSpacing.sm),
-                                  Text(
-                                    explanationFull,
-                                    style: AppTextStyles.bodyMedium.copyWith(
-                                      height: 1.6,
-                                      color: const Color(0xFF4B4B4B),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                          AppSpacing.vsm,
                         ],
                       ),
                     ),
@@ -1338,92 +1165,154 @@ class _ExamReviewScreenState extends State<ExamReviewScreen> {
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  // ==========================================================================
-  // LOADING & ERROR
-  // ==========================================================================
-  Widget _buildLoadingView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(Color(0xFF58CC02)),
+// ============================================================================
+// SMALL WIDGETS
+// ============================================================================
+
+class _Card extends StatelessWidget {
+  final Widget child;
+  const _Card({required this.child});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: AppRadius.bLg,
+      border: Border.all(color: AppColors.border),
+      boxShadow: AppShadow.sm,
+    ),
+    child: child,
+  );
+}
+
+class _ScoreStat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  const _ScoreStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 18),
+        AppSpacing.vxs,
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: color,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
-          SizedBox(height: AppSpacing.lg),
+        ),
+        Text(
+          label,
+          style: AppText.caption.copyWith(
+            color: AppColors.white.withOpacity(0.6),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _VertDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) =>
+      Container(width: 1, height: 40, color: AppColors.white.withOpacity(0.1));
+}
+
+class _Tag extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _Tag(this.label, this.color);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+    decoration: BoxDecoration(
+      color: AppColors.softBg(color),
+      borderRadius: AppRadius.bFull,
+    ),
+    child: Text(
+      label,
+      style: AppText.label.copyWith(color: color, fontSize: 10),
+    ),
+  );
+}
+
+class _ExpBlock extends StatelessWidget {
+  final String title;
+  final String text;
+  final Color color;
+  const _ExpBlock(this.title, this.text, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.bMd,
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.softBg(color),
+              borderRadius: AppRadius.bFull,
+            ),
+            child: Text(
+              title,
+              style: AppText.label.copyWith(color: color, fontSize: 10),
+            ),
+          ),
+          AppSpacing.vsm,
           Text(
-            'Memuat Hasil...',
-            style: AppTextStyles.headingMedium.copyWith(
-              fontWeight: FontWeight.w800,
+            text,
+            style: AppText.body.copyWith(
+              height: 1.6,
+              color: AppColors.textSecondary,
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildErrorView() {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(AppSpacing.xl),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF4B4B).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                color: Color(0xFFFF4B4B),
-                size: 64,
-              ),
-            ),
-            SizedBox(height: AppSpacing.lg),
-            Text(
-              'Terjadi Kesalahan',
-              style: AppTextStyles.headingMedium.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            SizedBox(height: AppSpacing.sm),
-            Text(
-              _error ?? 'Unknown error',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: const Color(0xFF777777),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: AppSpacing.xl),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xl,
-                  vertical: AppSpacing.md,
-                ),
-                backgroundColor: const Color(0xFF58CC02),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Color(0xFF46A302), width: 2),
-                ),
-              ),
-              child: const Text(
-                'KEMBALI',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+// Helper classes
+class _ScoreInfo {
+  final int score;
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _ScoreInfo(this.score, this.label, this.icon, this.color);
+}
+
+class _QStatus {
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _QStatus(this.label, this.icon, this.color);
 }

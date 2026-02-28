@@ -3,8 +3,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:lulusasn/features/home/screens/StatisticScreen.dart';
-
-import '../admin/Dashboard/AdminDashboard.dart';
 import '../admin/pages/CreateTO.dart';
 import '../admin/pages/ViewTO.dart';
 import '../admin/pages/promotion_verification_screen.dart' show PromotionVerificationScreen;
@@ -30,16 +28,6 @@ import 'package:lulusasn/features/home/screens/home_screen.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
-// ============================================================================
-// ROUTE NAMES
-// ============================================================================
-
-// lib/app/routes.dart
-
-// ============================================================================
-// ROUTE NAMES
-// ============================================================================
-// lib/app/routes.dart
 
 // ============================================================================
 // ROUTE NAMES
@@ -143,7 +131,7 @@ class AppRouter {
         );
 
       // ==================== AUTHENTICATED ROUTES ====================
-      case AppRoutes.home:
+      case AppRoutes.main:
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const MainNavigationScreen(),
@@ -206,11 +194,6 @@ class AppRouter {
           builder: (_) => const TryoutDetailScreen(tryoutId: ''),
         );
 
-      case AppRoutes.adminDashboard:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const AdminDashboardScreen(),
-        );
       // ==================== EXAM ROUTES ====================
       case AppRoutes.examList:
         return MaterialPageRoute(

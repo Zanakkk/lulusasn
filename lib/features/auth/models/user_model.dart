@@ -7,115 +7,49 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// Matches Firestore schema exactly for type safety
 // lib/core/models/user_model.dart
 
-// lib/core/models/user_model.dart
 
 class UserModel {
-  // === BASIC INFO ===
   final String userId;
   final String email;
   final String displayName;
   final String photoURL;
+  final bool admin;
   final DateTime createdAt;
   final DateTime? lastLoginAt;
-
-  // === PRICE (pengganti energy) ===
-  final int price;
-
-  // === GAMIFICATION ===
-  final int xp;
-  final int level;
-  final int streak;
-  final int longestStreak;
-  final String? lastActiveDate; // YYYY-MM-DD format
-
-  // === AGGREGATED STATS ===
-  final UserStats stats;
-
-  // === SKILLS (Adaptive Learning) ===
-  final Map<String, SkillData> skills;
-
-  // === SETTINGS ===
-  final UserSettings settings;
-
-  // === GOAL (from onboarding) ===
   final String? goal;
-
-  // === OWNED TRYOUTS ===
-  final List<String> ownedTryouts; // Array of tryout IDs
+  final UserSettings settings;
 
   const UserModel({
     required this.userId,
     required this.email,
     required this.displayName,
     required this.photoURL,
+    required this.admin,
     required this.createdAt,
     this.lastLoginAt,
-    required this.price,
-    required this.xp,
-    required this.level,
-    required this.streak,
-    required this.longestStreak,
-    this.lastActiveDate,
-    required this.stats,
-    required this.skills,
-    required this.settings,
     this.goal,
-    this.ownedTryouts = const [],
+    required this.settings,
   });
 
-  // ============================================================================
-  // FACTORY: FROM FIRESTORE
-  // ============================================================================
-
+  // ── From Firestore ───────────────────────────────────────────────
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-
     return UserModel(
       userId: doc.id,
       email: data['email'] as String? ?? '',
       displayName: data['displayName'] as String? ?? '',
       photoURL: data['photoURL'] as String? ?? '',
+      admin: data['admin'] as bool? ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
-
-      price: data['price'] as int? ?? 0,
-
-      xp: data['xp'] as int? ?? 0,
-      level: data['level'] as int? ?? 1,
-      streak: data['streak'] as int? ?? 0,
-      longestStreak: data['longestStreak'] as int? ?? 0,
-      lastActiveDate: data['lastActiveDate'] as String?,
-
-      stats: UserStats.fromMap(
-        data['stats'] as Map<String, dynamic>? ?? {},
-      ),
-
-      skills: _parseSkills(data['skills'] as Map<String, dynamic>? ?? {}),
-
+      goal: data['goal'] as String?,
       settings: UserSettings.fromMap(
         data['settings'] as Map<String, dynamic>? ?? {},
       ),
-
-      goal: data['goal'] as String?,
-
-      ownedTryouts: List<String>.from(data['ownedTryouts'] ?? []),
     );
   }
 
-  // Helper to parse skills map
-  static Map<String, SkillData> _parseSkills(Map<String, dynamic> skillsMap) {
-    return skillsMap.map(
-          (key, value) => MapEntry(
-        key,
-        SkillData.fromMap(value as Map<String, dynamic>),
-      ),
-    );
-  }
-
-  // ============================================================================
-  // FACTORY: CREATE NEW USER (Default values for registration)
-  // ============================================================================
-
+  // ── Create New User ──────────────────────────────────────────────
   factory UserModel.createNew({
     required String userId,
     required String email,
@@ -124,142 +58,89 @@ class UserModel {
     String? goal,
   }) {
     final now = DateTime.now();
-
     return UserModel(
       userId: userId,
       email: email,
       displayName: displayName ?? email.split('@').first,
       photoURL: photoURL ?? '',
+      admin: false,
       createdAt: now,
       lastLoginAt: now,
-
-      // Starting price
-      price: 0,
-
-      // Starting gamification
-      xp: 0,
-      level: 1,
-      streak: 0,
-      longestStreak: 0,
-      lastActiveDate: null,
-
-      // Empty stats
-      stats: const UserStats(
-        totalExams: 0,
-        totalQuestions: 0,
-        totalCorrect: 0,
-        overallAccuracy: 0,
-        byCategory: {
-          'TWK': CategoryStats(total: 0, correct: 0, accuracy: 0),
-          'TIU': CategoryStats(total: 0, correct: 0, accuracy: 0),
-          'TKP': CategoryStats(total: 0, correct: 0, accuracy: 0),
-        },
-      ),
-
-      // Empty skills
-      skills: const {},
-
-      // Default settings
+      goal: goal,
       settings: const UserSettings(
         notifications: true,
         soundEnabled: true,
         darkMode: false,
       ),
-
-      goal: goal,
-
-      // No tryouts owned yet
-      ownedTryouts: const [],
     );
   }
 
-  // ============================================================================
-  // TO FIRESTORE
-  // ============================================================================
-
+  // ── To Firestore ─────────────────────────────────────────────────
   Map<String, dynamic> toFirestore() {
     return {
       'email': email,
       'displayName': displayName,
       'photoURL': photoURL,
+      'admin': admin,
       'createdAt': Timestamp.fromDate(createdAt),
-      'lastLoginAt':
-      lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
-
-      'price': price,
-
-      'xp': xp,
-      'level': level,
-      'streak': streak,
-      'longestStreak': longestStreak,
-      'lastActiveDate': lastActiveDate,
-
-      'stats': stats.toMap(),
-
-      'skills': skills.map((key, value) => MapEntry(key, value.toMap())),
-
-      'settings': settings.toMap(),
-
+      'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
       if (goal != null) 'goal': goal,
-
-      'ownedTryouts': ownedTryouts,
+      'settings': settings.toMap(),
     };
   }
 
-  // ============================================================================
-  // COPY WITH
-  // ============================================================================
-
+  // ── Copy With ────────────────────────────────────────────────────
   UserModel copyWith({
     String? displayName,
     String? photoURL,
+    bool? admin,
     DateTime? lastLoginAt,
-    int? price,
-    int? xp,
-    int? level,
-    int? streak,
-    int? longestStreak,
-    String? lastActiveDate,
-    UserStats? stats,
-    Map<String, SkillData>? skills,
-    UserSettings? settings,
     String? goal,
-    List<String>? ownedTryouts,
+    UserSettings? settings,
   }) {
     return UserModel(
       userId: userId,
       email: email,
       displayName: displayName ?? this.displayName,
       photoURL: photoURL ?? this.photoURL,
+      admin: admin ?? this.admin,
       createdAt: createdAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
-      price: price ?? this.price,
-      xp: xp ?? this.xp,
-      level: level ?? this.level,
-      streak: streak ?? this.streak,
-      longestStreak: longestStreak ?? this.longestStreak,
-      lastActiveDate: lastActiveDate ?? this.lastActiveDate,
-      stats: stats ?? this.stats,
-      skills: skills ?? this.skills,
-      settings: settings ?? this.settings,
       goal: goal ?? this.goal,
-      ownedTryouts: ownedTryouts ?? this.ownedTryouts,
+      settings: settings ?? this.settings,
+    );
+  }
+}
+
+
+// ── UserSettings ─────────────────────────────────────────────────────────────
+class UserSettings {
+  final bool notifications;
+  final bool soundEnabled;
+  final bool darkMode;
+
+  const UserSettings({
+    required this.notifications,
+    required this.soundEnabled,
+    required this.darkMode,
+  });
+
+  factory UserSettings.fromMap(Map<String, dynamic> map) {
+    return UserSettings(
+      notifications: map['notifications'] as bool? ?? true,
+      soundEnabled: map['soundEnabled'] as bool? ?? true,
+      darkMode: map['darkMode'] as bool? ?? false,
     );
   }
 
-  // ============================================================================
-  // HELPER METHODS FOR TRYOUTS
-  // ============================================================================
-
-  /// Check if user owns a specific tryout
-  bool ownsTryout(String tryoutId) {
-    return ownedTryouts.contains(tryoutId);
+  Map<String, dynamic> toMap() {
+    return {
+      'notifications': notifications,
+      'soundEnabled': soundEnabled,
+      'darkMode': darkMode,
+    };
   }
-
-  /// Get count of owned tryouts
-  int get ownedTryoutCount => ownedTryouts.length;
 }
-
 // ============================================================================
 // NESTED DATA CLASSES
 // ============================================================================
@@ -459,34 +340,6 @@ class AdsData {
       'totalInterstitialShown': totalInterstitialShown,
       'totalRewardedWatched': totalRewardedWatched,
       'lastRewardedAt': lastRewardedAt != null ? Timestamp.fromDate(lastRewardedAt!) : null,
-    };
-  }
-}
-
-class UserSettings {
-  final bool notifications;
-  final bool soundEnabled;
-  final bool darkMode;
-
-  const UserSettings({
-    required this.notifications,
-    required this.soundEnabled,
-    required this.darkMode,
-  });
-
-  factory UserSettings.fromMap(Map<String, dynamic> map) {
-    return UserSettings(
-      notifications: map['notifications'] as bool? ?? true,
-      soundEnabled: map['soundEnabled'] as bool? ?? true,
-      darkMode: map['darkMode'] as bool? ?? false,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'notifications': notifications,
-      'soundEnabled': soundEnabled,
-      'darkMode': darkMode,
     };
   }
 }

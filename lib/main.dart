@@ -31,7 +31,7 @@ class LulusASNApp extends StatelessWidget {
     return MaterialApp(
       title: 'LULUZZZ',
       debugShowCheckedModeBanner: false,
-      theme: duolingoTheme,
+      theme: AppTheme.light,
 
       home: const AuthGate(),
       onGenerateRoute: AppRouter.generateRoute, // ✅ Route generator

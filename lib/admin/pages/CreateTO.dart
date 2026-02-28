@@ -1,25 +1,26 @@
-// ignore_for_file: file_names, deprecated_member_use, avoid_web_libraries_in_flutter, avoid_types_as_parameter_names
-
+// ignore_for_file: file_names, deprecated_member_use, avoid_web_libraries_in_flutter
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:lulusasn/core/constants/spacing.dart';
-import 'package:lulusasn/core/constants/text_styles.dart';
 import 'package:excel/excel.dart' hide Border, BorderStyle, TextSpan;
 import 'dart:html' as html;
 
+import '../../app/theme.dart';
 import 'createTO/manage_categories_screen.dart';
 
-/// Model untuk Subtes
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────────────────────────────────────────
+
 class SubTest {
   String id;
   String name;
   String description;
-  String category; // TWK, TIU, TKP
-  String difficulty; // easy, medium, hard
+  String category;
+  String difficulty;
   int estimatedMinutes;
-  String type; // objective or likert
+  String type;
   String? fileName;
   int? questionCount;
   List<Map<String, dynamic>>? questions;
@@ -28,31 +29,26 @@ class SubTest {
     required this.id,
     this.name = '',
     this.description = '',
-    this.category = 'TWK',
-    this.difficulty = 'easy',
-    this.estimatedMinutes = 15,
+    this.category = '',
+    this.difficulty = 'medium',
+    this.estimatedMinutes = 30,
     this.type = 'objective',
     this.fileName,
     this.questionCount,
     this.questions,
   });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'description': description,
-      'category': category,
-      'difficulty': difficulty,
-      'estimatedMinutes': estimatedMinutes,
-      'type': type,
-      'questionCount': questionCount ?? 0,
-      'isActive': true,
-      'createdAt': FieldValue.serverTimestamp(),
-    };
-  }
 }
 
-/// Screen untuk membuat Try Out baru dengan multi-subtes (Duolingo Style)
+class ProcessingStatus {
+  final String message;
+  final bool isError;
+  const ProcessingStatus({required this.message, this.isError = false});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+
 class CreateTryoutScreen extends StatefulWidget {
   const CreateTryoutScreen({super.key});
 
@@ -60,44 +56,45 @@ class CreateTryoutScreen extends StatefulWidget {
   State<CreateTryoutScreen> createState() => _CreateTryoutScreenState();
 }
 
-class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
+class _CreateTryoutScreenState extends State<CreateTryoutScreen>
+    with SingleTickerProviderStateMixin {
+  // ── Form ──────────────────────────────────────────────────────
   final _formKey = GlobalKey<FormState>();
+  final _titleCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  final _priceCtrl = TextEditingController(text: '0');
 
-  // Controllers untuk Tryout utama
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _priceController = TextEditingController(text: '1');
-
-  // Tryout settings
+  // ── Tryout meta ───────────────────────────────────────────────
   bool _isActive = true;
+  bool _isFlexible = true;
   DateTime? _startDate;
   DateTime? _endDate;
-  bool _isFlexibleDate = true; // Tanggal bebas
 
-  // Exam Types & Categories
+  // ── Exam types ────────────────────────────────────────────────
   List<ExamType> _examTypes = [];
   String? _selectedExamTypeId;
-  bool _isLoadingExamTypes = true;
+  bool _loadingExamTypes = true;
 
-  // Subtes
+  // ── Sub-tests ─────────────────────────────────────────────────
   final List<SubTest> _subTests = [];
-  int _selectedSubTestIndex = 0;
+  int _activeTab = 0;
 
-// TAMBAHKAN INI
-  final Map<int, TextEditingController> _nameControllers = {};
-  final Map<int, TextEditingController> _descControllers = {};
-  final Map<int, TextEditingController> _timeControllers = {};
+  // Per-subtest controllers (keyed by subtest index)
+  final Map<int, TextEditingController> _nameCtrl = {};
+  final Map<int, TextEditingController> _descCtrl2 = {};
+  final Map<int, TextEditingController> _timeCtrl = {};
 
-  // Processing state
-  // REPLACE / TAMBAHKAN DI SEKITAR BARIS [cite: 12]
-  bool _isProcessing = false;
-  String? _errorMessage;
-  // Hapus atau biarkan variabel lama, tapi tambahkan ini:
-  final ValueNotifier<ProcessingStatus?> processStatus = ValueNotifier(null);
-
-  double _parseProgress = 0.0;
-  String _parseStatus = '';
+  // ── State flags ───────────────────────────────────────────────
+  bool _isSaving = false;
   bool _isParsing = false;
+  double _parseProgress = 0;
+  String _parseMsg = '';
+  String? _errorMsg;
+
+  final ValueNotifier<ProcessingStatus?> _toast = ValueNotifier(null);
+
+  // ── Step UI ───────────────────────────────────────────────────
+  int _currentStep = 0; // 0=Info, 1=ExamType, 2=Schedule, 3=Subtests
 
   @override
   void initState() {
@@ -107,129 +104,577 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _priceController.dispose();
-    // TAMBAHKAN INI
-    for (final c in _nameControllers.values) c.dispose();
-    for (final c in _descControllers.values) c.dispose();
-    for (final c in _timeControllers.values) c.dispose();
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    _priceCtrl.dispose();
+    for (final c in _nameCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _descCtrl2.values) {
+      c.dispose();
+    }
+    for (final c in _timeCtrl.values) {
+      c.dispose();
+    }
+    _toast.dispose();
     super.dispose();
   }
 
-  void _addSubTest() {
-    setState(() {
-      _subTests.add(
-        SubTest(id: DateTime.now().millisecondsSinceEpoch.toString()),
-      );
-      _selectedSubTestIndex = _subTests.length - 1;
-      // TAMBAHKAN INI - inisialisasi controller langsung
-      _nameControllers[_selectedSubTestIndex] = TextEditingController();
-      _descControllers[_selectedSubTestIndex] = TextEditingController();
-      _timeControllers[_selectedSubTestIndex] = TextEditingController(text: '15');
-    });
-  }
-
-  void _removeSubTest(int index) {
-    if (_subTests.length > 1) {
-      // TAMBAHKAN INI
-      _nameControllers[index]?.dispose();
-      _descControllers[index]?.dispose();
-      _timeControllers[index]?.dispose();
-      _nameControllers.remove(index);
-      _descControllers.remove(index);
-      _timeControllers.remove(index);
-
-      setState(() {
-        _subTests.removeAt(index);
-        if (_selectedSubTestIndex >= _subTests.length) {
-          _selectedSubTestIndex = _subTests.length - 1;
-        }
-      });
-    }
-  }
+  // ─────────────────────────────────────────────────────────────
+  // DATA
+  // ─────────────────────────────────────────────────────────────
 
   Future<void> _loadExamTypes() async {
-
-    if (!mounted) return; // ← TAMBAH INI
-    setState(() => _isLoadingExamTypes = true);
-
+    if (!mounted) return;
+    setState(() => _loadingExamTypes = true);
     try {
-      final snapshot = await FirebaseFirestore.instance
+      final snap = await FirebaseFirestore.instance
           .collection('exam_types')
           .where('isActive', isEqualTo: true)
           .orderBy('order')
           .get();
-      if (!mounted) return; // ← TAMBAH INI (setelah await)
+      if (!mounted) return;
       setState(() {
-        _examTypes = snapshot.docs
-            .map((doc) => ExamType.fromFirestore(doc))
-            .toList();
-        _isLoadingExamTypes = false;
+        _examTypes = snap.docs.map((d) => ExamType.fromFirestore(d)).toList();
+        _loadingExamTypes = false;
+      });
+      if (_subTests.isEmpty) _addSubTest();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingExamTypes = false);
+      _showToast('Gagal memuat kategori: $e', isError: true);
+    }
+  }
+
+  ExamType? get _selectedExamType => _selectedExamTypeId == null
+      ? null
+      : _examTypes.where((e) => e.id == _selectedExamTypeId).firstOrNull;
+
+  List<String> get _availableCategories => _selectedExamType?.categories ?? [];
+
+  // ─────────────────────────────────────────────────────────────
+  // SUBTEST MANAGEMENT
+  // ─────────────────────────────────────────────────────────────
+
+  void _addSubTest() {
+    final idx = _subTests.length;
+    _subTests.add(
+      SubTest(id: DateTime.now().millisecondsSinceEpoch.toString()),
+    );
+    _nameCtrl[idx] = TextEditingController();
+    _descCtrl2[idx] = TextEditingController();
+    _timeCtrl[idx] = TextEditingController(text: '30');
+    setState(() => _activeTab = idx);
+  }
+
+  void _removeSubTest(int idx) {
+    if (_subTests.length <= 1) return;
+    _nameCtrl[idx]?.dispose();
+    _descCtrl2[idx]?.dispose();
+    _timeCtrl[idx]?.dispose();
+    _nameCtrl.remove(idx);
+    _descCtrl2.remove(idx);
+    _timeCtrl.remove(idx);
+    setState(() {
+      _subTests.removeAt(idx);
+      if (_activeTab >= _subTests.length) _activeTab = _subTests.length - 1;
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // TOAST
+  // ─────────────────────────────────────────────────────────────
+
+  void _showToast(String msg, {bool isError = false}) {
+    _toast.value = ProcessingStatus(message: msg, isError: isError);
+    if (!isError) {
+      Future.delayed(const Duration(seconds: 3), () => _toast.value = null);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SAVE
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> _save() async {
+    // Sync controller values → model
+    for (int i = 0; i < _subTests.length; i++) {
+      _subTests[i].name = _nameCtrl[i]?.text.trim() ?? '';
+      _subTests[i].description = _descCtrl2[i]?.text.trim() ?? '';
+      _subTests[i].estimatedMinutes =
+          int.tryParse(_timeCtrl[i]?.text ?? '30') ?? 30;
+    }
+
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedExamTypeId == null) {
+      setState(() => _errorMsg = 'Pilih tipe ujian terlebih dahulu.');
+      return;
+    }
+    for (final s in _subTests) {
+      if (s.name.isEmpty) {
+        setState(() => _errorMsg = 'Semua subtes harus memiliki nama.');
+        return;
+      }
+      if (s.questions == null || s.questions!.isEmpty) {
+        setState(() => _errorMsg = 'Upload file Excel untuk setiap subtes.');
+        return;
+      }
+    }
+
+    setState(() {
+      _isSaving = true;
+      _errorMsg = null;
+    });
+    _showToast('Menyimpan Try Out...');
+
+    try {
+      final subtestsData = [
+        for (int i = 0; i < _subTests.length; i++)
+          {
+            'order': i,
+            'name': _subTests[i].name,
+            'description': _subTests[i].description,
+            'category': _subTests[i].category,
+            'difficulty': _subTests[i].difficulty,
+            'estimatedMinutes': _subTests[i].estimatedMinutes,
+            'type': _subTests[i].type,
+            'questionCount': _subTests[i].questionCount ?? 0,
+            'isActive': true,
+            'questions': _subTests[i].questions ?? [],
+          },
+      ];
+
+      await FirebaseFirestore.instance.collection('tryouts').add({
+        'title': _titleCtrl.text.trim(),
+        'description': _descCtrl.text.trim(),
+        'examTypeId': _selectedExamTypeId,
+        'examTypeName': _selectedExamType?.name ?? '',
+        'price': int.tryParse(_priceCtrl.text) ?? 0,
+        'isActive': _isActive,
+        'isFlexibleDate': _isFlexible,
+        'startDate': _isFlexible ? null : Timestamp.fromDate(_startDate!),
+        'endDate': _isFlexible ? null : Timestamp.fromDate(_endDate!),
+        'totalEstimatedMinutes': _subTests.fold(
+          0,
+          (s, t) => s + t.estimatedMinutes,
+        ),
+        'totalQuestions': _subTests.fold(
+          0,
+          (s, t) => s + (t.questionCount ?? 0),
+        ),
+        'subTestCount': _subTests.length,
+        'subtests': subtestsData,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Tambah subtes default setelah exam types loaded
-      if (_subTests.isEmpty) {
-        _addSubTest();
-      }
-    } catch (e) {if (!mounted) return; // ← TAMBAH INI (setelah await)
-      setState(() => _isLoadingExamTypes = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error memuat kategori: $e'),
-            backgroundColor: const Color(0xFFFF4B4B),
-          ),
-        );
-      }
-    }
-  }
-
-  ExamType? _getSelectedExamType() {
-    if (_selectedExamTypeId == null) return null;
-    try {
-      return _examTypes.firstWhere((e) => e.id == _selectedExamTypeId);
+      _showToast('✅ Try Out berhasil disimpan!');
+      _reset();
     } catch (e) {
-      return null;
+      _showToast('❌ Gagal menyimpan: $e', isError: true);
+      setState(() => _errorMsg = 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  List<String> _getAvailableCategories() {
-    final examType = _getSelectedExamType();
-    return examType?.categories ?? [];
+  void _reset() {
+    for (final c in _nameCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _descCtrl2.values) {
+      c.dispose();
+    }
+    for (final c in _timeCtrl.values) {
+      c.dispose();
+    }
+    _nameCtrl.clear();
+    _descCtrl2.clear();
+    _timeCtrl.clear();
+    _formKey.currentState?.reset();
+    _titleCtrl.clear();
+    _descCtrl.clear();
+    _priceCtrl.text = '0';
+    setState(() {
+      _selectedExamTypeId = null;
+      _isActive = true;
+      _isFlexible = true;
+      _startDate = null;
+      _endDate = null;
+      _subTests.clear();
+      _errorMsg = null;
+      _currentStep = 0;
+      _activeTab = 0;
+    });
+    _addSubTest();
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // EXCEL PARSE
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> _pickFile(SubTest sub) async {
+    await Future.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
+    try {
+      final res = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+        withData: true,
+      );
+      if (!mounted || res == null || res.files.single.bytes == null) return;
+      setState(() => sub.fileName = res.files.single.name);
+      await _parseExcel(sub, res.files.single.bytes!);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMsg = 'Gagal memilih file: $e');
+    }
+  }
+
+  Future<void> _parseExcel(SubTest sub, List<int> bytes) async {
+    setState(() {
+      _isParsing = true;
+      _parseProgress = 0;
+      _parseMsg = 'Membaca file…';
+    });
+    try {
+      await Future.delayed(const Duration(milliseconds: 80));
+      setState(() => _parseProgress = 0.1);
+
+      final excel = Excel.decodeBytes(bytes);
+      final sheet = excel.tables[excel.tables.keys.first];
+      if (sheet == null) throw Exception('Sheet tidak ditemukan');
+
+      final rows = sheet.rows;
+      final total = rows.length;
+      final questions = <Map<String, dynamic>>[];
+
+      String cell(List row, int i) {
+        if (i >= row.length) return '';
+        return (row[i]?.value ?? '').toString().trim();
+      }
+
+      for (int i = 1; i < total; i++) {
+        final row = rows[i];
+        if (row.isEmpty || row.every((c) => c?.value == null)) continue;
+        if (i % 10 == 0) {
+          setState(() {
+            _parseProgress = 0.15 + (i / total) * 0.8;
+            _parseMsg = 'Proses baris $i / ${total - 1}';
+          });
+          await Future.delayed(Duration.zero);
+        }
+
+        final pkg = cell(row, 0);
+        final cat = cell(row, 1);
+        final diff = cell(row, 2);
+        final q = cell(row, 3);
+        final type = cell(row, 4);
+        if (q.isEmpty) continue;
+
+        final opts = [
+          cell(row, 5),
+          cell(row, 6),
+          cell(row, 7),
+          cell(row, 8),
+          cell(row, 9),
+        ].where((o) => o.isNotEmpty).toList();
+
+        final optImgs = [
+          cell(row, 20),
+          cell(row, 21),
+          cell(row, 22),
+          cell(row, 23),
+          cell(row, 24),
+        ].map((e) => e.isNotEmpty ? e : null).toList();
+
+        final qImg = cell(row, 19);
+        final exShort = cell(row, 16);
+        final exFull = cell(row, 17);
+        final tags = cell(
+          row,
+          18,
+        ).split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+
+        if (type == 'likert') {
+          questions.add({
+            'package': pkg,
+            'category': cat,
+            'difficulty': diff.isEmpty ? 'medium' : diff,
+            'question': q,
+            'type': 'likert',
+            'options': opts,
+            'scores': [
+              int.tryParse(cell(row, 11)) ?? 0,
+              int.tryParse(cell(row, 12)) ?? 0,
+              int.tryParse(cell(row, 13)) ?? 0,
+              int.tryParse(cell(row, 14)) ?? 0,
+              int.tryParse(cell(row, 15)) ?? 0,
+            ],
+            'explanationShort': exShort,
+            'explanationFull': exFull,
+            'tags': tags,
+            'questionImage': qImg.isNotEmpty ? qImg : null,
+            'optionImages': optImgs,
+          });
+        } else {
+          questions.add({
+            'package': pkg,
+            'category': cat,
+            'difficulty': diff.isEmpty ? 'medium' : diff,
+            'question': q,
+            'type': 'objective',
+            'options': opts,
+            'correctIndex': int.tryParse(cell(row, 10)) ?? 0,
+            'explanationShort': exShort,
+            'explanationFull': exFull,
+            'tags': tags,
+            'questionImage': qImg.isNotEmpty ? qImg : null,
+            'optionImages': optImgs,
+          });
+        }
+      }
+
+      if (questions.isEmpty) throw Exception('Tidak ada soal valid di file');
+
+      setState(() {
+        sub.questions = questions;
+        sub.questionCount = questions.length;
+        _isParsing = false;
+        _parseProgress = 0;
+      });
+      _showToast('✅ ${questions.length} soal berhasil dibaca');
+    } catch (e) {
+      setState(() {
+        sub.fileName = null;
+        sub.questions = null;
+        sub.questionCount = null;
+        _isParsing = false;
+        _errorMsg = 'Parse error: $e';
+      });
+      _showToast('❌ $e', isError: true);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // IMAGE UPLOAD
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> _uploadImage(Map<String, dynamic> question) async {
+    final res = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (res == null) return;
+    _showToast('Mengunggah gambar…');
+    try {
+      final f = res.files.first;
+      final ref = FirebaseStorage.instance.ref(
+        'questions/${DateTime.now().millisecondsSinceEpoch}_${f.name}',
+      );
+      final snap = await ref.putData(f.bytes!);
+      final url = await snap.ref.getDownloadURL();
+      setState(() => question['questionImage'] = url);
+      _showToast('✅ Gambar berhasil diunggah');
+    } catch (e) {
+      _showToast('❌ Upload gagal: $e', isError: true);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // TEMPLATE DOWNLOAD
+  // ─────────────────────────────────────────────────────────────
+
+  void _downloadTemplate(bool isLikert) {
+    final excel = Excel.createExcel();
+    final sheet = excel['questions'];
+    sheet.appendRow(
+      [
+        'Package',
+        'Category',
+        'Difficulty',
+        'Question',
+        'Type',
+        'Option A',
+        'Option B',
+        'Option C',
+        'Option D',
+        'Option E',
+        'Correct Index',
+        'Score A',
+        'Score B',
+        'Score C',
+        'Score D',
+        'Score E',
+        'Explanation Short',
+        'Explanation Full',
+        'Tags',
+        'Question Image URL',
+        'Opt A Img',
+        'Opt B Img',
+        'Opt C Img',
+        'Opt D Img',
+        'Opt E Img',
+      ].map(TextCellValue.new).toList(),
+    );
+
+    if (!isLikert) {
+      sheet.appendRow(
+        [
+          'CPNS 2025',
+          'TWK',
+          'medium',
+          'Sila pertama Pancasila adalah…',
+          'objective',
+          'Kemanusiaan',
+          'Ketuhanan Yang Maha Esa',
+          'Persatuan',
+          'Kerakyatan',
+          'Keadilan',
+          '1',
+          '',
+          '',
+          '',
+          '',
+          '',
+          'Ketuhanan YME',
+          'Sila 1 berbunyi Ketuhanan Yang Maha Esa.',
+          'pancasila',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+        ].map(TextCellValue.new).toList(),
+      );
+    } else {
+      sheet.appendRow(
+        [
+          'CPNS 2025',
+          'TKP',
+          'medium',
+          'Rekan kerja melakukan kesalahan, Anda…',
+          'likert',
+          'Menegur keras',
+          'Membiarkan',
+          'Lapor atasan langsung',
+          'Bicara empat mata',
+          'Bantu perbaiki',
+          '',
+          '1',
+          '2',
+          '3',
+          '5',
+          '4',
+          'Komunikasi efektif',
+          'Pilih D karena empati dan profesional.',
+          'tkp,komunikasi',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+        ].map(TextCellValue.new).toList(),
+      );
+    }
+
+    final bytes = excel.encode()!;
+    final url = html.Url.createObjectUrlFromBlob(html.Blob([bytes]));
+    html.AnchorElement(href: url)
+      ..setAttribute(
+        'download',
+        isLikert ? 'template_tkp.xlsx' : 'template_twk_tiu.xlsx',
+      )
+      ..click();
+    html.Url.revokeObjectUrl(url);
+    _showToast('✅ Template diunduh');
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // DATE PICKER
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> _pickDate(bool isStart) async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
+        child: child!,
+      ),
+    );
+    if (d != null) setState(() => isStart ? _startDate = d : _endDate = d);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // BUILD
+  // ═══════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: AppColors.bg,
       body: Stack(
-        // Gunakan Stack agar notifikasi bisa melayang [cite: 322]
         children: [
-          SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.all(AppSpacing.xxl),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(),
-                  SizedBox(height: AppSpacing.xl),
-                  _buildTemplateButtons(),
-                  SizedBox(height: AppSpacing.xl),
-                  _buildMainForm(),
-                ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Left sidebar steps ─────────────────────────────
+              _StepSidebar(
+                current: _currentStep,
+                onTap: (i) => setState(() => _currentStep = i),
               ),
-            ),
+              // ── Main content ───────────────────────────────────
+              Expanded(
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildPageHeader(),
+                        const SizedBox(height: AppSpacing.lg),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 260),
+                          transitionBuilder: (child, anim) => FadeTransition(
+                            opacity: anim,
+                            child: SlideTransition(
+                              position: Tween(
+                                begin: const Offset(0.04, 0),
+                                end: Offset.zero,
+                              ).animate(anim),
+                              child: child,
+                            ),
+                          ),
+                          child: KeyedSubtree(
+                            key: ValueKey(_currentStep),
+                            child: _buildStep(_currentStep),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        if (_errorMsg != null) _buildError(),
+                        const SizedBox(height: AppSpacing.md),
+                        _buildFooterActions(),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-
-          // SISIPKAN: Notifikasi Latar Belakang di sini
+          // ── Floating toast ────────────────────────────────────
           ValueListenableBuilder<ProcessingStatus?>(
-            valueListenable: processStatus,
-            builder: (context, status, child) {
+            valueListenable: _toast,
+            builder: (_, status, __) {
               if (status == null) return const SizedBox.shrink();
-              return _buildBackgroundNotification(
-                status,
-              ); // Buat widget pembantu ini
+              return _FloatingToast(
+                status: status,
+                onDismiss: () => _toast.value = null,
+              );
             },
           ),
         ],
@@ -237,1191 +682,1432 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
     );
   }
 
-  Widget _buildBackgroundNotification(ProcessingStatus status) {
-    return Positioned(
-      bottom: 24,
-      right: 24,
-      child: Material(
-        elevation: 10,
-        shadowColor: Colors.black38,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: 320,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: status.isError ? const Color(0xFFFEF2F2) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: status.isError
-                  ? Colors.red.withOpacity(0.5)
-                  : const Color(0xFFE2E8F0),
-            ),
-          ),
-          child: Row(
-            children: [
-              if (!status.isError)
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: Color(0xFF6C63FF),
-                  ),
-                )
-              else
-                const Icon(
-                  Icons.error_outline_rounded,
-                  color: Colors.red,
-                  size: 24,
-                ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  status.message,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: status.isError
-                        ? Colors.red[900]
-                        : const Color(0xFF1E293B),
-                  ),
-                ),
-              ),
-              if (status.isError)
-                IconButton(
-                  icon: const Icon(Icons.close, size: 18),
-                  onPressed: () => processStatus.value = null,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // ─────────────────────────────────────────────────────────────
+  // PAGE HEADER
+  // ─────────────────────────────────────────────────────────────
 
-  Widget _buildImagePreview(Map<String, dynamic> question) {
-    return Stack(
-      children: [
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          height: 200,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            image: DecorationImage(
-              image: NetworkImage(question['questionImage']),
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-        Positioned(
-          top: 12,
-          right: 4,
-          child: CircleAvatar(
-            backgroundColor: Colors.red,
-            radius: 16,
-            child: IconButton(
-              icon: const Icon(Icons.delete, size: 16, color: Colors.white),
-              onPressed: () {
-                setState(() {
-                  question['questionImage'] = '';
-                });
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _handleImageUploadForQuestion(
-    Map<String, dynamic> question,
-  ) async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (result == null) return;
-
-    // Mulai proses background
-    processStatus.value = ProcessingStatus(
-      message: "Sedang mengunggah gambar...",
-    );
-
-    try {
-      final file = result.files.first;
-      final path =
-          'questions/${DateTime.now().millisecondsSinceEpoch}_${file.name}';
-
-      // Upload ke Storage
-      final ref = FirebaseStorage.instance.ref().child(path);
-      final uploadTask = ref.putData(file.bytes!);
-
-      final snapshot = await uploadTask;
-      final url = await snapshot.ref.getDownloadURL();
-
-      // Update state soal
-      setState(() {
-        question['questionImage'] = url;
-      });
-
-      processStatus.value = ProcessingStatus(
-        message: "✅ Gambar berhasil dipasang",
-      );
-      Future.delayed(
-        const Duration(seconds: 2),
-        () => processStatus.value = null,
-      );
-    } catch (e) {
-      print(e);
-      processStatus.value = ProcessingStatus(
-        message: "❌ Gagal upload: $e",
-        isError: true,
-      );
-    }
-  }
-
-  // ==========================================================================
-  // HEADER - Duolingo Style
-  // ==========================================================================
-  Widget _buildHeader() {
+  Widget _buildPageHeader() {
     return Container(
-      padding: EdgeInsets.all(AppSpacing.xl),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF58CC02), Color(0xFF4CAF50)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
+        gradient: AppGradient.navy,
+        borderRadius: AppRadius.bLg,
+        boxShadow: AppShadow.md,
       ),
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.gold,
+              borderRadius: AppRadius.bMd,
             ),
             child: const Icon(
-              Icons.add_circle_rounded,
-              size: 40,
-              color: Color(0xFF58CC02),
+              Icons.edit_document,
+              color: AppColors.primary,
+              size: 28,
             ),
           ),
-          SizedBox(width: AppSpacing.lg),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Buat Try Out Baru',
-                  style: AppTextStyles.headingLarge.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: AppText.h1.copyWith(color: AppColors.white),
                 ),
-                SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: 2),
                 Text(
-                  'Isi informasi TO dan tambahkan subtes dengan soal-soal',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: Colors.white.withOpacity(0.95),
+                  'Isi informasi, pilih kategori, dan unggah soal Excel',
+                  style: AppText.bodySm.copyWith(
+                    color: AppColors.white.withOpacity(0.75),
                   ),
                 ),
               ],
             ),
+          ),
+          // Template download pills
+          _TemplateBtn(
+            label: 'TWK/TIU',
+            icon: Icons.download_rounded,
+            onTap: () => _downloadTemplate(false),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _TemplateBtn(
+            label: 'TKP',
+            icon: Icons.download_rounded,
+            color: AppColors.gold,
+            textColor: AppColors.primary,
+            onTap: () => _downloadTemplate(true),
           ),
         ],
       ),
     );
   }
 
-  // ==========================================================================
-  // TEMPLATE BUTTONS - Duolingo Style
-  // ==========================================================================
-  Widget _buildTemplateButtons() {
-    return Column(
-      children: [
-        // Button ke halaman kategori
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ManageCategoriesScreen(),
-                ),
-              );
+  // ─────────────────────────────────────────────────────────────
+  // STEPS
+  // ─────────────────────────────────────────────────────────────
 
-              if (!mounted) return; // ← TAMBAH INI
-              // Reload exam types setelah kembali
-              _loadExamTypes();
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF9600).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFF9600), width: 2),
+  Widget _buildStep(int step) {
+    return switch (step) {
+      0 => _buildStepInfo(),
+      1 => _buildStepExamType(),
+      2 => _buildStepSchedule(),
+      3 => _buildStepSubtests(),
+      _ => const SizedBox.shrink(),
+    };
+  }
+
+  // ── Step 0: Info ─────────────────────────────────────────────
+
+  Widget _buildStepInfo() {
+    return _Card(
+      icon: Icons.description_rounded,
+      title: 'Informasi Try Out',
+      accentColor: AppColors.primary,
+      child: Column(
+        children: [
+          _Field(
+            label: 'Judul Try Out',
+            hint: 'Contoh: CPNS 2025 – Paket Simulasi 1',
+            controller: _titleCtrl,
+            validator: (v) =>
+                (v?.trim().isEmpty ?? true) ? 'Judul wajib diisi' : null,
+            prefixIcon: Icons.title_rounded,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _Field(
+            label: 'Deskripsi',
+            hint: 'Jelaskan materi yang diujikan…',
+            controller: _descCtrl,
+            maxLines: 3,
+            validator: (v) =>
+                (v?.trim().isEmpty ?? true) ? 'Deskripsi wajib diisi' : null,
+            prefixIcon: Icons.notes_rounded,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: _Field(
+                  label: 'Harga (coin/IDR)',
+                  hint: '0 = gratis',
+                  controller: _priceCtrl,
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    if (v?.trim().isEmpty ?? true) return 'Wajib diisi';
+                    if (int.tryParse(v!) == null) return 'Harus angka';
+                    return null;
+                  },
+                  prefixIcon: Icons.monetization_on_rounded,
+                ),
               ),
-              child: Row(
-                children: [
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _SwitchTile(
+                  label: 'Status Aktif',
+                  subtitle: _isActive
+                      ? 'Ditampilkan ke pengguna'
+                      : 'Disembunyikan',
+                  value: _isActive,
+                  onChanged: (v) => setState(() => _isActive = v),
+                  activeColor: AppColors.success,
+                  icon: Icons.visibility_rounded,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Step 1: Exam Type ────────────────────────────────────────
+
+  Widget _buildStepExamType() {
+    return _Card(
+      icon: Icons.school_rounded,
+      title: 'Tipe Ujian',
+      accentColor: AppColors.gold,
+      child: _loadingExamTypes
+          ? const _LoadingPlaceholder(message: 'Memuat tipe ujian…')
+          : _examTypes.isEmpty
+          ? _EmptyState(
+              icon: Icons.category_rounded,
+              message: 'Belum ada tipe ujian.',
+              action: TextButton.icon(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ManageCategoriesScreen(),
+                    ),
+                  );
+                  if (mounted) _loadExamTypes();
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Tambah Tipe Ujian'),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Grid pilihan tipe ujian
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: _examTypes.map((e) {
+                    final isSelected = e.id == _selectedExamTypeId;
+                    return _ExamTypeChip(
+                      examType: e,
+                      isSelected: isSelected,
+                      onTap: () => setState(() => _selectedExamTypeId = e.id),
+                    );
+                  }).toList(),
+                ),
+                if (_selectedExamType != null) ...[
+                  const SizedBox(height: AppSpacing.md),
                   Container(
-                    padding: EdgeInsets.all(AppSpacing.sm),
+                    padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF9600),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppColors.softBg(AppColors.info),
+                      borderRadius: AppRadius.bMd,
+                      border: Border.all(
+                        color: AppColors.info.withOpacity(0.3),
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.category_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          'Kelola Kategori Ujian',
-                          style: AppTextStyles.bodyLarge.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFFFF9600),
-                          ),
+                        Icon(
+                          Icons.label_rounded,
+                          color: AppColors.info,
+                          size: 18,
                         ),
-                        Text(
-                          'Atur tipe ujian & kategori soal (CPNS, PCPM, dll)',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: const Color(0xFF777777),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            'Kategori: ${_selectedExamType!.categories.join("  ·  ")}',
+                            style: AppText.label.copyWith(
+                              color: AppColors.info,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: Color(0xFFFF9600),
-                    size: 20,
+                  const SizedBox(height: AppSpacing.md),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ManageCategoriesScreen(),
+                        ),
+                      );
+                      if (mounted) _loadExamTypes();
+                    },
+                    icon: const Icon(Icons.settings_rounded, size: 16),
+                    label: const Text('Kelola Kategori'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.sm,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                   ),
                 ],
-              ),
+              ],
             ),
-          ),
-        ),
-
-        SizedBox(height: AppSpacing.md),
-
-        // Template buttons
-        Row(
-          children: [
-            Expanded(
-              child: _buildTemplateButton(
-                label: 'Template TWK/TIU',
-                icon: Icons.download_rounded,
-                color: const Color(0xFF1CB0F6),
-                onTap: _downloadObjectiveTemplate,
-              ),
-            ),
-            SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _buildTemplateButton(
-                label: 'Template TKP',
-                icon: Icons.download_rounded,
-                color: const Color(0xFF58CC02),
-                onTap: _downloadLikertTemplate,
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
-  Widget _buildTemplateButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.md,
-          ),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white, size: 20),
-              SizedBox(width: AppSpacing.sm),
-              Text(
-                label,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // ── Step 2: Schedule ─────────────────────────────────────────
 
-  // ==========================================================================
-  // MAIN FORM
-  // ==========================================================================
-  Widget _buildMainForm() {
-    return Form(
-      key: _formKey,
+  Widget _buildStepSchedule() {
+    return _Card(
+      icon: Icons.calendar_month_rounded,
+      title: 'Periode Pengerjaan',
+      accentColor: AppColors.info,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Informasi Tryout Utama
-          _buildDuoSection(
-            title: 'Informasi Try Out',
-            icon: Icons.description_rounded,
-            color: const Color(0xFF58CC02),
-            children: [
-              _buildDuoTextField(
-                label: 'Judul Try Out',
-                hint: 'Contoh: CPNS 2025 - Paket Simulasi 1',
-                controller: _titleController,
-                validator: (v) =>
-                    v?.isEmpty ?? true ? 'Judul wajib diisi' : null,
-              ),
-              SizedBox(height: AppSpacing.lg),
-              _buildDuoTextField(
-                label: 'Deskripsi',
-                hint: 'Jelaskan materi yang akan diujikan',
-                controller: _descriptionController,
-                maxLines: 3,
-                validator: (v) =>
-                    v?.isEmpty ?? true ? 'Deskripsi wajib diisi' : null,
-              ),
-              SizedBox(height: AppSpacing.lg),
-              _buildDuoTextField(
-                label: 'Biaya',
-                hint: '1',
-                controller: _priceController,
-                keyboardType: TextInputType.number,
-                validator: (v) {
-                  if (v?.isEmpty ?? true) return 'Wajib diisi';
-                  if (int.tryParse(v!) == null) return 'Harus angka';
-                  return null;
-                },
-              ),
-            ],
+          _SwitchTile(
+            label: 'Tanggal Bebas',
+            subtitle: 'Pengguna bisa mengerjakan kapan saja',
+            value: _isFlexible,
+            onChanged: (v) => setState(() => _isFlexible = v),
+            activeColor: AppColors.success,
+            icon: Icons.all_inclusive_rounded,
           ),
-
-          SizedBox(height: AppSpacing.xl),
-
-          // Pilih Tipe Ujian
-          _buildDuoSection(
-            title: 'Tipe Ujian',
-            icon: Icons.school_rounded,
-            color: const Color(0xFFFF9600),
-            children: [
-              if (_isLoadingExamTypes)
-                const Center(child: CircularProgressIndicator())
-              else if (_examTypes.isEmpty)
-                Container(
-                  padding: EdgeInsets.all(AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF9600).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFFFF9600),
-                      width: 2,
-                    ),
+          if (!_isFlexible) ...[
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  child: _DateField(
+                    label: 'Mulai',
+                    date: _startDate,
+                    onTap: () => _pickDate(true),
+                    icon: Icons.play_circle_rounded,
                   ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.info_outline_rounded,
-                        color: Color(0xFFFF9600),
-                        size: 32,
-                      ),
-                      SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Belum ada tipe ujian',
-                        style: AppTextStyles.bodyLarge.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFFF9600),
-                        ),
-                      ),
-                      Text(
-                        'Silakan tambah tipe ujian terlebih dahulu',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: const Color(0xFF777777),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Pilih Tipe Ujian',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF4B4B4B),
-                      ),
-                    ),
-                    SizedBox(height: AppSpacing.sm),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F7F7),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFFE5E5E5),
-                          width: 2,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedExamTypeId,
-                          isExpanded: true,
-                          hint: Text(
-                            'Pilih tipe ujian...',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: const Color(0xFFAFAFAF),
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            color: Color(0xFF4B4B4B),
-                          ),
-                          items: _examTypes.map((examType) {
-                            return DropdownMenuItem(
-                              value: examType.id,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.school_rounded,
-                                    color: const Color(0xFFFF9600),
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: AppSpacing.sm),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          examType.name,
-                                          style: AppTextStyles.bodyMedium
-                                              .copyWith(
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
-                                        Text(
-                                          examType.categories.join(', '),
-                                          style: AppTextStyles.bodySmall
-                                              .copyWith(
-                                                color: const Color(0xFF777777),
-                                              ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedExamTypeId = value;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                    if (_selectedExamTypeId != null) ...[
-                      SizedBox(height: AppSpacing.md),
-                      Container(
-                        padding: EdgeInsets.all(AppSpacing.md),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1CB0F6).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFF1CB0F6),
-                            width: 2,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.info_outline_rounded,
-                              color: Color(0xFF1CB0F6),
-                              size: 20,
-                            ),
-                            SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                'Kategori tersedia: ${_getSelectedExamType()?.categories.join(", ") ?? ""}',
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: const Color(0xFF1CB0F6),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
                 ),
-            ],
-          ),
-
-          SizedBox(height: AppSpacing.xl),
-
-          // Pengaturan Tanggal
-          _buildDuoSection(
-            title: 'Periode Pengerjaan',
-            icon: Icons.calendar_today_rounded,
-            color: const Color(0xFF1CB0F6),
-            children: [
-              _buildDuoSwitch(
-                label: 'Tanggal Bebas',
-                subtitle: 'User bisa kerjakan kapan saja',
-                value: _isFlexibleDate,
-                activeColor: const Color(0xFF58CC02),
-                onChanged: (v) => setState(() => _isFlexibleDate = v),
-              ),
-              if (!_isFlexibleDate) ...[
-                SizedBox(height: AppSpacing.lg),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildDatePicker(
-                        label: 'Tanggal Mulai',
-                        date: _startDate,
-                        onTap: () => _selectDate(true),
-                      ),
-                    ),
-                    SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: _buildDatePicker(
-                        label: 'Tanggal Selesai',
-                        date: _endDate,
-                        onTap: () => _selectDate(false),
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _DateField(
+                    label: 'Selesai',
+                    date: _endDate,
+                    onTap: () => _pickDate(false),
+                    icon: Icons.stop_circle_rounded,
+                  ),
                 ),
               ],
-              SizedBox(height: AppSpacing.lg),
-              Row(
-                children: [
-                  SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: _buildDuoSwitch(
-                      label: 'Aktif',
-                      subtitle: 'Tampilkan ke user',
-                      value: _isActive,
-                      activeColor: const Color(0xFF58CC02),
-                      onChanged: (v) => setState(() => _isActive = v),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          SizedBox(height: AppSpacing.xl),
-
-          // Subtes Section
-          _buildSubTestsSection(),
-
-          SizedBox(height: AppSpacing.xxl),
-
-          // Error Message
-          if (_errorMessage != null) ...[
-            _buildErrorMessage(),
-            SizedBox(height: AppSpacing.lg),
+            ),
           ],
-
-          // Action Buttons
-          _buildActionButtons(),
         ],
       ),
     );
   }
 
-  // ==========================================================================
-  // SUBTES SECTION
-  // ==========================================================================
-  Widget _buildSubTestsSection() {
+  // ── Step 3: Subtests ─────────────────────────────────────────
+
+  Widget _buildStepSubtests() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
+        // Subtest tab bar + add button
         Row(
           children: [
             Expanded(
-              child: Text(
-                'Subtes',
-                style: AppTextStyles.headingMedium.copyWith(
-                  fontWeight: FontWeight.w800,
+              child: SizedBox(
+                height: 44,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _subTests.length,
+                  itemBuilder: (_, i) {
+                    final active = i == _activeTab;
+                    final name = _nameCtrl[i]?.text.trim() ?? '';
+                    return _SubTestTab(
+                      label: name.isEmpty ? 'Subtes ${i + 1}' : name,
+                      isActive: active,
+                      canDelete: _subTests.length > 1,
+                      onTap: () => setState(() => _activeTab = i),
+                      onDelete: () => _removeSubTest(i),
+                    );
+                  },
                 ),
               ),
             ),
-            _buildAddSubTestButton(),
+            const SizedBox(width: AppSpacing.sm),
+            _AddSubTestBtn(onTap: _addSubTest),
           ],
         ),
-        SizedBox(height: AppSpacing.md),
-
-        // Tabs untuk pilih subtes
-        _buildSubTestTabs(),
-
-        SizedBox(height: AppSpacing.lg),
-
-        // Form subtes yang dipilih
-        _buildSubTestForm(),
+        const SizedBox(height: AppSpacing.md),
+        // Active subtest form
+        if (_subTests.isNotEmpty && _activeTab < _subTests.length)
+          _buildSubTestForm(_subTests[_activeTab], _activeTab),
       ],
     );
   }
 
-  Widget _buildAddSubTestButton() {
-    return Material(
-      color: Colors.transparent,
+  Widget _buildSubTestForm(SubTest sub, int i) {
+    _nameCtrl[i] ??= TextEditingController(text: sub.name);
+    _descCtrl2[i] ??= TextEditingController(text: sub.description);
+    _timeCtrl[i] ??= TextEditingController(
+      text: sub.estimatedMinutes.toString(),
+    );
+
+    return Column(
+      children: [
+        _Card(
+          icon: Icons.tune_rounded,
+          title: 'Detail Subtes',
+          accentColor: AppColors.gold,
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: _Field(
+                      label: 'Nama Subtes',
+                      hint: 'Contoh: TWK – Pancasila',
+                      controller: _nameCtrl[i]!,
+                      onChanged: (v) => sub.name = v,
+                      validator: (v) => (v?.trim().isEmpty ?? true)
+                          ? 'Nama wajib diisi'
+                          : null,
+                      prefixIcon: Icons.label_rounded,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: _Field(
+                      label: 'Durasi (menit)',
+                      hint: '30',
+                      controller: _timeCtrl[i]!,
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) =>
+                          sub.estimatedMinutes = int.tryParse(v) ?? 30,
+                      validator: (v) {
+                        if (v?.trim().isEmpty ?? true) return 'Wajib diisi';
+                        if (int.tryParse(v!) == null) return 'Harus angka';
+                        return null;
+                      },
+                      prefixIcon: Icons.timer_rounded,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _Field(
+                label: 'Deskripsi Subtes (opsional)',
+                hint: 'Jelaskan fokus materi subtes ini…',
+                controller: _descCtrl2[i]!,
+                maxLines: 2,
+                onChanged: (v) => sub.description = v,
+                prefixIcon: Icons.notes_rounded,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: _DropdownField<String>(
+                      label: 'Kategori',
+                      icon: Icons.category_rounded,
+                      value: _availableCategories.contains(sub.category)
+                          ? sub.category
+                          : (_availableCategories.isNotEmpty
+                                ? _availableCategories.first
+                                : null),
+                      items: _availableCategories,
+                      itemLabel: (v) => v,
+                      emptyHint: 'Pilih tipe ujian dulu',
+                      onChanged: (v) => setState(() => sub.category = v ?? ''),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: _DropdownField<String>(
+                      label: 'Tipe Soal',
+                      icon: Icons.quiz_rounded,
+                      value: sub.type,
+                      items: const ['objective', 'likert'],
+                      itemLabel: (v) => v == 'objective'
+                          ? 'Objektif (A–E)'
+                          : 'Likert (Skala)',
+                      onChanged: (v) => setState(() => sub.type = v!),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: _DropdownField<String>(
+                      label: 'Kesulitan',
+                      icon: Icons.trending_up_rounded,
+                      value: sub.difficulty,
+                      items: const ['easy', 'medium', 'hard'],
+                      itemLabel: (v) => switch (v) {
+                        'easy' => 'Mudah',
+                        'medium' => 'Menengah',
+                        _ => 'Sulit',
+                      },
+                      onChanged: (v) => setState(() => sub.difficulty = v!),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        // Upload area
+        _Card(
+          icon: Icons.upload_file_rounded,
+          title: 'File Soal Excel',
+          accentColor: AppColors.info,
+          child: _buildUploadSection(sub),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUploadSection(SubTest sub) {
+    if (_isParsing && _subTests[_activeTab] == sub) {
+      return _ParseProgress(progress: _parseProgress, message: _parseMsg);
+    }
+
+    if (sub.fileName == null) {
+      return _UploadDropZone(onTap: () => _pickFile(sub));
+    }
+
+    return Column(
+      children: [
+        // File info bar
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.softBg(AppColors.success),
+            borderRadius: AppRadius.bMd,
+            border: Border.all(color: AppColors.success.withOpacity(0.4)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.success,
+                  borderRadius: AppRadius.bSm,
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: AppColors.white,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sub.fileName!,
+                      style: AppText.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      '${sub.questionCount ?? 0} soal terdeteksi',
+                      style: AppText.caption.copyWith(color: AppColors.success),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: AppColors.error,
+                ),
+                tooltip: 'Hapus file',
+                onPressed: () => setState(() {
+                  sub.fileName = null;
+                  sub.questions = null;
+                  sub.questionCount = null;
+                }),
+              ),
+            ],
+          ),
+        ),
+        // Question preview
+        if (sub.questions != null && sub.questions!.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          _QuestionsPreview(
+            questions: sub.questions!,
+            onUploadImage: _uploadImage,
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // FOOTER
+  // ─────────────────────────────────────────────────────────────
+
+  Widget _buildError() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.softBg(AppColors.error),
+        borderRadius: AppRadius.bMd,
+        border: Border.all(color: AppColors.error.withOpacity(0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              _errorMsg!,
+              style: AppText.bodySm.copyWith(color: AppColors.error),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, size: 16, color: AppColors.error),
+            onPressed: () => setState(() => _errorMsg = null),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterActions() {
+    final isLast = _currentStep == 3;
+    return Row(
+      children: [
+        if (_currentStep > 0)
+          OutlinedButton.icon(
+            onPressed: () => setState(() => _currentStep--),
+            icon: const Icon(Icons.arrow_back_rounded, size: 16),
+            label: const Text('Kembali'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              side: const BorderSide(color: AppColors.border),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 14,
+              ),
+            ),
+          ),
+        const Spacer(),
+        TextButton(
+          onPressed: _reset,
+          style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+          child: const Text('Reset'),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        FilledButton.icon(
+          onPressed: _isSaving
+              ? null
+              : () {
+                  if (isLast) {
+                    _save();
+                  } else {
+                    setState(() => _currentStep++);
+                  }
+                },
+          icon: _isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.white,
+                  ),
+                )
+              : Icon(
+                  isLast
+                      ? Icons.cloud_upload_rounded
+                      : Icons.arrow_forward_rounded,
+                  size: 16,
+                ),
+          label: Text(
+            _isSaving
+                ? 'Menyimpan…'
+                : isLast
+                ? 'Simpan Try Out'
+                : 'Lanjut',
+          ),
+          style: FilledButton.styleFrom(
+            backgroundColor: isLast ? AppColors.success : AppColors.primary,
+            foregroundColor: AppColors.white,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: 14,
+            ),
+            textStyle: AppText.btnMd,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REUSABLE WIDGETS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Step Sidebar ────────────────────────────────────────────────────────────
+
+class _StepSidebar extends StatelessWidget {
+  final int current;
+  final ValueChanged<int> onTap;
+
+  const _StepSidebar({required this.current, required this.onTap});
+
+  static const _steps = [
+    (Icons.description_rounded, 'Info'),
+    (Icons.school_rounded, 'Tipe Ujian'),
+    (Icons.calendar_month_rounded, 'Jadwal'),
+    (Icons.quiz_rounded, 'Subtes'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 200,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(right: BorderSide(color: AppColors.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: const BoxDecoration(gradient: AppGradient.navy),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.layers_rounded,
+                  color: AppColors.gold,
+                  size: 20,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Langkah',
+                  style: AppText.label.copyWith(color: AppColors.white),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ...List.generate(_steps.length, (i) {
+            final done = i < current;
+            final active = i == current;
+            final (icon, label) = _steps[i];
+            return InkWell(
+              onTap: () => onTap(i),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: active
+                      ? AppColors.softBg(AppColors.primary)
+                      : Colors.transparent,
+                  border: Border(
+                    left: BorderSide(
+                      color: active ? AppColors.primary : Colors.transparent,
+                      width: 3,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: done
+                            ? AppColors.success
+                            : active
+                            ? AppColors.primary
+                            : AppColors.surfaceAlt,
+                        shape: BoxShape.circle,
+                      ),
+                      child: done
+                          ? const Icon(
+                              Icons.check_rounded,
+                              color: AppColors.white,
+                              size: 14,
+                            )
+                          : Icon(
+                              icon,
+                              color: active
+                                  ? AppColors.white
+                                  : AppColors.textHint,
+                              size: 14,
+                            ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      label,
+                      style: AppText.bodySm.copyWith(
+                        color: active
+                            ? AppColors.primary
+                            : done
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                        fontWeight: active ? FontWeight.w700 : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Card Section ─────────────────────────────────────────────────────────────
+
+class _Card extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color accentColor;
+  final Widget child;
+
+  const _Card({
+    required this.icon,
+    required this.title,
+    required this.accentColor,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.bLg,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.softBg(accentColor),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(AppRadius.lg),
+                topRight: Radius.circular(AppRadius.lg),
+              ),
+              border: Border(
+                bottom: BorderSide(color: accentColor.withOpacity(0.2)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: accentColor, size: 18),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  title,
+                  style: AppText.h3.copyWith(color: AppColors.textPrimary),
+                ),
+              ],
+            ),
+          ),
+          Padding(padding: const EdgeInsets.all(AppSpacing.md), child: child),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Field ─────────────────────────────────────────────────────────────────────
+
+class _Field extends StatelessWidget {
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final int maxLines;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+  final ValueChanged<String>? onChanged;
+  final IconData? prefixIcon;
+
+  const _Field({
+    required this.label,
+    required this.hint,
+    required this.controller,
+    this.maxLines = 1,
+    this.keyboardType,
+    this.validator,
+    this.onChanged,
+    this.prefixIcon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppText.label),
+        const SizedBox(height: AppSpacing.xs),
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          validator: validator,
+          onChanged: onChanged,
+          style: AppText.bodyLg,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 18) : null,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Dropdown Field ────────────────────────────────────────────────────────────
+
+class _DropdownField<T> extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final T? value;
+  final List<T> items;
+  final String Function(T) itemLabel;
+  final ValueChanged<T?> onChanged;
+  final String? emptyHint;
+
+  const _DropdownField({
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.items,
+    required this.itemLabel,
+    required this.onChanged,
+    this.emptyHint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: AppText.label),
+          const SizedBox(height: AppSpacing.xs),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: 14,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.softBg(AppColors.warning),
+              borderRadius: AppRadius.bMd,
+              border: Border.all(color: AppColors.warning.withOpacity(0.4)),
+            ),
+            child: Text(
+              emptyHint ?? 'Tidak ada pilihan',
+              style: AppText.bodySm.copyWith(color: AppColors.warning),
+            ),
+          ),
+        ],
+      );
+    }
+    final safeValue = items.contains(value) ? value : items.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppText.label),
+        const SizedBox(height: AppSpacing.xs),
+        DropdownButtonFormField<T>(
+          value: safeValue,
+          items: items
+              .map(
+                (i) => DropdownMenuItem(
+                  value: i,
+                  child: Text(itemLabel(i), style: AppText.bodyLg),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
+          icon: const Icon(Icons.expand_more_rounded, size: 20),
+          decoration: InputDecoration(prefixIcon: Icon(icon, size: 18)),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Switch Tile ───────────────────────────────────────────────────────────────
+
+class _SwitchTile extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final Color activeColor;
+  final IconData icon;
+
+  const _SwitchTile({
+    required this.label,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+    required this.activeColor,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: value ? AppColors.softBg(activeColor) : AppColors.surfaceAlt,
+        borderRadius: AppRadius.bMd,
+        border: Border.all(
+          color: value ? activeColor.withOpacity(0.4) : AppColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: value ? activeColor : AppColors.textHint),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppText.label.copyWith(
+                    color: value ? activeColor : AppColors.textPrimary,
+                  ),
+                ),
+                Text(subtitle, style: AppText.caption),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: activeColor,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Date Field ────────────────────────────────────────────────────────────────
+
+class _DateField extends StatelessWidget {
+  final String label;
+  final DateTime? date;
+  final VoidCallback onTap;
+  final IconData icon;
+
+  const _DateField({
+    required this.label,
+    required this.date,
+    required this.onTap,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasDate = date != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppText.label),
+        const SizedBox(height: AppSpacing.xs),
+        InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.bMd,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: 14,
+            ),
+            decoration: BoxDecoration(
+              color: hasDate
+                  ? AppColors.softBg(AppColors.primary)
+                  : AppColors.surfaceAlt,
+              borderRadius: AppRadius.bMd,
+              border: Border.all(
+                color: hasDate
+                    ? AppColors.primary.withOpacity(0.4)
+                    : AppColors.border,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: hasDate ? AppColors.primary : AppColors.textHint,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  hasDate
+                      ? '${date!.day}/${date!.month}/${date!.year}'
+                      : 'Pilih tanggal',
+                  style: AppText.bodyLg.copyWith(
+                    color: hasDate ? AppColors.textPrimary : AppColors.textHint,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Exam Type Chip ────────────────────────────────────────────────────────────
+
+class _ExamTypeChip extends StatelessWidget {
+  final ExamType examType;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ExamTypeChip({
+    required this.examType,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.bMd,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.surfaceAlt,
+          borderRadius: AppRadius.bMd,
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected ? AppShadow.sm : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              examType.name,
+              style: AppText.label.copyWith(
+                color: isSelected ? AppColors.white : AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              examType.categories.take(3).join(' · '),
+              style: AppText.caption.copyWith(
+                color: isSelected
+                    ? AppColors.white.withOpacity(0.7)
+                    : AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── SubTest Tab ───────────────────────────────────────────────────────────────
+
+class _SubTestTab extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final bool canDelete;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  const _SubTestTab({
+    required this.label,
+    required this.isActive,
+    required this.canDelete,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.sm),
       child: InkWell(
-        onTap: _addSubTest,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: EdgeInsets.symmetric(
+        onTap: onTap,
+        borderRadius: AppRadius.bMd,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
             vertical: AppSpacing.sm,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFF58CC02),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF58CC02).withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            color: isActive ? AppColors.primary : AppColors.surface,
+            borderRadius: AppRadius.bMd,
+            border: Border.all(
+              color: isActive ? AppColors.primary : AppColors.border,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-              SizedBox(width: AppSpacing.xs),
+              Icon(
+                Icons.article_rounded,
+                size: 14,
+                color: isActive ? AppColors.white : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
               Text(
-                'Tambah Subtes',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+                label,
+                style: AppText.label.copyWith(
+                  color: isActive ? AppColors.white : AppColors.textPrimary,
                 ),
               ),
+              if (canDelete) ...[
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: onDelete,
+                  borderRadius: BorderRadius.circular(99),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: isActive
+                        ? AppColors.white.withOpacity(0.7)
+                        : AppColors.textHint,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildSubTestTabs() {
-    return SizedBox(
-      height: 50,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _subTests.length,
-        itemBuilder: (context, index) {
-          final isSelected = index == _selectedSubTestIndex;
-          final subTest = _subTests[index];
-          final displayName = subTest.name.isEmpty
-              ? 'Subtes ${index + 1}'
-              : subTest.name;
+// ── Add SubTest Button ────────────────────────────────────────────────────────
 
-          return Padding(
-            padding: EdgeInsets.only(right: AppSpacing.sm),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => setState(() => _selectedSubTestIndex = index),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.sm,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF58CC02) : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF58CC02)
-                          : const Color(0xFFE5E5E5),
-                      width: 2,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.quiz_rounded,
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF777777),
-                        size: 20,
-                      ),
-                      SizedBox(width: AppSpacing.sm),
-                      Text(
-                        displayName,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: isSelected
-                              ? Colors.white
-                              : const Color(0xFF777777),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (_subTests.length > 1) ...[
-                        SizedBox(width: AppSpacing.sm),
-                        InkWell(
-                          onTap: () => _removeSubTest(index),
-                          child: Icon(
-                            Icons.close_rounded,
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF777777),
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
+class _AddSubTestBtn extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AddSubTestBtn({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: onTap,
+      icon: const Icon(Icons.add_rounded, size: 16),
+      label: const Text('Tambah'),
+      style: FilledButton.styleFrom(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.white,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        textStyle: AppText.btnSm,
       ),
     );
   }
+}
 
-  Widget _buildSubTestForm() {
-    if (_subTests.isEmpty || _selectedSubTestIndex >= _subTests.length) {
-      return const SizedBox();
-    }
+// ── Upload Drop Zone ─────────────────────────────────────────────────────────
 
+class _UploadDropZone extends StatefulWidget {
+  final VoidCallback onTap;
+  const _UploadDropZone({required this.onTap});
 
-    final subTest = _subTests[_selectedSubTestIndex];
-    final i = _selectedSubTestIndex;
-    _nameControllers[i] ??= TextEditingController(text: subTest.name);
-    _descControllers[i] ??= TextEditingController(text: subTest.description);
-    _timeControllers[i] ??= TextEditingController(text: subTest.estimatedMinutes.toString());
+  @override
+  State<_UploadDropZone> createState() => _UploadDropZoneState();
+}
 
-    final nameController = _nameControllers[i]!;
-    final descController = _descControllers[i]!;
-    final timeController = _timeControllers[i]!;
+class _UploadDropZoneState extends State<_UploadDropZone> {
+  bool _hovering = false;
 
-    return _buildDuoSection(
-      title: 'Detail Subtes ${_selectedSubTestIndex + 1}',
-      icon: Icons.edit_note_rounded,
-      color: const Color(0xFFFF9600),
-      children: [
-        _buildDuoTextField(
-          label: 'Nama Subtes',
-          hint: 'Contoh: TWK - Pancasila dan UUD',
-          controller: nameController,
-          onChanged: (v) => subTest.name = v,
-          validator: (v) =>
-              v?.isEmpty ?? true ? 'Nama subtes wajib diisi' : null,
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: _hovering
+              ? AppColors.softBg(AppColors.primary)
+              : AppColors.surfaceAlt,
+          borderRadius: AppRadius.bLg,
+          border: Border.all(
+            color: _hovering ? AppColors.primary : AppColors.border,
+            width: _hovering ? 2 : 1,
+          ),
         ),
-        SizedBox(height: AppSpacing.lg),
-        _buildDuoTextField(
-          label: 'Deskripsi Subtes',
-          hint: 'Jelaskan materi subtes ini',
-          controller: descController,
-          maxLines: 2,
-          onChanged: (v) => subTest.description = v,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: AppRadius.bLg,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.cloud_upload_rounded,
+                size: 40,
+                color: _hovering ? AppColors.primary : AppColors.textHint,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Klik atau seret file Excel ke sini',
+                style: AppText.bodyLg.copyWith(
+                  color: _hovering
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text('Format: .xlsx  ·  .xls', style: AppText.caption),
+            ],
+          ),
         ),
-        SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDuoDropdownDynamic(
-                label: 'Kategori',
-                value: subTest.category,
-                items: _getAvailableCategories(),
-                icon: Icons.category_rounded,
-                onChanged: (v) => setState(() => subTest.category = v!),
-              ),
-            ),
-            SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _buildDuoDropdown(
-                label: 'Tipe Soal',
-                value: subTest.type,
-                items: const ['objective', 'likert'],
-                icon: Icons.quiz_rounded,
-                itemLabels: const {
-                  'objective': 'Objektif (A-E)',
-                  'likert': 'Likert (Skala)',
-                },
-                onChanged: (v) => setState(() => subTest.type = v!),
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDuoDropdown(
-                label: 'Kesulitan',
-                value: subTest.difficulty,
-                items: const ['easy', 'medium', 'hard'],
-                icon: Icons.trending_up_rounded,
-                itemLabels: const {
-                  'easy': 'Mudah',
-                  'medium': 'Menengah',
-                  'hard': 'Sulit',
-                },
-                onChanged: (v) => setState(() => subTest.difficulty = v!),
-              ),
-            ),
-            SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _buildDuoTextField(
-                label: 'Estimasi (menit)',
-                hint: '15',
-                controller: timeController,
-                keyboardType: TextInputType.number,
-                onChanged: (v) {
-                  final val = int.tryParse(v);
-                  if (val != null) subTest.estimatedMinutes = val;
-                },
-                validator: (v) {
-                  if (v?.isEmpty ?? true) return 'Wajib diisi';
-                  if (int.tryParse(v!) == null) return 'Harus angka';
-                  return null;
-                },
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: AppSpacing.xl),
-        Divider(color: const Color(0xFFE5E5E5), thickness: 1),
-        SizedBox(height: AppSpacing.lg),
-
-        // Upload Excel
-        _buildSubTestUpload(subTest),
-      ],
+      ),
     );
   }
+}
 
-  Widget _buildSubTestUpload(SubTest subTest) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'File Soal Excel',
-          style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w700),
-        ),
-        SizedBox(height: AppSpacing.md),
+// ── Parse Progress ────────────────────────────────────────────────────────────
 
-        if (_isParsing)
-          _buildParsingProgress()
-        else if (subTest.fileName == null)
-          _buildUploadArea(subTest)
-        else
-          _buildUploadedFileInfo(subTest),
-      ],
-    );
-  }
+class _ParseProgress extends StatelessWidget {
+  final double progress;
+  final String message;
 
-  Widget _buildParsingProgress() {
+  const _ParseProgress({required this.progress, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(AppSpacing.xl),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: const Color(0xFF1CB0F6).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF1CB0F6), width: 2),
+        color: AppColors.softBg(AppColors.info),
+        borderRadius: AppRadius.bMd,
+        border: Border.all(color: AppColors.info.withOpacity(0.3)),
       ),
       child: Column(
         children: [
           Row(
             children: [
               const SizedBox(
-                width: 20,
-                height: 20,
+                width: 18,
+                height: 18,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFF1CB0F6),
+                  strokeWidth: 2.5,
+                  color: AppColors.info,
                 ),
               ),
-              SizedBox(width: AppSpacing.md),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  _parseStatus,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: const Color(0xFF1CB0F6),
-                    fontWeight: FontWeight.w600,
-                  ),
+                  message,
+                  style: AppText.bodySm.copyWith(color: AppColors.info),
                 ),
               ),
               Text(
-                '${(_parseProgress * 100).toInt()}%',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: const Color(0xFF1CB0F6),
-                  fontWeight: FontWeight.w800,
-                ),
+                '${(progress * 100).toInt()}%',
+                style: AppText.label.copyWith(color: AppColors.info),
               ),
             ],
           ),
-          SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: AppRadius.bFull,
             child: LinearProgressIndicator(
-              value: _parseProgress,
-              minHeight: 10,
-              backgroundColor: const Color(0xFF1CB0F6).withOpacity(0.2),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                Color(0xFF1CB0F6),
-              ),
-            ),
-          ),
-          SizedBox(height: AppSpacing.sm),
-          Text(
-            _parseProgress < 0.3
-                ? '📂 Membaca file Excel...'
-                : _parseProgress < 0.6
-                ? '🔍 Memvalidasi data soal...'
-                : _parseProgress < 0.9
-                ? '⚙️ Memproses soal...'
-                : '✅ Hampir selesai...',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: const Color(0xFF777777),
+              value: progress,
+              minHeight: 6,
+              backgroundColor: AppColors.info.withOpacity(0.15),
+              valueColor: const AlwaysStoppedAnimation(AppColors.info),
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildUploadArea(SubTest subTest) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () async {
-          await _pickFileForSubTest(subTest);
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: EdgeInsets.all(AppSpacing.xl),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1CB0F6).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFF1CB0F6),
-              width: 2,
-              style: BorderStyle.solid,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                Icons.cloud_upload_rounded,
-                size: 48,
-                color: const Color(0xFF1CB0F6),
-              ),
-              SizedBox(height: AppSpacing.sm),
-              Text(
-                'Klik untuk upload Excel',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: const Color(0xFF1CB0F6),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                'Format: .xlsx atau .xls',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: const Color(0xFF777777),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+// ── Questions Preview ────────────────────────────────────────────────────────
 
-  Widget _buildUploadedFileInfo(SubTest subTest) {
-    return Column(
-      children: [
-        // File Info Card
-        Container(
-          padding: EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: const Color(0xFF58CC02).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF58CC02), width: 2),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF58CC02),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.check_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      subTest.fileName ?? 'File uploaded',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (subTest.questionCount != null)
-                      Text(
-                        '${subTest.questionCount} soal terdeteksi',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: const Color(0xFF58CC02),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close_rounded, color: Color(0xFFFF4B4B)),
-                onPressed: () {
-                  setState(() {
-                    subTest.fileName = null;
-                    subTest.questionCount = null;
-                    subTest.questions = null;
-                  });
-                },
-              ),
-            ],
-          ),
-        ),
+class _QuestionsPreview extends StatelessWidget {
+  final List<Map<String, dynamic>> questions;
+  final Future<void> Function(Map<String, dynamic>) onUploadImage;
 
-        // Preview Questions (Collapsible)
-        if (subTest.questions != null && subTest.questions!.isNotEmpty) ...[
-          SizedBox(height: AppSpacing.md),
-          _buildQuestionsPreview(subTest),
-        ],
-      ],
-    );
-  }
+  const _QuestionsPreview({
+    required this.questions,
+    required this.onUploadImage,
+  });
 
-  Widget _buildQuestionsPreview(SubTest subTest) {
+  @override
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E5E5), width: 2),
+        borderRadius: AppRadius.bMd,
+        border: Border.all(color: AppColors.border),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          initiallyExpanded: false,
-          tilePadding: EdgeInsets.all(AppSpacing.md),
-          childrenPadding: EdgeInsets.all(AppSpacing.md),
-          leading: const Icon(Icons.preview_rounded, color: Color(0xFF1CB0F6)),
-          title: Text(
-            'Preview Soal',
-            style: AppTextStyles.bodyLarge.copyWith(
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1CB0F6),
-            ),
+          leading: const Icon(
+            Icons.preview_rounded,
+            color: AppColors.info,
+            size: 20,
           ),
-          subtitle: Text(
-            '${subTest.questions!.length} soal',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: const Color(0xFF777777),
-            ),
+          title: Text('Preview Soal', style: AppText.label),
+          subtitle: Text('${questions.length} soal', style: AppText.caption),
+          tilePadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.md,
           ),
           children: [
+            const Divider(height: 1),
+            const SizedBox(height: AppSpacing.sm),
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: subTest.questions!.length,
-              separatorBuilder: (_, __) => Divider(
-                height: AppSpacing.lg,
-                color: const Color(0xFFE5E5E5),
+              itemCount: questions.length,
+              separatorBuilder: (_, __) => const Divider(height: AppSpacing.lg),
+              itemBuilder: (_, i) => _QuestionItem(
+                question: questions[i],
+                number: i + 1,
+                onUploadImage: onUploadImage,
               ),
-              itemBuilder: (context, index) {
-                final q = subTest.questions![index];
-                return _buildQuestionPreviewItem(q, index + 1);
-              },
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  Future<void> _handleExcelUpload(SubTest subTest) async {
-    processStatus.value = ProcessingStatus(message: "Membuka file...");
+// ── Question Item ────────────────────────────────────────────────────────────
 
-    try {
-      // Logika parsing Excel Anda...
-      processStatus.value = ProcessingStatus(
-        message: "Sedang memproses soal...",
-      );
+class _QuestionItem extends StatelessWidget {
+  final Map<String, dynamic> question;
+  final int number;
+  final Future<void> Function(Map<String, dynamic>) onUploadImage;
 
-      // Setelah selesai
-      processStatus.value = ProcessingStatus(
-        message: "✅ Berhasil memproses ${subTest.questions?.length} soal",
-      );
-      Future.delayed(
-        const Duration(seconds: 3),
-        () => processStatus.value = null,
-      );
-    } catch (e) {
-      processStatus.value = ProcessingStatus(
-        message: "Gagal: $e",
-        isError: true,
-      );
-    }
-  }
+  const _QuestionItem({
+    required this.question,
+    required this.number,
+    required this.onUploadImage,
+  });
 
-  Widget _buildQuestionPreviewItem(Map<String, dynamic> question, int number) {
-    final isObjective = question['type'] == 'objective';
+  @override
+  Widget build(BuildContext context) {
+    final isObj = question['type'] == 'objective';
+    final opts = (question['options'] as List?)?.cast<String>() ?? [];
+    final correctIdx = question['correctIndex'] as int? ?? -1;
+    final scores = (question['scores'] as List?)?.cast<int>() ?? [];
+    final qImg = question['questionImage'] as String?;
 
     return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.surfaceAlt,
+        borderRadius: AppRadius.bMd,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1430,194 +2116,154 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1CB0F6),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.primary,
+                  borderRadius: AppRadius.bSm,
                 ),
                 child: Center(
                   child: Text(
                     '$number',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                    style: AppText.label.copyWith(color: AppColors.white),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              _Pill(label: question['category'] ?? '', color: AppColors.info),
+              const SizedBox(width: 4),
+              _Pill(
+                label: isObj ? 'Objektif' : 'Likert',
+                color: isObj ? AppColors.success : AppColors.warning,
+              ),
+              if (question['difficulty'] != null) ...[
+                const SizedBox(width: 4),
+                _Pill(
+                  label: question['difficulty'],
+                  color: AppColors.textSecondary,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(question['question'] ?? '', style: AppText.body),
+          // Question image
+          if (qImg != null && qImg.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: AppRadius.bMd,
+                  child: Image.network(
+                    qImg,
+                    height: 140,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) =>
+                        const Text('❌ Gambar gagal dimuat'),
+                  ),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: InkWell(
+                    onTap: () {
+                      // Using a Builder trick here since we're in a stateless widget
+                      // The parent manages state via onUploadImage
+                    },
+                    child: CircleAvatar(
+                      radius: 14,
+                      backgroundColor: AppColors.error,
+                      child: const Icon(
+                        Icons.delete_rounded,
+                        size: 14,
+                        color: AppColors.white,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              SizedBox(width: AppSpacing.sm),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: isObjective
-                      ? const Color(0xFF58CC02).withOpacity(0.2)
-                      : const Color(0xFFFF9600).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  question['category'] ?? 'N/A',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: isObjective
-                        ? const Color(0xFF58CC02)
-                        : const Color(0xFFFF9600),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              SizedBox(width: AppSpacing.xs),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF777777).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  isObjective ? 'Objektif' : 'Likert',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: const Color(0xFF777777),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppSpacing.md),
-
-          // Question Text
-          Text(
-            question['question'] ?? '',
-            style: AppTextStyles.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600,
+              ],
             ),
-          ),
-          if (question['questionImage'] != null) ...[
-            SizedBox(height: AppSpacing.sm),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                question['questionImage'],
-                height: 150,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF4B4B).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
-                    child: Text('❌ Gambar tidak dapat dimuat'),
-                  ),
+          ] else ...[
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: () => onUploadImage(question),
+              icon: const Icon(Icons.add_a_photo_rounded, size: 16),
+              label: const Text('Tambah Gambar'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: const BorderSide(color: AppColors.border),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: AppText.btnSm.copyWith(
+                  color: AppColors.textSecondary,
                 ),
               ),
             ),
           ],
-          SizedBox(height: AppSpacing.sm),
-
-          // TAMBAHKAN / REPLACE BAGIAN GAMBAR:
-          const SizedBox(height: 12),
-          if (question['questionImage'] != null &&
-              question['questionImage'].isNotEmpty)
-            _buildImagePreview(
-              question,
-            ) // Widget untuk tampilkan & hapus gambar
-          else
-            OutlinedButton.icon(
-              onPressed: () =>
-                  _handleImageUploadForQuestion(question), // Method baru
-              icon: const Icon(Icons.add_a_photo, size: 18),
-              label: const Text("Tambah Gambar"),
-            ),
-
-          // Options Preview
-          if (question['options'] != null) ...[
-            ...List.generate((question['options'] as List).length, (i) {
-              final option = question['options'][i];
-              final isCorrect = isObjective && question['correctIndex'] == i;
-
+          // Options
+          if (opts.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ...List.generate(opts.length, (i) {
+              final isCorrect = isObj && correctIdx == i;
               return Padding(
-                padding: EdgeInsets.only(bottom: AppSpacing.xs),
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Row(
                   children: [
                     Container(
-                      width: 24,
-                      height: 24,
+                      width: 22,
+                      height: 22,
                       decoration: BoxDecoration(
                         color: isCorrect
-                            ? const Color(0xFF58CC02)
-                            : Colors.white,
+                            ? AppColors.success
+                            : AppColors.surface,
+                        borderRadius: AppRadius.bSm,
                         border: Border.all(
                           color: isCorrect
-                              ? const Color(0xFF58CC02)
-                              : const Color(0xFFE5E5E5),
-                          width: 2,
+                              ? AppColors.success
+                              : AppColors.border,
                         ),
-                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Center(
                         child: Text(
-                          String.fromCharCode(65 + i), // A, B, C...
-                          style: AppTextStyles.bodySmall.copyWith(
+                          String.fromCharCode(65 + i),
+                          style: AppText.caption.copyWith(
                             color: isCorrect
-                                ? Colors.white
-                                : const Color(0xFF777777),
+                                ? AppColors.white
+                                : AppColors.textSecondary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
                     ),
-                    SizedBox(width: AppSpacing.sm),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            option.toString(),
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: const Color(0xFF4B4B4B),
-                            ),
-                          ),
-                          if (question['optionImages'] != null &&
-                              i < (question['optionImages'] as List).length &&
-                              question['optionImages'][i] != null) ...[
-                            SizedBox(height: AppSpacing.xs),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Image.network(
-                                question['optionImages'][i],
-                                height: 80,
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => const Text(
-                                  '❌ Gambar gagal',
-                                  style: TextStyle(fontSize: 10),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                      child: Text(
+                        opts[i],
+                        style: AppText.bodySm.copyWith(
+                          color: isCorrect
+                              ? AppColors.success
+                              : AppColors.textPrimary,
+                        ),
                       ),
                     ),
-                    // Show score for Likert
-                    if (!isObjective && question['scores'] != null)
+                    if (!isObj && i < scores.length)
                       Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xs,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1CB0F6).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
+                          color: AppColors.softBg(AppColors.info),
+                          borderRadius: AppRadius.bSm,
                         ),
                         child: Text(
-                          '${question['scores'][i]}',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: const Color(0xFF1CB0F6),
+                          '${scores[i]}',
+                          style: AppText.caption.copyWith(
+                            color: AppColors.info,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -1631,1382 +2277,198 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
       ),
     );
   }
-
-  // ==========================================================================
-  // DUO SECTION - Flat Card
-  // ==========================================================================
-  Widget _buildDuoSection({
-    required String title,
-    required IconData icon,
-    required Color color,
-    required List<Widget> children,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E5E5), width: 2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              SizedBox(width: AppSpacing.md),
-              Text(
-                title,
-                style: AppTextStyles.headingSmall.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppSpacing.lg),
-          ...children,
-        ],
-      ),
-    );
-  }
-
-  // ==========================================================================
-  // DUO TEXT FIELD
-  // ==========================================================================
-  Widget _buildDuoTextField({
-    required String label,
-    required String hint,
-    required TextEditingController controller,
-    int maxLines = 1,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-    Function(String)? onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.bodyMedium.copyWith(
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF4B4B4B),
-          ),
-        ),
-        SizedBox(height: AppSpacing.sm),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          validator: validator,
-          onChanged: onChanged,
-          style: AppTextStyles.bodyLarge,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: const Color(0xFFAFAFAF)),
-            filled: true,
-            fillColor: const Color(0xFFF7F7F7),
-            contentPadding: EdgeInsets.all(AppSpacing.md),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 2),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 2),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF1CB0F6), width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFFF4B4B), width: 2),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFFF4B4B), width: 2),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ==========================================================================
-  // DUO DROPDOWN
-  // ==========================================================================
-  Widget _buildDuoDropdown({
-    required String label,
-    required String value,
-    required List<String> items,
-    required IconData icon,
-    Map<String, String>? itemLabels,
-    required Function(String?) onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.bodyMedium.copyWith(
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF4B4B4B),
-          ),
-        ),
-        SizedBox(height: AppSpacing.sm),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F7F7),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE5E5E5), width: 2),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              icon: const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: Color(0xFF4B4B4B),
-              ),
-              style: AppTextStyles.bodyLarge.copyWith(
-                color: const Color(0xFF4B4B4B),
-              ),
-              items: items.map((item) {
-                return DropdownMenuItem(
-                  value: item,
-                  child: Text(itemLabels?[item] ?? item),
-                );
-              }).toList(),
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDuoDropdownDynamic({
-    required String label,
-    required String value,
-    required List<String> items,
-    required IconData icon,
-    required Function(String?) onChanged,
-  }) {
-    // Jika tidak ada items atau value tidak ada dalam items, set ke item pertama
-    if (items.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: AppTextStyles.bodyMedium.copyWith(
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF4B4B4B),
-            ),
-          ),
-          SizedBox(height: AppSpacing.sm),
-          Container(
-            padding: EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF4B4B).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFF4B4B), width: 2),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.warning_rounded,
-                  color: Color(0xFFFF4B4B),
-                  size: 20,
-                ),
-                SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Pilih tipe ujian terlebih dahulu',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: const Color(0xFFFF4B4B),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    String? currentValue;
-
-    if (items.contains(value)) {
-      currentValue = value;
-    } else if (items.isNotEmpty) {
-      currentValue = items.first;
-    } else {
-      currentValue = null;
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.bodyMedium.copyWith(
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF4B4B4B),
-          ),
-        ),
-        SizedBox(height: AppSpacing.sm),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F7F7),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE5E5E5), width: 2),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: currentValue,
-              isExpanded: true,
-              icon: const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: Color(0xFF4B4B4B),
-              ),
-              style: AppTextStyles.bodyLarge.copyWith(
-                color: const Color(0xFF4B4B4B),
-              ),
-              items: items.map((item) {
-                return DropdownMenuItem(value: item, child: Text(item));
-              }).toList(),
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ==========================================================================
-  // DUO SWITCH
-  // ==========================================================================
-  Widget _buildDuoSwitch({
-    required String label,
-    required String subtitle,
-    required bool value,
-    required Color activeColor,
-    required Function(bool) onChanged,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: value ? activeColor.withOpacity(0.1) : const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: value ? activeColor : const Color(0xFFE5E5E5),
-          width: 2,
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: value ? activeColor : const Color(0xFF4B4B4B),
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: const Color(0xFF777777),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(value: value, onChanged: onChanged, activeColor: activeColor),
-        ],
-      ),
-    );
-  }
-
-  // ==========================================================================
-  // DATE PICKER
-  // ==========================================================================
-  Widget _buildDatePicker({
-    required String label,
-    required DateTime? date,
-    required VoidCallback onTap,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.bodyMedium.copyWith(
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF4B4B4B),
-          ),
-        ),
-        SizedBox(height: AppSpacing.sm),
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F7F7),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E5E5), width: 2),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today_rounded,
-                    color: const Color(0xFF777777),
-                    size: 20,
-                  ),
-                  SizedBox(width: AppSpacing.sm),
-                  Text(
-                    date == null
-                        ? 'Pilih tanggal'
-                        : '${date.day}/${date.month}/${date.year}',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: date == null
-                          ? const Color(0xFFAFAFAF)
-                          : const Color(0xFF4B4B4B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ==========================================================================
-  // ERROR MESSAGE
-  // ==========================================================================
-  Widget _buildErrorMessage() {
-    return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFF4B4B).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFF4B4B), width: 2),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline_rounded, color: Color(0xFFFF4B4B)),
-          SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              _errorMessage!,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: const Color(0xFFFF4B4B),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==========================================================================
-  // ACTION BUTTONS
-  // ==========================================================================
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildDuoButton(
-            text: 'RESET',
-            color: const Color(0xFFE5E5E5),
-            textColor: const Color(0xFF4B4B4B),
-            onPressed: _resetForm,
-          ),
-        ),
-        SizedBox(width: AppSpacing.md),
-        Expanded(
-          flex: 2,
-          child: _buildDuoButton(
-            text: _isProcessing ? 'MENYIMPAN...' : 'SIMPAN TRY OUT',
-            color: const Color(0xFF58CC02),
-            textColor: Colors.white,
-            onPressed: _isProcessing ? null : _saveTryout,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDuoButton({
-    required String text,
-    required Color color,
-    required Color textColor,
-    required VoidCallback? onPressed,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-          decoration: BoxDecoration(
-            color: onPressed == null ? color.withOpacity(0.5) : color,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: onPressed == null
-                ? null
-                : [
-                    BoxShadow(
-                      color: color.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-          ),
-          child: Center(
-            child: Text(
-              text,
-              style: AppTextStyles.bodyLarge.copyWith(
-                color: textColor,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ==========================================================================
-  // FUNCTIONS
-  // ==========================================================================
-
-  Future<void> _downloadObjectiveTemplate() async {
-    await _exportQuestionsToExcel();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('✅ Template TWK/TIU berhasil didownload!'),
-          backgroundColor: const Color(0xFF58CC02),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
-  }
-
-  Future<void> _downloadLikertTemplate() async {
-    await _exportLikertTemplateToExcel();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('✅ Template TKP berhasil didownload!'),
-          backgroundColor: const Color(0xFF58CC02),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
-  }
-  Future<void> _pickFileForSubTest(SubTest subTest) async {
-    // Tunggu frame selesai render dulu
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    if (!mounted) return;  // pastikan widget masih ada
-
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['xlsx', 'xls'],
-        withData: true,
-      );
-
-      if (!mounted) return;  // cek lagi setelah async
-
-      if (result != null &&
-          result.files.isNotEmpty &&
-          result.files.single.bytes != null) {
-        setState(() {
-          subTest.fileName = result.files.single.name;
-          _errorMessage = null;
-        });
-        await _parseExcelFile(subTest, result.files.single.bytes!);
-      }
-    } catch (e, stackTrace) {
-      print('ERROR: $e');
-      print('STACK: $stackTrace');
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Error memilih file: $e';
-      });
-    }
-  }
-
-  /// Parse Excel file dan extract questions
-
-  Future<void> _parseExcelFile(SubTest subTest, List<int> bytes) async {
-    setState(() {
-      _isParsing = true;
-      _parseProgress = 0.0;
-      _parseStatus = 'Membaca file Excel...';
-    });
-    try {
-      await Future.delayed(const Duration(milliseconds: 100));
-      setState(() {
-        _parseProgress = 0.1;
-        _parseStatus = 'Mendekode file...';
-      });
-      final excel = Excel.decodeBytes(bytes);
-
-      // Ambil sheet pertama
-      final sheet = excel.tables[excel.tables.keys.first];
-      if (sheet == null) {
-        throw Exception('Excel sheet tidak ditemukan');
-      }
-
-      final List<Map<String, dynamic>> questions = [];
-      setState(() {
-        subTest.questions = questions;
-        subTest.questionCount = questions.length;
-        subTest.fileName =
-            subTest.fileName?.replaceFirst('⏳ Sedang memproses...', '') ??
-            'file.xlsx'; // ✅ Reset nama
-      });
-      // Skip header row (index 0), mulai dari row 1
-      final totalRows = sheet.rows.length;
-      setState(() {
-        _parseProgress = 0.2;
-        _parseStatus = 'Ditemukan $totalRows baris data...';
-      });
-
-      for (int i = 1; i < totalRows; i++) {
-        final row = sheet.rows[i];
-        if (i % 5 == 0 || i == totalRows - 1) {
-          setState(() {
-            _parseProgress = 0.2 + (i / totalRows) * 0.7;
-            _parseStatus = 'Memproses soal $i dari ${totalRows - 1}...';
-          });
-          await Future.delayed(Duration.zero);
-        }
-
-        // Skip empty rows
-        if (row.isEmpty || row.every((cell) => cell?.value == null)) {
-          continue;
-        }
-
-        // Helper function to get cell value as string
-        String getCellValue(int index) {
-          if (index >= row.length) return '';
-          final cell = row[index];
-          if (cell == null || cell.value == null) return '';
-          return cell.value.toString().trim();
-        }
-
-        final package = getCellValue(0);
-        final category = getCellValue(1);
-        final difficulty = getCellValue(2);
-        final question = getCellValue(3);
-        final type = getCellValue(4);
-
-        // Skip jika question kosong
-        if (question.isEmpty) continue;
-
-        final tags = getCellValue(18);
-        final questionImage = getCellValue(19);
-        final optImgA = getCellValue(20);
-        final optImgB = getCellValue(21);
-        final optImgC = getCellValue(22);
-        final optImgD = getCellValue(23);
-        final optImgE = getCellValue(24);
-        final List<String?> optionImages = [
-          optImgA,
-          optImgB,
-          optImgC,
-          optImgD,
-          optImgE,
-        ].map((e) => e.isNotEmpty ? e : null).toList();
-
-        if (type == 'objective') {
-          final optionA = getCellValue(5);
-          final optionB = getCellValue(6);
-          final optionC = getCellValue(7);
-          final optionD = getCellValue(8);
-          final optionE = getCellValue(9);
-          final correctIndex = getCellValue(10);
-          final explanationShort = getCellValue(16);
-          final explanationFull = getCellValue(17);
-
-          final List<String?> optionImages = [
-            optImgA,
-            optImgB,
-            optImgC,
-            optImgD,
-            optImgE,
-          ].map((e) => e.isNotEmpty ? e : null).toList();
-
-          questions.add({
-            'package': package,
-            'category': category,
-            'difficulty': difficulty.isEmpty ? 'medium' : difficulty,
-            'question': question,
-            'type': 'objective',
-            'options': [
-              optionA,
-              optionB,
-              optionC,
-              optionD,
-              optionE,
-            ].where((opt) => opt.isNotEmpty).toList(),
-            'correctIndex': int.tryParse(correctIndex) ?? 0,
-            'explanationShort': explanationShort,
-            'explanationFull': explanationFull,
-            'tags': tags
-                .split(',')
-                .map((t) => t.trim())
-                .where((t) => t.isNotEmpty)
-                .toList(),
-            'questionImage': questionImage.isNotEmpty ? questionImage : null,
-            'optionImages': optionImages,
-          });
-        } else if (type == 'likert') {
-          final scoreA = getCellValue(11);
-          final scoreB = getCellValue(12);
-          final scoreC = getCellValue(13);
-          final scoreD = getCellValue(14);
-          final scoreE = getCellValue(15);
-          final explanationShort = getCellValue(16);
-          final explanationFull = getCellValue(17);
-          final tags = getCellValue(18);
-
-          questions.add({
-            'package': package,
-            'category': category,
-            'difficulty': difficulty.isEmpty ? 'medium' : difficulty,
-            'question': question,
-            'type': 'likert',
-            'options': [
-              getCellValue(5),
-              getCellValue(6),
-              getCellValue(7),
-              getCellValue(8),
-              getCellValue(9),
-            ].where((opt) => opt.isNotEmpty).toList(),
-            'scores': [
-              int.tryParse(scoreA) ?? 0,
-              int.tryParse(scoreB) ?? 0,
-              int.tryParse(scoreC) ?? 0,
-              int.tryParse(scoreD) ?? 0,
-              int.tryParse(scoreE) ?? 0,
-            ],
-            'explanationShort': explanationShort,
-            'explanationFull': explanationFull,
-            'tags': tags
-                .split(',')
-                .map((t) => t.trim())
-                .where((t) => t.isNotEmpty)
-                .toList(),
-            'questionImage': questionImage.isNotEmpty ? questionImage : null,
-            'optionImages': optionImages,
-          });
-        }
-      }
-
-      if (questions.isEmpty) {
-        throw Exception('Tidak ada soal yang valid ditemukan di Excel');
-      }
-
-      setState(() {
-        _parseProgress = 1.0;
-        _parseStatus = 'Selesai! ${questions.length} soal berhasil diproses';
-      });
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      setState(() {
-        subTest.questions = questions;
-        subTest.questionCount = questions.length;
-        _isParsing = false;
-        _parseProgress = 0.0;
-        _parseStatus = '';
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ ${questions.length} soal berhasil diparse!'),
-            backgroundColor: const Color(0xFF58CC02),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error parsing Excel: $e';
-        subTest.fileName = null;
-        subTest.questionCount = null;
-        subTest.questions = null;
-        _isParsing = false;
-        _parseProgress = 0.0;
-        _parseStatus = '';
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error parsing Excel: $e'),
-            backgroundColor: const Color(0xFFFF4B4B),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _selectDate(bool isStartDate) async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: Color(0xFF58CC02)),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (date != null) {
-      setState(() {
-        if (isStartDate) {
-          _startDate = date;
-        } else {
-          _endDate = date;
-        }
-      });
-    }
-  }
-
-  void _resetForm() {
-    // TAMBAHKAN INI
-    for (final c in _nameControllers.values) c.dispose();
-    for (final c in _descControllers.values) c.dispose();
-    for (final c in _timeControllers.values) c.dispose();
-    _nameControllers.clear();
-    _descControllers.clear();
-    _timeControllers.clear();
-    _formKey.currentState?.reset();
-    _titleController.clear();
-    _descriptionController.clear();
-    _priceController.text = '1';
-
-    setState(() {
-      _selectedExamTypeId = null;
-      _isActive = true;
-      _isFlexibleDate = true;
-      _startDate = null;
-      _endDate = null;
-      _subTests.clear();
-      _errorMessage = null;
-    });
-
-    _addSubTest();
-  }
-
-  Future<void> _saveTryout() async {
-    if (!_formKey.currentState!.validate()) {
-      setState(() {
-        _errorMessage = 'Mohon lengkapi semua field yang wajib diisi';
-      });
-      return;
-    }
-
-    // Validasi exam type
-    if (_selectedExamTypeId == null) {
-      setState(() {
-        _errorMessage = 'Silakan pilih tipe ujian terlebih dahulu';
-      });
-      return;
-    }
-
-    // Validasi subtes
-    for (var subTest in _subTests) {
-      if (subTest.name.isEmpty) {
-        setState(() {
-          _errorMessage = 'Semua subtes harus memiliki nama';
-        });
-        return;
-      }
-      if (subTest.questions == null || subTest.questions!.isEmpty) {
-        setState(() {
-          _errorMessage = 'Semua subtes harus memiliki soal (upload Excel)';
-        });
-        return;
-      }
-    }
-
-    setState(() {
-      _isProcessing = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final firestore = FirebaseFirestore.instance;
-
-      // Hitung total estimasi waktu
-      int totalMinutes = _subTests.fold(
-        0,
-        (sum, subTest) => sum + subTest.estimatedMinutes,
-      );
-
-      // Hitung total soal
-      int totalQuestions = _subTests.fold(
-        0,
-        (sum, subTest) => sum + (subTest.questionCount ?? 0),
-      );
-
-      // ========================================================================
-      // STRUKTUR FIRESTORE OPTIMAL - SINGLE DOCUMENT
-      // ========================================================================
-      // tryouts/{tryoutId} {
-      //   metadata: {...},
-      //   subtests: [
-      //     {
-      //       metadata: {...},
-      //       questions: [...]
-      //     }
-      //   ]
-      // }
-      // ========================================================================
-
-      // Build subtests array dengan questions
-      final List<Map<String, dynamic>> subtestsData = [];
-
-      for (int i = 0; i < _subTests.length; i++) {
-        final subTest = _subTests[i];
-
-        subtestsData.add({
-          'name': subTest.name,
-          'description': subTest.description,
-          'category': subTest.category,
-          'difficulty': subTest.difficulty,
-          'estimatedMinutes': subTest.estimatedMinutes,
-          'type': subTest.type,
-          'questionCount': subTest.questionCount ?? 0,
-          'order': i,
-          'isActive': true,
-          'questions':
-              subTest.questions ?? [], // ✅ Array questions langsung di sini
-        });
-      }
-
-      // Simpan semua data dalam 1 dokumen
-      final tryoutData = {
-        // Metadata tryout
-        'title': _titleController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'examTypeId': _selectedExamTypeId,
-        'examTypeName': _getSelectedExamType()?.name ?? '',
-        'price': int.parse(_priceController.text),
-        'isActive': _isActive,
-        'isFlexibleDate': _isFlexibleDate,
-        'startDate': _isFlexibleDate ? null : Timestamp.fromDate(_startDate!),
-        'endDate': _isFlexibleDate ? null : Timestamp.fromDate(_endDate!),
-        'totalEstimatedMinutes': totalMinutes,
-        'totalQuestions': totalQuestions,
-        'subTestCount': _subTests.length,
-
-        // ✅ Subtests array (dengan questions di dalamnya)
-        'subtests': subtestsData,
-
-        // Timestamps
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-
-      // ✅ Single write operation - jauh lebih cepat!
-      await firestore.collection('tryouts').add(tryoutData);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '✅ Try Out "${_titleController.text}" berhasil disimpan!',
-            ),
-            backgroundColor: const Color(0xFF58CC02),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-
-        _resetForm();
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error menyimpan Try Out: $e';
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error: $e'),
-            backgroundColor: const Color(0xFFFF4B4B),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    } finally {
-      setState(() {
-        _isProcessing = false;
-      });
-    }
-  }
-
-  Future<void> _exportQuestionsToExcel() async {
-    final excel = Excel.createExcel();
-    final sheet = excel['questions'];
-
-    // Header
-    sheet.appendRow([
-      TextCellValue('Package'),
-      TextCellValue('Category'),
-      TextCellValue('Difficulty'),
-      TextCellValue('Question'),
-      TextCellValue('Type'),
-      TextCellValue('Option A'),
-      TextCellValue('Option B'),
-      TextCellValue('Option C'),
-      TextCellValue('Option D'),
-      TextCellValue('Option E'),
-      TextCellValue('Correct Index'),
-      TextCellValue('Score A'),
-      TextCellValue('Score B'),
-      TextCellValue('Score C'),
-      TextCellValue('Score D'),
-      TextCellValue('Score E'),
-      TextCellValue('Explanation Short'),
-      TextCellValue('Explanation Full'),
-      TextCellValue('Tags'),
-      TextCellValue('Question Image URL'),
-      TextCellValue('Option A Image URL'),
-      TextCellValue('Option B Image URL'),
-      TextCellValue('Option C Image URL'),
-      TextCellValue('Option D Image URL'),
-      TextCellValue('Option E Image URL'),
-    ]);
-
-    // Contoh soal TWK/TIU (Objective)
-    final contohSoal = [
-      // Soal 1 - TWK biasa
-      [
-        'CPNS 2025 Paket 1',
-        'TWK',
-        '20',
-        'Sila pertama Pancasila adalah…',
-        'objective',
-        'Kemanusiaan yang adil dan beradab',
-        'Ketuhanan Yang Maha Esa',
-        'Persatuan Indonesia',
-        'Kerakyatan yang dipimpin oleh hikmat kebijaksanaan',
-        'Keadilan sosial bagi seluruh rakyat Indonesia',
-        '1',
-        '',
-        '',
-        '',
-        '',
-        '',
-        'Sila pertama adalah Ketuhanan YME',
-        'Pancasila memiliki 5 sila. Sila pertama berbunyi Ketuhanan Yang Maha Esa.',
-        'pancasila,dasar negara,twk',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-      ],
-      // Soal 2 - TIU biasa
-      [
-        'CPNS 2025 Paket 1',
-        'TIU',
-        '35',
-        'Deret angka: 3, 6, 12, 24, … Angka berikutnya adalah?',
-        'objective',
-        '36',
-        '48',
-        '42',
-        '54',
-        '60',
-        '1',
-        '',
-        '',
-        '',
-        '',
-        '',
-        'Pola deret dikali 2',
-        'Deret ini mengikuti pola perkalian 2. 24×2=48.',
-        'deret angka,logika,tiu',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-      ],
-      // Soal 3 - TWK biasa
-      [
-        'CPNS 2025 Paket 1',
-        'TWK',
-        '25',
-        'UUD 1945 disahkan pada tanggal?',
-        'objective',
-        '17 Agustus 1945',
-        '18 Agustus 1945',
-        '1 Juni 1945',
-        '22 Juni 1945',
-        '19 Agustus 1945',
-        '1',
-        '',
-        '',
-        '',
-        '',
-        '',
-        'UUD 1945 disahkan 18 Agustus 1945',
-        'UUD 1945 disahkan oleh PPKI pada 18 Agustus 1945.',
-        'uud 1945,sejarah,twk',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-      ],
-      // Soal 4 - TIU dengan gambar di soal (grafik/diagram)
-      [
-        'CPNS 2025 Paket 1',
-        'TIU',
-        '40',
-        'Perhatikan diagram batang berikut. Pada bulan manakah penjualan tertinggi?',
-        'objective',
-        'Januari',
-        'Februari',
-        'Maret',
-        'April',
-        'Mei',
-        '2',
-        '',
-        '',
-        '',
-        '',
-        '',
-        'Lihat batang tertinggi di diagram',
-        'Berdasarkan diagram, batang tertinggi berada di bulan Maret.',
-        'diagram,grafik,tiu',
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/SimpleBarChartEn.svg/320px-SimpleBarChartEn.svg.png',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-      ],
-      // Soal 5 - TWK dengan gambar di opsi (lambang/simbol)
-      [
-        'CPNS 2025 Paket 1',
-        'TWK',
-        '30',
-        'Gambar di bawah ini merupakan lambang sila ke berapa dalam Pancasila?',
-        'objective',
-        'Sila ke-1',
-        'Sila ke-2',
-        'Sila ke-3',
-        'Sila ke-4',
-        'Sila ke-5',
-        '0',
-        '',
-        '',
-        '',
-        '',
-        '',
-        'Bintang = sila ke-1 Ketuhanan YME',
-        'Lambang bintang emas melambangkan sila pertama Pancasila yaitu Ketuhanan Yang Maha Esa.',
-        'pancasila,lambang,twk',
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Star_and_crescent.svg/240px-Star_and_crescent.svg.png',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-      ],
-    ];
-
-    for (var row in contohSoal) {
-      sheet.appendRow(row.map((e) => TextCellValue(e)).toList());
-    }
-
-    // Download
-    final bytes = excel.encode();
-    final blob = html.Blob([bytes]);
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final _ = html.AnchorElement(href: url)
-      ..setAttribute('download', 'template_twk_tiu.xlsx')
-      ..click();
-    html.Url.revokeObjectUrl(url);
-  }
-
-  Future<void> _exportLikertTemplateToExcel() async {
-    final excel = Excel.createExcel();
-    final sheet = excel['questions'];
-
-    // Header
-    sheet.appendRow([
-      TextCellValue('Package'),
-      TextCellValue('Category'),
-      TextCellValue('Difficulty'),
-      TextCellValue('Question'),
-      TextCellValue('Type'),
-      TextCellValue('Option A'),
-      TextCellValue('Option B'),
-      TextCellValue('Option C'),
-      TextCellValue('Option D'),
-      TextCellValue('Option E'),
-      TextCellValue('Correct Index'),
-      TextCellValue('Score A'),
-      TextCellValue('Score B'),
-      TextCellValue('Score C'),
-      TextCellValue('Score D'),
-      TextCellValue('Score E'),
-      TextCellValue('Explanation Short'),
-      TextCellValue('Explanation Full'),
-      TextCellValue('Tags'),
-      TextCellValue('Question Image URL'),
-      TextCellValue('Option A Image URL'),
-      TextCellValue('Option B Image URL'),
-      TextCellValue('Option C Image URL'),
-      TextCellValue('Option D Image URL'),
-      TextCellValue('Option E Image URL'),
-    ]);
-
-    // Contoh soal TKP (Likert)
-    final contohSoal = [
-      [
-        'CPNS 2025 Paket 1',
-        'TKP',
-        '30',
-        'Ketika rekan kerja Anda melakukan kesalahan yang merugikan tim, apa yang akan Anda lakukan?',
-        'likert',
-        'Menegur dengan keras di depan semua orang',
-        'Membiarkan saja karena bukan urusan saya',
-        'Melaporkan langsung ke atasan tanpa memberitahu yang bersangkutan',
-        'Berbicara empat mata secara pribadi dan memberikan saran konstruktif',
-        'Membantu memperbaiki kesalahan tanpa menegur',
-        '',
-        '1',
-        '2',
-        '3',
-        '5',
-        '4',
-        'Komunikasi efektif dengan empati',
-        'Pilihan D mendapat skor tertinggi karena menunjukkan pendekatan yang dewasa dan profesional dengan berbicara empat mata dan memberikan saran konstruktif. Ini mencerminkan sikap yang baik dalam hubungan kerja.',
-        'tkp,kerja sama,komunikasi,integritas',
-      ],
-      [
-        'CPNS 2025 Paket 1',
-        'TKP',
-        '25',
-        'Anda diberi tugas mendesak yang harus selesai hari ini, namun Anda sudah memiliki jadwal padat. Apa yang Anda lakukan?',
-        'likert',
-        'Menolak tugas tersebut karena sudah terlalu banyak pekerjaan',
-        'Menerima dan mengerjakan asal-asalan',
-        'Meminta bantuan rekan kerja untuk mengerjakannya',
-        'Menerima tugas, mengatur ulang prioritas, dan menyelesaikannya dengan optimal',
-        'Mengerjakan tugas baru dan menunda pekerjaan lama',
-        '',
-        '1',
-        '2',
-        '3',
-        '5',
-        '4',
-        'Manajemen waktu dan prioritas',
-        'Pilihan D mendapat skor tertinggi karena menunjukkan kemampuan manajemen waktu yang baik, tanggung jawab, dan profesionalisme dengan menerima tugas sambil mengatur ulang prioritas untuk menyelesaikan semua pekerjaan dengan optimal.',
-        'tkp,manajemen waktu,tanggung jawab,prioritas',
-      ],
-      [
-        'CPNS 2025 Paket 1',
-        'TKP',
-        '28',
-        'Anda menemukan kesalahan dalam laporan atasan yang akan dipresentasikan. Apa yang Anda lakukan?',
-        'likert',
-        'Diam saja karena takut disalahkan',
-        'Memberitahu rekan kerja lain tentang kesalahan tersebut',
-        'Langsung memperbaiki tanpa memberitahu atasan',
-        'Segera memberitahu atasan secara pribadi dan sopan dengan menyertakan bukti',
-        'Menunggu sampai presentasi selesai baru memberitahu',
-        '',
-        '1',
-        '2',
-        '3',
-        '5',
-        '4',
-        'Integritas dan komunikasi proaktif',
-        'Pilihan D mendapat skor tertinggi karena menunjukkan integritas, keberanian, dan profesionalisme dengan segera memberitahu atasan secara pribadi dan sopan. Ini membantu mencegah kesalahan lebih lanjut dan menunjukkan tanggung jawab.',
-        'tkp,integritas,komunikasi,keberanian',
-      ],
-    ];
-
-    for (var row in contohSoal) {
-      sheet.appendRow(row.map((e) => TextCellValue(e)).toList());
-    }
-
-    // Download
-    final bytes = excel.encode();
-    final blob = html.Blob([bytes]);
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final _ = html.AnchorElement(href: url)
-      ..setAttribute('download', 'template_tkp.xlsx')
-      ..click();
-    html.Url.revokeObjectUrl(url);
-  }
 }
 
-class ProcessingStatus {
-  final String message;
-  final double? progress; // null untuk indeterminate
-  final bool isError;
+// ── Pill ──────────────────────────────────────────────────────────────────────
 
-  ProcessingStatus({
-    required this.message,
-    this.progress,
-    this.isError = false,
-  });
-}
-
-class QuestionReviewCard extends StatefulWidget {
-  final Map<String, dynamic> question;
-  final Function(String url) onImageUploaded;
-
-  const QuestionReviewCard({
-    required this.question,
-    required this.onImageUploaded,
-  });
-
-  @override
-  State<QuestionReviewCard> createState() => _QuestionReviewCardState();
-}
-
-class _QuestionReviewCardState extends State<QuestionReviewCard> {
-  bool _isUploading = false;
-
-  Future<void> _pickAndUploadImage() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (result == null) return;
-
-    setState(() => _isUploading = true);
-
-    try {
-      // Logika upload ke Firebase Storage
-      final file = result.files.first;
-
-      if (file.bytes == null) {
-        throw Exception("File tidak memiliki data (bytes null)");
-      }
-      final ref = FirebaseStorage.instance.ref().child(
-        'questions/${DateTime.now().millisecondsSinceEpoch}_${file.name}',
-      );
-
-      final uploadTask = ref.putData(file.bytes!);
-
-      // Monitor Progress (Opsional jika ingin detail per gambar)
-      final snapshot = await uploadTask;
-      final url = await snapshot.ref.getDownloadURL();
-
-      widget.onImageUploaded(url);
-    } catch (e) {
-      debugPrint("Upload error: $e");
-    } finally {
-      setState(() => _isUploading = false);
-    }
-  }
+class _Pill extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _Pill({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = widget.question['imageUrl'];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.softBg(color),
+        borderRadius: AppRadius.bFull,
+      ),
+      child: Text(
+        label,
+        style: AppText.caption.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+// ── Template Button ───────────────────────────────────────────────────────────
+
+class _TemplateBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color color;
+  final Color textColor;
+
+  const _TemplateBtn({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.color = AppColors.white,
+    this.textColor = AppColors.primary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.bMd,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: AppRadius.bMd,
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text("Soal: ${widget.question['questionText']}"),
-            const SizedBox(height: 12),
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Text(label, style: AppText.btnSm.copyWith(color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-            // AREA GAMBAR
-            if (imageUrl != null && imageUrl.isNotEmpty)
-              Stack(
-                children: [
-                  Image.network(imageUrl, height: 150, fit: BoxFit.cover),
-                  Positioned(
-                    right: 0,
-                    child: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => widget.onImageUploaded(''), // Hapus URL
-                    ),
+// ── Floating Toast ────────────────────────────────────────────────────────────
+
+class _FloatingToast extends StatelessWidget {
+  final ProcessingStatus status;
+  final VoidCallback onDismiss;
+
+  const _FloatingToast({required this.status, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      bottom: AppSpacing.lg,
+      right: AppSpacing.lg,
+      child: Material(
+        elevation: 8,
+        borderRadius: AppRadius.bMd,
+        shadowColor: Colors.black26,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 320,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: status.isError
+                ? AppColors.softBg(AppColors.error)
+                : AppColors.surface,
+            borderRadius: AppRadius.bMd,
+            border: Border.all(
+              color: status.isError
+                  ? AppColors.error.withOpacity(0.4)
+                  : AppColors.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              if (!status.isError)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.primary,
                   ),
-                ],
-              )
-            else
-              OutlinedButton.icon(
-                onPressed: _isUploading ? null : _pickAndUploadImage,
-                icon: _isUploading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.add_a_photo),
-                label: Text(
-                  _isUploading ? "Mengunggah..." : "Tambah Gambar Soal",
+                )
+              else
+                Icon(
+                  Icons.error_outline_rounded,
+                  color: AppColors.error,
+                  size: 20,
+                ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  status.message,
+                  style: AppText.bodySm.copyWith(
+                    color: status.isError
+                        ? AppColors.error
+                        : AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
+              if (status.isError)
+                InkWell(
+                  onTap: onDismiss,
+                  borderRadius: AppRadius.bFull,
+                  child: const Icon(Icons.close_rounded, size: 16),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Loading Placeholder ───────────────────────────────────────────────────────
+
+class _LoadingPlaceholder extends StatelessWidget {
+  final String message;
+  const _LoadingPlaceholder({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        children: [
+          const CircularProgressIndicator(color: AppColors.primary),
+          const SizedBox(height: AppSpacing.md),
+          Text(message, style: AppText.bodySm),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Empty State ───────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final Widget? action;
+
+  const _EmptyState({required this.icon, required this.message, this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          children: [
+            Icon(icon, size: 48, color: AppColors.textHint),
+            const SizedBox(height: AppSpacing.sm),
+            Text(message, style: AppText.bodySm),
+            if (action != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              action!,
+            ],
           ],
         ),
       ),

@@ -1,12 +1,55 @@
 rules_version = '2';
-
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if false;
+
+    // ── Helper ──────────────────────────────────────────────────────
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isLoggedIn() &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.admin == true;
+    }
+    // ── Catatan: di Storage rules TIDAK ada variabel $(database),
+    //    selalu gunakan (default) secara hardcoded ──────────────────
+    function isValidImage() {
+      return request.resource.contentType.matches('image/.*')
+        && request.resource.size < 5 * 1024 * 1024; // maks 5 MB
+    }
+    function isValidPDF() {
+      return request.resource.contentType == 'application/pdf'
+        && request.resource.size < 10 * 1024 * 1024; // maks 10 MB
+    }
+
+    // ── Bukti pembayaran tryout ──────────────────────────────────────
+    // Path: tryout_proofs/{userId}/{tryoutId}/{fileName}
+    match /tryout_proofs/{userId}/{tryoutId}/{fileName} {
+      allow read: if isLoggedIn() &&
+        (request.auth.uid == userId || isAdmin());
+      allow create: if isLoggedIn() &&
+        request.auth.uid == userId &&
+        (isValidImage() || isValidPDF());
+      allow update: if isAdmin();
+      allow delete: if isLoggedIn() &&
+        (request.auth.uid == userId || isAdmin());
+    }
+
+    // ── Foto profil user ─────────────────────────────────────────────
+    // Path: profile_photos/{userId}/{fileName}
+    match /profile_photos/{userId}/{fileName} {
+      allow read: if isLoggedIn();
+      allow write: if isLoggedIn() &&
+        request.auth.uid == userId &&
+        isValidImage();
+      allow delete: if isLoggedIn() &&
+        (request.auth.uid == userId || isAdmin());
+    }
+
+    // ── Aset tryout (soal, gambar, dll) — hanya admin ────────────────
+    // Path: tryout_assets/{tryoutId}/{fileName}
+    match /tryout_assets/{tryoutId}/{fileName} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin();
     }
   }
 }

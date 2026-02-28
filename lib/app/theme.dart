@@ -1,326 +1,333 @@
-// ============================================================================
-// DUOLINGO-STYLE THEME (Gamification UI)
-// ============================================================================
+//
+// import '../../app/theme.dart';
+//
+// ╔══════════════════════════════════════════════════════════════╗
+// ║              LULUZZZ — Official Design System                ║
+// ║  Style  : Modern Minimal                                     ║
+// ║  Font   : Plus Jakarta Sans                                  ║
+// ║  Palette: Navy · Gold · White                                ║
+// ╚══════════════════════════════════════════════════════════════╝
+
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-final duolingoTheme = ThemeData(
-  useMaterial3: true,
-  brightness: Brightness.light,
+// ─────────────────────────────────────────────────────────────────────────────
+// COLORS
+// ─────────────────────────────────────────────────────────────────────────────
+class AppColors {
+  AppColors._();
 
-  // Duolingo uses rounded, friendly fonts
-  fontFamily:
-      '-apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif',
+  // ── Brand ──────────────────────────────────────────────────────
+  static const primary = Color(0xFF0F172A); // Navy  — CTA, active state
+  static const gold = Color(0xFFD4AF37); // Gold  — accent, highlight
+  static const white = Color(0xFFFFFFFF); // White — surface, text on dark
 
-  colorScheme: const ColorScheme.light(
-    primary: Color(0xFF58CC02), // Duolingo Green
-    secondary: Color(0xFF1CB0F6), // Duolingo Blue
-    tertiary: Color(0xFFFF9600), // Duolingo Orange
-    surface: Color(0xFFFFFFFF), // White
-    error: Color(0xFFFF4B4B), // Soft Red
-    onPrimary: Color(0xFFFFFFFF),
-    onSurface: Color(0xFF3C3C3C),
-    outline: Color(0xFFE5E5E5), // Light Gray borders
-  ),
+  // ── Background ─────────────────────────────────────────────────
+  static const bg = Color(0xFFF8F9FC); // Off-white canvas
+  static const surface = Color(0xFFFFFFFF); // Card / dialog surface
+  static const surfaceAlt = Color(0xFFF1F3F8); // Input, chip background
 
-  scaffoldBackgroundColor: const Color(0xFFFAFAFA), // Off-white
-  // Rounded cards with subtle shadows
-  cardTheme: CardThemeData(
-    elevation: 2,
-    color: const Color(0xFFFFFFFF),
-    shadowColor: Colors.black.withOpacity(0.08),
-    shape: RoundedRectangleBorder(
-      side: const BorderSide(color: Color(0xFFE5E5E5), width: 2),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-  ),
+  // ── Text ───────────────────────────────────────────────────────
+  static const textPrimary = Color(0xFF0F172A); // Headings
+  static const textSecondary = Color(0xFF64748B); // Sub-text, labels
+  static const textHint = Color(0xFFB0B8C8); // Placeholder
 
-  // Rounded buttons with bold text
-  elevatedButtonTheme: ElevatedButtonThemeData(
-    style: ElevatedButton.styleFrom(
-      elevation: 0,
-      backgroundColor: const Color(0xFF58CC02),
-      foregroundColor: const Color(0xFFFFFFFF),
-      disabledBackgroundColor: const Color(0xFFE5E5E5),
-      disabledForegroundColor: const Color(0xFFAFAFAF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFF58A700), width: 2),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-      textStyle: const TextStyle(
-        fontSize: 17,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.3,
-      ),
-      shadowColor: Colors.transparent,
-    ),
-  ),
+  // ── Border ─────────────────────────────────────────────────────
+  static const border = Color(0xFFE2E8F0); // Default border
+  static const borderFocus = Color(0xFF0F172A); // Focused input border
 
-  // Outlined button (secondary style)
-  outlinedButtonTheme: OutlinedButtonThemeData(
-    style: OutlinedButton.styleFrom(
-      foregroundColor: const Color(0xFF1CB0F6),
-      side: const BorderSide(color: Color(0xFFE5E5E5), width: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-      textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-    ),
-  ),
+  // ── Semantic ───────────────────────────────────────────────────
+  static const success = Color(0xFF10B981); // Benar / berhasil
+  static const warning = Color(0xFFF59E0B); // Perhatian
+  static const error = Color(0xFFEF4444); // Salah / gagal
+  static const info = Color(0xFF3B82F6); // Informasi
 
-  // Rounded input fields
-  inputDecorationTheme: InputDecorationTheme(
-    filled: true,
-    fillColor: const Color(0xFFFFFFFF),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 2),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 2),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Color(0xFF1CB0F6), width: 3),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Color(0xFFFF4B4B), width: 2),
-    ),
-    focusedErrorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Color(0xFFFF4B4B), width: 3),
-    ),
-  ),
+  // ── Utility ────────────────────────────────────────────────────
+  /// Warna teks otomatis (putih di bg gelap, navy di bg terang)
+  static Color onColor(Color bg) {
+    return bg.computeLuminance() > 0.4 ? primary : white;
+  }
 
-  // AppBar style
-  appBarTheme: const AppBarTheme(
-    elevation: 0,
-    centerTitle: false,
-    backgroundColor: Color(0xFFFFFFFF),
-    foregroundColor: Color(0xFF3C3C3C),
-    surfaceTintColor: Colors.transparent,
-    titleTextStyle: TextStyle(
-      color: Color(0xFF3C3C3C),
-      fontSize: 20,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.3,
-    ),
-  ),
-
-  // Bottom navigation bar
-  bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-    backgroundColor: Color(0xFFFFFFFF),
-    selectedItemColor: Color(0xFF58CC02),
-    unselectedItemColor: Color(0xFFAFAFAF),
-    showSelectedLabels: true,
-    showUnselectedLabels: true,
-    type: BottomNavigationBarType.fixed,
-    elevation: 8,
-    selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-    unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-  ),
-
-  // Chip style (for tags, badges)
-  chipTheme: ChipThemeData(
-    backgroundColor: const Color(0xFFF0F0F0),
-    selectedColor: const Color(0xFF58CC02),
-    disabledColor: const Color(0xFFE5E5E5),
-    labelStyle: const TextStyle(
-      color: Color(0xFF3C3C3C),
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-    ),
-    secondaryLabelStyle: const TextStyle(
-      color: Color(0xFFFFFFFF),
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-    ),
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20),
-      side: const BorderSide(color: Color(0xFFE5E5E5), width: 2),
-    ),
-  ),
-
-  // Progress indicator
-  progressIndicatorTheme: const ProgressIndicatorThemeData(
-    color: Color(0xFF58CC02),
-    linearTrackColor: Color(0xFFE5E5E5),
-    circularTrackColor: Color(0xFFE5E5E5),
-  ),
-
-  // Dialog
-  dialogTheme: DialogThemeData(
-    backgroundColor: const Color(0xFFFFFFFF),
-    elevation: 8,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-    titleTextStyle: const TextStyle(
-      color: Color(0xFF3C3C3C),
-      fontSize: 22,
-      fontWeight: FontWeight.w700,
-    ),
-    contentTextStyle: const TextStyle(
-      color: Color(0xFF777777),
-      fontSize: 16,
-      fontWeight: FontWeight.w500,
-      height: 1.5,
-    ),
-  ),
-
-  // Bottom sheet
-  bottomSheetTheme: const BottomSheetThemeData(
-    backgroundColor: Color(0xFFFFFFFF),
-    elevation: 8,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-  ),
-
-  // Snackbar
-  snackBarTheme: SnackBarThemeData(
-    backgroundColor: const Color(0xFF3C3C3C),
-    contentTextStyle: const TextStyle(
-      color: Color(0xFFFFFFFF),
-      fontSize: 15,
-      fontWeight: FontWeight.w600,
-    ),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    behavior: SnackBarBehavior.floating,
-  ),
-
-  // Floating action button
-  floatingActionButtonTheme: const FloatingActionButtonThemeData(
-    backgroundColor: Color(0xFF58CC02),
-    foregroundColor: Color(0xFFFFFFFF),
-    elevation: 4,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(16)),
-      side: BorderSide(color: Color(0xFF58A700), width: 2),
-    ),
-  ),
-
-  // Switch
-  switchTheme: SwitchThemeData(
-    thumbColor: WidgetStateProperty.resolveWith((states) {
-      if (states.contains(WidgetState.selected)) {
-        return const Color(0xFFFFFFFF);
-      }
-      return const Color(0xFFE5E5E5);
-    }),
-    trackColor: WidgetStateProperty.resolveWith((states) {
-      if (states.contains(WidgetState.selected)) {
-        return const Color(0xFF58CC02);
-      }
-      return const Color(0xFFE5E5E5);
-    }),
-  ),
-
-  // Slider
-  sliderTheme: const SliderThemeData(
-    activeTrackColor: Color(0xFF58CC02),
-    inactiveTrackColor: Color(0xFFE5E5E5),
-    thumbColor: Color(0xFFFFFFFF),
-    overlayColor: Color(0x2958CC02),
-    valueIndicatorColor: Color(0xFF58CC02),
-  ),
-);
-
-// ============================================================================
-// COLOR CONSTANTS (for custom widgets)
-// ============================================================================
-class DuolingoColors {
-  static const green = Color(0xFF58CC02);
-  static const darkGreen = Color(0xFF58A700);
-  static const blue = Color(0xFF1CB0F6);
-  static const orange = Color(0xFFFF9600);
-  static const yellow = Color(0xFFFFC800);
-  static const red = Color(0xFFFF4B4B);
-  static const gold = Color(0xFFFFD700);
-
-  static const gray50 = Color(0xFFFAFAFA);
-  static const gray100 = Color(0xFFF0F0F0);
-  static const gray200 = Color(0xFFE5E5E5);
-  static const gray400 = Color(0xFFAFAFAF);
-  static const gray600 = Color(0xFF777777);
-  static const gray800 = Color(0xFF3C3C3C);
-
-  static const white = Color(0xFFFFFFFF);
-  static const black = Color(0xFF000000);
+  /// Background lembut dari warna semantic (untuk chip/badge)
+  static Color softBg(Color c) => c.withOpacity(0.10);
 }
 
-// ============================================================================
-// TEXT STYLES (Duolingo-style)
-// ============================================================================
-class DuolingoTextStyles {
-  static const displayLarge = TextStyle(
-    fontSize: 32,
-    fontWeight: FontWeight.w800,
-    letterSpacing: -0.5,
-    color: DuolingoColors.gray800,
-    height: 1.2,
+// ─────────────────────────────────────────────────────────────────────────────
+// TYPOGRAPHY  (semua pakai Plus Jakarta Sans)
+// ─────────────────────────────────────────────────────────────────────────────
+class AppText {
+  AppText._();
+
+  static TextStyle _j(double size, FontWeight w, {Color? color, double? ls}) =>
+      GoogleFonts.plusJakartaSans(
+        fontSize: size,
+        fontWeight: w,
+        color: color ?? AppColors.textPrimary,
+        letterSpacing: ls,
+        height: 1.4,
+      );
+
+  // ── Display ────────────────────────────────────────────────────
+  static TextStyle display = _j(32, FontWeight.w800, ls: -0.5);
+  static TextStyle h1 = _j(24, FontWeight.w700, ls: -0.3);
+  static TextStyle h2 = _j(20, FontWeight.w700);
+  static TextStyle h3 = _j(17, FontWeight.w700);
+
+  // ── Body ───────────────────────────────────────────────────────
+  static TextStyle bodyLg = _j(15, FontWeight.w500);
+  static TextStyle body = _j(14, FontWeight.w400);
+  static TextStyle bodySm = _j(
+    13,
+    FontWeight.w400,
+    color: AppColors.textSecondary,
   );
 
-  static const displayMedium = TextStyle(
-    fontSize: 28,
-    fontWeight: FontWeight.w800,
-    letterSpacing: -0.5,
-    color: DuolingoColors.gray800,
-    height: 1.2,
+  // ── Label / Caption ────────────────────────────────────────────
+  static TextStyle label = _j(12, FontWeight.w600);
+  static TextStyle caption = _j(
+    11,
+    FontWeight.w500,
+    color: AppColors.textSecondary,
   );
 
-  static const titleLarge = TextStyle(
-    fontSize: 22,
-    fontWeight: FontWeight.w700,
-    letterSpacing: -0.3,
-    color: DuolingoColors.gray800,
-    height: 1.3,
+  // ── Button ─────────────────────────────────────────────────────
+  static TextStyle btnLg = _j(15, FontWeight.w700, color: AppColors.white);
+  static TextStyle btnMd = _j(14, FontWeight.w700, color: AppColors.white);
+  static TextStyle btnSm = _j(13, FontWeight.w600, color: AppColors.white);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPACING  (8-pt grid)
+// ─────────────────────────────────────────────────────────────────────────────
+class AppSpacing {
+  AppSpacing._();
+
+  static const double xs = 4;
+  static const double sm = 8;
+  static const double md = 16;
+  static const double lg = 24;
+  static const double xl = 32;
+  static const double xxl = 48;
+
+  // Gap helpers
+  static const vxs = SizedBox(height: xs);
+  static const vsm = SizedBox(height: sm);
+  static const vmd = SizedBox(height: md);
+  static const vlg = SizedBox(height: lg);
+  static const vxl = SizedBox(height: xl);
+
+  static const hxs = SizedBox(width: xs);
+  static const hsm = SizedBox(width: sm);
+  static const hmd = SizedBox(width: md);
+  static const hlg = SizedBox(width: lg);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RADIUS
+// ─────────────────────────────────────────────────────────────────────────────
+class AppRadius {
+  AppRadius._();
+
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 24;
+  static const double full = 999;
+
+  static BorderRadius circular(double r) => BorderRadius.circular(r);
+  static const bSm = BorderRadius.all(Radius.circular(sm));
+  static const bMd = BorderRadius.all(Radius.circular(md));
+  static const bLg = BorderRadius.all(Radius.circular(lg));
+  static const bXl = BorderRadius.all(Radius.circular(xl));
+  static const bFull = BorderRadius.all(Radius.circular(full));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHADOWS
+// ─────────────────────────────────────────────────────────────────────────────
+class AppShadow {
+  AppShadow._();
+
+  static const sm = [
+    BoxShadow(color: Color(0x0A0F172A), blurRadius: 4, offset: Offset(0, 2)),
+  ];
+  static const md = [
+    BoxShadow(color: Color(0x0F0F172A), blurRadius: 10, offset: Offset(0, 4)),
+  ];
+  static const lg = [
+    BoxShadow(color: Color(0x140F172A), blurRadius: 20, offset: Offset(0, 8)),
+  ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GRADIENTS
+// ─────────────────────────────────────────────────────────────────────────────
+class AppGradient {
+  AppGradient._();
+
+  /// Navy solid → digunakan di header, hero
+  static const navy = LinearGradient(
+    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
   );
 
-  static const titleMedium = TextStyle(
-    fontSize: 19,
-    fontWeight: FontWeight.w700,
-    letterSpacing: -0.2,
-    color: DuolingoColors.gray800,
-    height: 1.3,
+  /// Gold shimmer → premium badge, accent strip
+  static const gold = LinearGradient(
+    colors: [Color(0xFFD4AF37), Color(0xFFF0D060)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
   );
 
-  static const bodyLarge = TextStyle(
-    fontSize: 17,
-    fontWeight: FontWeight.w500,
-    color: DuolingoColors.gray800,
-    height: 1.5,
+  /// Subtle surface → card hover / highlighted row
+  static const surface = LinearGradient(
+    colors: [Color(0xFFFFFFFF), Color(0xFFF8F9FC)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RESPONSIVE
+// ─────────────────────────────────────────────────────────────────────────────
+enum ScreenSize { mobile, tablet, desktop }
+
+class AppResponsive {
+  AppResponsive._();
+
+  static const double mobileMax = 600;
+  static const double tabletMax = 1024;
+
+  static ScreenSize of(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    if (w < mobileMax) return ScreenSize.mobile;
+    if (w < tabletMax) return ScreenSize.tablet;
+    return ScreenSize.desktop;
+  }
+
+  static bool isMobile(BuildContext context) =>
+      of(context) == ScreenSize.mobile;
+  static bool isTablet(BuildContext context) =>
+      of(context) == ScreenSize.tablet;
+  static bool isDesktop(BuildContext context) =>
+      of(context) == ScreenSize.desktop;
+
+  /// Pilih nilai berdasarkan screen size
+  static T value<T>(
+    BuildContext context, {
+    required T mobile,
+    required T tablet,
+    required T desktop,
+  }) => switch (of(context)) {
+    ScreenSize.mobile => mobile,
+    ScreenSize.tablet => tablet,
+    ScreenSize.desktop => desktop,
+  };
+
+  /// Padding konten utama per screen size
+  static EdgeInsets pagePadding(BuildContext context) => value(
+    context,
+    mobile: const EdgeInsets.all(16),
+    tablet: const EdgeInsets.all(24),
+    desktop: const EdgeInsets.all(32),
   );
 
-  static const bodyMedium = TextStyle(
-    fontSize: 15,
-    fontWeight: FontWeight.w500,
-    color: DuolingoColors.gray600,
-    height: 1.5,
-  );
+  /// Max width konten agar tidak terlalu lebar di layar besar
+  static double maxContentWidth(BuildContext context) =>
+      value(context, mobile: double.infinity, tablet: 860, desktop: 1200);
+}
 
-  static const bodySmall = TextStyle(
-    fontSize: 13,
-    fontWeight: FontWeight.w500,
-    color: DuolingoColors.gray600,
-    height: 1.4,
-  );
+// ─────────────────────────────────────────────────────────────────────────────
+// FLUTTER ThemeData
+// ─────────────────────────────────────────────────────────────────────────────
+class AppTheme {
+  AppTheme._();
 
-  static const labelLarge = TextStyle(
-    fontSize: 15,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 0.3,
-    color: DuolingoColors.gray800,
-  );
-
-  static const labelSmall = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 0.5,
-    color: DuolingoColors.gray600,
+  static ThemeData get light => ThemeData(
+    useMaterial3: true,
+    scaffoldBackgroundColor: AppColors.bg,
+    colorScheme: ColorScheme.light(
+      primary: AppColors.primary,
+      secondary: AppColors.gold,
+      surface: AppColors.surface,
+      error: AppColors.error,
+      onPrimary: AppColors.white,
+      onSecondary: AppColors.primary,
+      onSurface: AppColors.textPrimary,
+    ),
+    textTheme: GoogleFonts.plusJakartaSansTextTheme().apply(
+      bodyColor: AppColors.textPrimary,
+      displayColor: AppColors.textPrimary,
+    ),
+    appBarTheme: AppBarTheme(
+      backgroundColor: AppColors.surface,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+      titleTextStyle: AppText.h2,
+      iconTheme: const IconThemeData(color: AppColors.primary),
+      surfaceTintColor: Colors.transparent,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.white,
+        elevation: 0,
+        minimumSize: const Size.fromHeight(52),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+        textStyle: AppText.btnLg,
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.primary,
+        side: const BorderSide(color: AppColors.border, width: 1.5),
+        minimumSize: const Size.fromHeight(52),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+        textStyle: AppText.btnLg.copyWith(color: AppColors.primary),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: AppColors.surfaceAlt,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: AppRadius.bMd,
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: AppRadius.bMd,
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: AppRadius.bMd,
+        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: AppRadius.bMd,
+        borderSide: const BorderSide(color: AppColors.error),
+      ),
+      hintStyle: AppText.body.copyWith(color: AppColors.textHint),
+      labelStyle: AppText.label,
+    ),
+    cardTheme: CardThemeData(
+      color: AppColors.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.bLg,
+        side: const BorderSide(color: AppColors.border),
+      ),
+      margin: EdgeInsets.zero,
+    ),
+    dividerTheme: const DividerThemeData(
+      color: AppColors.border,
+      thickness: 1,
+      space: 1,
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: AppColors.primary,
+    ),
   );
 }
