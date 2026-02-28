@@ -106,8 +106,11 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
                 ),
               ],
             ),
-            child: const Icon(Icons.shopping_bag_rounded,
-                color: Colors.white, size: 22),
+            child: const Icon(
+              Icons.shopping_bag_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Column(
@@ -158,23 +161,30 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
           style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A2E)),
           decoration: InputDecoration(
             hintText: 'Cari try out...',
-            hintStyle:
-            const TextStyle(fontSize: 14, color: Color(0xFFB0BAC9)),
-            prefixIcon: const Icon(Icons.search_rounded,
-                color: Color(0xFFB0BAC9), size: 20),
+            hintStyle: const TextStyle(fontSize: 14, color: Color(0xFFB0BAC9)),
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: Color(0xFFB0BAC9),
+              size: 20,
+            ),
             suffixIcon: _searchQuery.isNotEmpty
                 ? GestureDetector(
-              onTap: () {
-                _searchController.clear();
-                _handleSearch('');
-              },
-              child: const Icon(Icons.close_rounded,
-                  color: Color(0xFFB0BAC9), size: 18),
-            )
+                    onTap: () {
+                      _searchController.clear();
+                      _handleSearch('');
+                    },
+                    child: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFFB0BAC9),
+                      size: 18,
+                    ),
+                  )
                 : null,
             border: InputBorder.none,
-            contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
           ),
         ),
       ),
@@ -219,9 +229,11 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(c.$3,
-                      size: 13,
-                      color: sel ? Colors.white : const Color(0xFF8A94A6)),
+                  Icon(
+                    c.$3,
+                    size: 13,
+                    color: sel ? Colors.white : const Color(0xFF8A94A6),
+                  ),
                   const SizedBox(width: 5),
                   Text(
                     c.$2,
@@ -252,7 +264,9 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(
-                color: Color(0xFF58CC02), strokeWidth: 3),
+              color: Color(0xFF58CC02),
+              strokeWidth: 3,
+            ),
           );
         }
         if (snap.hasError) {
@@ -268,21 +282,26 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
 
         if (_filter == 'free') {
           docs = docs
-              .where((d) =>
-          (d.data() as Map<String, dynamic>)['isPremium'] == false)
+              .where(
+                (d) => (d.data() as Map<String, dynamic>)['isPremium'] == false,
+              )
               .toList();
         } else if (_filter == 'premium') {
           docs = docs
-              .where((d) =>
-          (d.data() as Map<String, dynamic>)['isPremium'] == true)
+              .where(
+                (d) => (d.data() as Map<String, dynamic>)['isPremium'] == true,
+              )
               .toList();
         }
 
         if (_searchQuery.isNotEmpty) {
           docs = docs.where((d) {
             final data = d.data() as Map<String, dynamic>;
-            return ['title', 'description', 'examTypeName'].any((k) =>
-                (data[k] ?? '').toString().toLowerCase().contains(_searchQuery));
+            return ['title', 'description', 'examTypeName'].any(
+              (k) => (data[k] ?? '').toString().toLowerCase().contains(
+                _searchQuery,
+              ),
+            );
           }).toList();
         }
 
@@ -305,7 +324,10 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
             itemBuilder: (_, i) {
               final data = docs[i].data() as Map<String, dynamic>;
               return _MarketplaceCard(
-                  tryoutId: docs[i].id, data: data, userId: userId);
+                tryoutId: docs[i].id,
+                data: data,
+                userId: userId,
+              );
             },
           ),
         );
@@ -333,15 +355,19 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
             child: Icon(icon, size: 34, color: color),
           ),
           const SizedBox(height: 16),
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1A1A2E))),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1A1A2E),
+            ),
+          ),
           const SizedBox(height: 6),
-          Text(subtitle,
-              style:
-              const TextStyle(fontSize: 13, color: Color(0xFF8A94A6))),
+          Text(
+            subtitle,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF8A94A6)),
+          ),
         ],
       ),
     );
@@ -356,8 +382,11 @@ class _MarketplaceCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final String userId;
 
-  const _MarketplaceCard(
-      {required this.tryoutId, required this.data, required this.userId});
+  const _MarketplaceCard({
+    required this.tryoutId,
+    required this.data,
+    required this.userId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -387,7 +416,29 @@ class _MarketplaceCard extends StatelessWidget {
 
         return GestureDetector(
           onTap: () {
-            // Navigate to detail / purchase
+            if (!owned) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TryoutPurchaseScreen(
+                    tryoutId: tryoutId,
+                    tryoutTitle: title,
+                    tryoutDescription: description,
+                    isPremium: isPremium,
+                    energyCost: price,
+                  ),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('✅ Kamu sudah memiliki Try Out ini!'),
+                  backgroundColor: const Color(0xFF58CC02),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              );
+            }
           },
           child: Container(
             decoration: BoxDecoration(
@@ -406,183 +457,194 @@ class _MarketplaceCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                // Colored top strip
-                Container(
-                height: 5,
-                decoration:
-                BoxDecoration(gradient: LinearGradient(colors: colors)),
-              ),
+                  // Colored top strip
+                  Container(
+                    height: 5,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: colors),
+                    ),
+                  ),
 
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Row: exam badge + premium/free pill
-                    Row(
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (examTypeName.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: colors[0].withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(6),
+                        // Row: exam badge + premium/free pill
+                        Row(
+                          children: [
+                            if (examTypeName.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors[0].withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  examTypeName,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: colors[0],
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            const Spacer(),
+                            // Premium / Gratis pill
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(colors: colors),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isPremium
+                                        ? Icons.workspace_premium_rounded
+                                        : Icons.card_giftcard_rounded,
+                                    size: 11,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    isPremium ? 'Premium' : 'Gratis',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            child: Text(
-                              examTypeName,
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // Title
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1A1A2E),
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+
+                        if (description.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            description,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF8A94A6),
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+
+                        const SizedBox(height: 10),
+
+                        // Stats row
+                        Row(
+                          children: [
+                            _MiniStat(
+                              icon: Icons.quiz_rounded,
+                              label: '$totalQuestions soal',
+                              color: const Color(0xFF1CB0F6),
+                            ),
+                            const SizedBox(width: 10),
+                            _MiniStat(
+                              icon: Icons.timer_rounded,
+                              label: '$totalMinutes mnt',
+                              color: const Color(0xFFFF9600),
+                            ),
+                            const SizedBox(width: 10),
+                            _MiniStat(
+                              icon: Icons.layers_rounded,
+                              label: '${subtests.length} subtes',
+                              color: const Color(0xFF58CC02),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // Price + CTA row
+                        Row(
+                          children: [
+                            // Price
+                            Text(
+                              isPremium
+                                  ? currencyFormatter.format(price)
+                                  : 'GRATIS',
                               style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
                                 color: colors[0],
-                                letterSpacing: 0.5,
                               ),
                             ),
-                          ),
-                        const Spacer(),
-                        // Premium / Gratis pill
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            gradient:
-                            LinearGradient(colors: colors),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isPremium
-                                    ? Icons.workspace_premium_rounded
-                                    : Icons.card_giftcard_rounded,
-                                size: 11,
-                                color: Colors.white,
+                            const Spacer(),
+                            // CTA button
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 7,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                isPremium ? 'Premium' : 'Gratis',
+                              decoration: BoxDecoration(
+                                gradient: owned
+                                    ? const LinearGradient(
+                                        colors: [
+                                          Color(0xFF8A94A6),
+                                          Color(0xFF6B7280),
+                                        ],
+                                      )
+                                    : LinearGradient(colors: colors),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        (owned
+                                                ? const Color(0xFF8A94A6)
+                                                : colors[0])
+                                            .withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                owned ? 'Dimiliki' : 'Beli Sekarang',
                                 style: const TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w800,
                                   color: Colors.white,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Title
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A1A2E),
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    if (description.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF8A94A6)),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-
-                    const SizedBox(height: 10),
-
-                    // Stats row
-                    Row(
-                      children: [
-                        _MiniStat(
-                          icon: Icons.quiz_rounded,
-                          label: '$totalQuestions soal',
-                          color: const Color(0xFF1CB0F6),
-                        ),
-                        const SizedBox(width: 10),
-                        _MiniStat(
-                          icon: Icons.timer_rounded,
-                          label: '$totalMinutes mnt',
-                          color: const Color(0xFFFF9600),
-                        ),
-                        const SizedBox(width: 10),
-                        _MiniStat(
-                          icon: Icons.layers_rounded,
-                          label: '${subtests.length} subtes',
-                          color: const Color(0xFF58CC02),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Price + CTA row
-                    Row(
-                      children: [
-                        // Price
-                        Text(
-                          isPremium
-                              ? currencyFormatter.format(price)
-                              : 'GRATIS',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            color: colors[0],
-                          ),
-                        ),
-                        const Spacer(),
-                        // CTA button
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            gradient: owned
-                                ? const LinearGradient(colors: [
-                              Color(0xFF8A94A6),
-                              Color(0xFF6B7280)
-                            ])
-                                : LinearGradient(colors: colors),
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (owned
-                                    ? const Color(0xFF8A94A6)
-                                    : colors[0])
-                                    .withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            owned ? 'Dimiliki' : 'Beli Sekarang',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-        ),
         );
       },
     );
@@ -597,8 +659,11 @@ class _MiniStat extends StatelessWidget {
   final String label;
   final Color color;
 
-  const _MiniStat(
-      {required this.icon, required this.label, required this.color});
+  const _MiniStat({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -610,9 +675,10 @@ class _MiniStat extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF8A94A6)),
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF8A94A6),
+          ),
         ),
       ],
     );
@@ -656,7 +722,9 @@ class _MarketplaceTryoutCard extends StatelessWidget {
         return Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => _handleCardTap(context, isOwned),
+            onTap: () {
+              _handleCardTap(context, isOwned);
+            },
             borderRadius: BorderRadius.circular(20),
             child: Container(
               decoration: BoxDecoration(
@@ -880,7 +948,9 @@ class _MarketplaceTryoutCard extends StatelessWidget {
                         // CTA BUTTON
                         Flexible(
                           child: InkWell(
-                            onTap: () => _handleCardTap(context, isOwned),
+                            onTap: () {
+                              _handleCardTap(context, isOwned);
+                            },
                             borderRadius: BorderRadius.circular(14),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -1730,10 +1800,12 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
       // Auto dismiss setelah 2 detik
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) _uploadState.value = const UploadState();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('ERROR UPLOAD: $e');
+      print('STACK: $stackTrace');
       _uploadState.value = UploadState(
         stage: UploadStage.error,
-        message: 'Gagal memproses gambar',
+        message: 'Gagal: $e', // ← tampilkan error aslinya
       );
     }
   }
@@ -2166,7 +2238,13 @@ class _ProofUploadCard extends StatelessWidget {
 
   Widget _buildUploadArea() {
     return GestureDetector(
-      onTap: onPick,
+      onTap: () {
+        try {
+          onPick();
+        } catch (e) {
+          print('onPick error: $e');
+        }
+      },
       child: Container(
         height: 120,
         decoration: BoxDecoration(

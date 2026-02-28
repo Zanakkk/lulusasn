@@ -83,6 +83,11 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
   final List<SubTest> _subTests = [];
   int _selectedSubTestIndex = 0;
 
+// TAMBAHKAN INI
+  final Map<int, TextEditingController> _nameControllers = {};
+  final Map<int, TextEditingController> _descControllers = {};
+  final Map<int, TextEditingController> _timeControllers = {};
+
   // Processing state
   // REPLACE / TAMBAHKAN DI SEKITAR BARIS [cite: 12]
   bool _isProcessing = false;
@@ -105,6 +110,10 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
+    // TAMBAHKAN INI
+    for (final c in _nameControllers.values) c.dispose();
+    for (final c in _descControllers.values) c.dispose();
+    for (final c in _timeControllers.values) c.dispose();
     super.dispose();
   }
 
@@ -114,11 +123,23 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
         SubTest(id: DateTime.now().millisecondsSinceEpoch.toString()),
       );
       _selectedSubTestIndex = _subTests.length - 1;
+      // TAMBAHKAN INI - inisialisasi controller langsung
+      _nameControllers[_selectedSubTestIndex] = TextEditingController();
+      _descControllers[_selectedSubTestIndex] = TextEditingController();
+      _timeControllers[_selectedSubTestIndex] = TextEditingController(text: '15');
     });
   }
 
   void _removeSubTest(int index) {
     if (_subTests.length > 1) {
+      // TAMBAHKAN INI
+      _nameControllers[index]?.dispose();
+      _descControllers[index]?.dispose();
+      _timeControllers[index]?.dispose();
+      _nameControllers.remove(index);
+      _descControllers.remove(index);
+      _timeControllers.remove(index);
+
       setState(() {
         _subTests.removeAt(index);
         if (_selectedSubTestIndex >= _subTests.length) {
@@ -129,6 +150,8 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
   }
 
   Future<void> _loadExamTypes() async {
+
+    if (!mounted) return; // ← TAMBAH INI
     setState(() => _isLoadingExamTypes = true);
 
     try {
@@ -137,7 +160,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
           .where('isActive', isEqualTo: true)
           .orderBy('order')
           .get();
-
+      if (!mounted) return; // ← TAMBAH INI (setelah await)
       setState(() {
         _examTypes = snapshot.docs
             .map((doc) => ExamType.fromFirestore(doc))
@@ -149,7 +172,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
       if (_subTests.isEmpty) {
         _addSubTest();
       }
-    } catch (e) {
+    } catch (e) {if (!mounted) return; // ← TAMBAH INI (setelah await)
       setState(() => _isLoadingExamTypes = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -427,6 +450,8 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
                   builder: (context) => const ManageCategoriesScreen(),
                 ),
               );
+
+              if (!mounted) return; // ← TAMBAH INI
               // Reload exam types setelah kembali
               _loadExamTypes();
             },
@@ -1000,14 +1025,20 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
   }
 
   Widget _buildSubTestForm() {
-    if (_subTests.isEmpty) return const SizedBox();
+    if (_subTests.isEmpty || _selectedSubTestIndex >= _subTests.length) {
+      return const SizedBox();
+    }
+
 
     final subTest = _subTests[_selectedSubTestIndex];
-    final nameController = TextEditingController(text: subTest.name);
-    final descController = TextEditingController(text: subTest.description);
-    final timeController = TextEditingController(
-      text: subTest.estimatedMinutes.toString(),
-    );
+    final i = _selectedSubTestIndex;
+    _nameControllers[i] ??= TextEditingController(text: subTest.name);
+    _descControllers[i] ??= TextEditingController(text: subTest.description);
+    _timeControllers[i] ??= TextEditingController(text: subTest.estimatedMinutes.toString());
+
+    final nameController = _nameControllers[i]!;
+    final descController = _descControllers[i]!;
+    final timeController = _timeControllers[i]!;
 
     return _buildDuoSection(
       title: 'Detail Subtes ${_selectedSubTestIndex + 1}',
@@ -1198,7 +1229,9 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _pickFileForSubTest(subTest),
+        onTap: () async {
+          await _pickFileForSubTest(subTest);
+        },
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: EdgeInsets.all(AppSpacing.xl),
@@ -1809,14 +1842,14 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
       );
     }
 
-    // Validasi value
-    String currentValue = value;
-    if (!items.contains(value)) {
+    String? currentValue;
+
+    if (items.contains(value)) {
+      currentValue = value;
+    } else if (items.isNotEmpty) {
       currentValue = items.first;
-      // Update value di callback
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        onChanged(currentValue);
-      });
+    } else {
+      currentValue = null;
     }
 
     return Column(
@@ -2098,25 +2131,34 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
       );
     }
   }
-
   Future<void> _pickFileForSubTest(SubTest subTest) async {
+    // Tunggu frame selesai render dulu
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    if (!mounted) return;  // pastikan widget masih ada
+
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx', 'xls'],
-        withData: true, // ✅ PENTING untuk web
+        withData: true,
       );
 
-      if (result != null && result.files.single.bytes != null) {
+      if (!mounted) return;  // cek lagi setelah async
+
+      if (result != null &&
+          result.files.isNotEmpty &&
+          result.files.single.bytes != null) {
         setState(() {
           subTest.fileName = result.files.single.name;
           _errorMessage = null;
         });
-
-        // Parse Excel langsung dari bytes
         await _parseExcelFile(subTest, result.files.single.bytes!);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('ERROR: $e');
+      print('STACK: $stackTrace');
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Error memilih file: $e';
       });
@@ -2376,6 +2418,13 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
   }
 
   void _resetForm() {
+    // TAMBAHKAN INI
+    for (final c in _nameControllers.values) c.dispose();
+    for (final c in _descControllers.values) c.dispose();
+    for (final c in _timeControllers.values) c.dispose();
+    _nameControllers.clear();
+    _descControllers.clear();
+    _timeControllers.clear();
     _formKey.currentState?.reset();
     _titleController.clear();
     _descriptionController.clear();
@@ -2894,6 +2943,10 @@ class _QuestionReviewCardState extends State<QuestionReviewCard> {
     try {
       // Logika upload ke Firebase Storage
       final file = result.files.first;
+
+      if (file.bytes == null) {
+        throw Exception("File tidak memiliki data (bytes null)");
+      }
       final ref = FirebaseStorage.instance.ref().child(
         'questions/${DateTime.now().millisecondsSinceEpoch}_${file.name}',
       );
