@@ -20,7 +20,9 @@ final _currencyFmt = NumberFormat.currency(symbol: 'Rp ', decimalDigits: 0);
 // MARKETPLACE SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
 class TryoutMarketplaceScreen extends StatefulWidget {
-  const TryoutMarketplaceScreen({super.key});
+  final String? currentGoal; // ← terima dari luar (MainNavigationScreen)
+
+  const TryoutMarketplaceScreen({super.key, this.currentGoal});
 
   @override
   State<TryoutMarketplaceScreen> createState() =>
@@ -214,14 +216,21 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
     );
   }
 
-  // ── List ─────────────────────────────────────────────────────────────────
+
   Widget _buildList() {
+    Query<Map<String, dynamic>> query = FirebaseFirestore.instance
+        .collection('tryouts')
+        .where('isActive', isEqualTo: true);
+
+    final goal = widget.currentGoal;
+    if (goal != null && goal.isNotEmpty && goal != 'other') {
+      query = query.where('examTypeName', isEqualTo: goal.toUpperCase());
+    }
+
+    query = query.orderBy('createdAt', descending: true);
+
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('tryouts')
-          .where('isActive', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
+      stream: query.snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -242,7 +251,7 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
 
         var docs = snap.data?.docs ?? [];
 
-        // Filter
+        // Filter premium/free
         if (_filter != 'all') {
           final wantPremium = _filter == 'premium';
           docs = docs.where((d) {
@@ -264,11 +273,20 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
         }
 
         if (docs.isEmpty) {
-          return const _StatusView(
+          final goalLabel = switch (goal) {
+            'cpns' => 'CPNS',
+            'lpdp' => 'LPDP',
+            'bumn' => 'BUMN',
+            'pcpm' => 'PCPM',
+            _ => null,
+          };
+          return _StatusView(
             icon: Icons.search_off_rounded,
             color: AppColors.primary,
             title: 'Belum Ada Try Out',
-            subtitle: 'Try out akan segera ditambahkan!',
+            subtitle: goalLabel != null
+                ? 'Belum ada try out untuk $goalLabel.\nCoba lagi nanti!'
+                : 'Try out akan segera ditambahkan!',
           );
         }
 
@@ -351,6 +369,7 @@ class _StatusView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print(subtitle);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -698,7 +717,6 @@ class _OwnedBadge extends StatelessWidget {
     );
   }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // UPLOAD STATE & PROOF SLOT
@@ -1638,7 +1656,7 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
       await img.onLoad.first;
       html.Url.revokeObjectUrl(url);
       const maxDim = 1200;
-      var w = img.naturalWidth , h = img.naturalHeight ;
+      var w = img.naturalWidth, h = img.naturalHeight;
       if (w == 0 || h == 0) return bytes;
       if (w > maxDim || h > maxDim) {
         if (w >= h) {

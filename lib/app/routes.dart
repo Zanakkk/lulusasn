@@ -24,7 +24,7 @@ import '../features/home/screens/leaderboard_screen.dart';
 import '../features/main_navigation/main_screen..dart';
 
 import 'package:lulusasn/features/auth/screens/splash_screen.dart';
-import 'package:lulusasn/features/home/screens/home_screen.dart';
+import 'package:lulusasn/features/home/screens/UserDashboard.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
