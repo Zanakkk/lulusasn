@@ -369,7 +369,6 @@ class _StatusView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print(subtitle);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,

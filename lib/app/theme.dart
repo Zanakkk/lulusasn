@@ -12,6 +12,127 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORMATTERS  (hanya yang benar-benar dipakai)
+// ─────────────────────────────────────────────────────────────────────────────
+class Formatters {
+  Formatters._();
+
+  // Rupiah — dipakai lewat .toRupiah / .toRupiahCompact
+  static String rupiah(int v) =>
+      NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+          .format(v);
+
+  static String rupiahCompact(int v) {
+    if (v >= 1000000) return 'Rp ${(v / 1000000).toStringAsFixed(v % 1000000 == 0 ? 0 : 1)}M';
+    if (v >= 1000) return 'Rp ${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)}K';
+    return rupiah(v);
+  }
+
+  // Tanggal — dipakai lewat DateTimeExtensions
+  static String date(DateTime d) => DateFormat('d MMMM yyyy', 'id_ID').format(d);
+  static String dateShort(DateTime d) => DateFormat('d MMM yyyy', 'id_ID').format(d);
+  static String time(DateTime d) => DateFormat('HH:mm').format(d);
+  static String dateTime(DateTime d) => DateFormat('d MMM yyyy, HH:mm', 'id_ID').format(d);
+
+  static String relativeTime(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inSeconds < 60) return 'Baru saja';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} menit lalu';
+    if (diff.inHours < 24) return '${diff.inHours} jam lalu';
+    if (diff.inDays < 7) return '${diff.inDays} hari lalu';
+    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()} minggu lalu';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()} bulan lalu';
+    return '${(diff.inDays / 365).floor()} tahun lalu';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXTENSIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+extension IntFormatX on int {
+  String get toRupiah => Formatters.rupiah(this);
+  String get toRupiahCompact => Formatters.rupiahCompact(this);
+}
+
+extension DateTimeFormatX on DateTime {
+  String get toFormattedDate => Formatters.date(this);
+  String get toShortDate => Formatters.dateShort(this);
+  String get toFormattedTime => Formatters.time(this);
+  String get toFormattedDateTime => Formatters.dateTime(this);
+  String get toRelativeTime => Formatters.relativeTime(this);
+
+  bool get isToday {
+    final n = DateTime.now();
+    return year == n.year && month == n.month && day == n.day;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUILDCONTEXT EXTENSIONS  (show snackbar — sudah dipakai)
+// ─────────────────────────────────────────────────────────────────────────────
+extension BuildContextX on BuildContext {
+  // Screen helpers
+  double get screenWidth => MediaQuery.sizeOf(this).width;
+  bool get isMobile => screenWidth < 600;
+  bool get isTablet => screenWidth >= 600 && screenWidth < 1200;
+  bool get isDesktop => screenWidth >= 1200;
+
+  // Theme shortcuts
+  ThemeData get theme => Theme.of(this);
+  ColorScheme get colorScheme => theme.colorScheme;
+
+  // Navigation
+  void pop<T>([T? result]) => Navigator.of(this).pop(result);
+  Future<T?> push<T>(Widget page) =>
+      Navigator.of(this).push<T>(MaterialPageRoute(builder: (_) => page));
+
+  // Snackbar
+  void showSnackbar(String msg, {Color? bg, Duration duration = const Duration(seconds: 3)}) {
+    ScaffoldMessenger.of(this).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: bg, duration: duration),
+    );
+  }
+
+  void showSuccess(String msg) => showSnackbar(msg, bg: const Color(0xFF10B981));
+  void showError(String msg) => showSnackbar(msg, bg: const Color(0xFFEF4444));
+
+  void hideKeyboard() => FocusScope.of(this).unfocus();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// APP CONFIG
+// ─────────────────────────────────────────────────────────────────────────────
+class AppConfig {
+  AppConfig._();
+  static const int minPasswordLength = 6;
+  static const int minUsernameLength = 3;
+  static const int maxUsernameLength = 20;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VALIDATORS  (hanya email & password — yang benar-benar dipakai)
+// ─────────────────────────────────────────────────────────────────────────────
+class Validators {
+  Validators._();
+
+  static String? email(String? v) {
+    if (v == null || v.isEmpty) return 'Email wajib diisi';
+    final ok = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    return ok.hasMatch(v) ? null : 'Format email tidak valid';
+  }
+
+  static String? password(String? v) {
+    if (v == null || v.isEmpty) return 'Password wajib diisi';
+    if (v.length < AppConfig.minPasswordLength) {
+      return 'Password minimal ${AppConfig.minPasswordLength} karakter';
+    }
+    return null;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COLORS

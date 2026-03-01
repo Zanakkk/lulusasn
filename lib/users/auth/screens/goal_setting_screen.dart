@@ -7,7 +7,6 @@ import '../../../app/routes.dart';
 import '../../../app/theme.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/services/storage_service.dart';
-import '../../../core/utils/extensions.dart';
 import '../service/user_service.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 // GOAL SETTING SCREEN  (onboarding — first launch)
@@ -84,11 +83,12 @@ class _GoalSettingScreenState extends State<GoalSettingScreen>
         .orderBy('order')
         .get()
         .then((snap) {
-          if (mounted)
+          if (mounted) {
             setState(() {
               _goals = snap.docs.map(_Goal.fromDoc).toList();
               _goalsLoading = false;
             });
+          }
         });
   }
 
@@ -98,7 +98,6 @@ class _GoalSettingScreenState extends State<GoalSettingScreen>
     super.dispose();
   }
 
-  void _onGoalTapped(String id) => setState(() => _selectedGoal = id);
 
   Future<void> _onContinue() async {
     if (_selectedGoal == null) {

@@ -1,5 +1,5 @@
 // lib/features/admin/pages/dashboard_screen.dart
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, unused_field, unused_element_parameter
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;

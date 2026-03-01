@@ -5,7 +5,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'app/routes.dart';
 import 'app/theme.dart';
 import 'core/services/storage_service.dart';
-import 'features/exam/screens/ad_interstitial_page.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -17,8 +16,6 @@ void main() async {
   // ✅ Initialize storage
   await StorageService.instance.initialize();
 
-  // ✅ Initialize AdMob (TAMBAHKAN INI)
-  await AdService.initialize();
 
   runApp(const LulusASNApp());
 }

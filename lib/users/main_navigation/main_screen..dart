@@ -1,5 +1,5 @@
 // lib/features/main_navigation/main_navigation.dart
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, unused_element
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,12 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:lulusasn/app/routes.dart';
 import 'package:lulusasn/core/services/storage_service.dart';
-import 'package:lulusasn/features/TO/owned_tryout_screen.dart';
-import 'package:lulusasn/features/TO/tryout_marketplace_screen.dart';
-import 'package:lulusasn/features/exam/screens/exam_list_screen.dart';
-import 'package:lulusasn/features/home/screens/ProfileScreen.dart';
-import 'package:lulusasn/features/home/screens/UserDashboard.dart';
-import 'package:lulusasn/features/home/screens/leaderboard_screen.dart';
+import 'package:lulusasn/users/TO/owned_tryout_screen.dart';
+import 'package:lulusasn/users/TO/tryout_marketplace_screen.dart';
+import 'package:lulusasn/users/home/screens/ProfileScreen.dart';
+import 'package:lulusasn/users/home/screens/UserDashboard.dart';
 
 import '../../admin/pages/AdminDashboard.dart';
 import '../../admin/pages/CreateTO.dart';
@@ -21,7 +19,6 @@ import '../../admin/pages/promotion_verification_screen.dart';
 import '../../admin/pages/userManagement.dart';
 import '../../app/theme.dart';
 import '../../core/services/firebase_service.dart';
-import '../../../core/utils/extensions.dart';
 
 // ─────────────────────────────────────────────
 // MODEL
@@ -47,7 +44,12 @@ const _userMobile = [
   _NavItem('/profile', Icons.person_outline, Icons.person_rounded, 'Profil'),
 ];
 const _userDesktop = [
-  _NavItem('/userdashboard', Icons.home_outlined, Icons.home_rounded, 'Beranda'),
+  _NavItem(
+    '/userdashboard',
+    Icons.home_outlined,
+    Icons.home_rounded,
+    'Beranda',
+  ),
   _NavItem(
     '/my-tryout',
     Icons.quiz_outlined,
@@ -146,7 +148,7 @@ class AdminMainNavigationScreen extends StatefulWidget {
 }
 
 class _AdminMainNavigationScreenState extends State<AdminMainNavigationScreen> {
-  String _route = '/create-to';
+  String _route = '/dashboardAdmin';
   @override
   Widget build(BuildContext context) => _Shell(
     route: _route,
@@ -212,10 +214,8 @@ class _ShellState extends State<_Shell> {
 
   Widget _resolveScreen(String route) => switch (route) {
     '/userdashboard' => const HomeScreen(),
-    '/learn' => const ExamListScreen(),
     '/my-tryout' => const MyTryoutsScreen(),
     '/purchase-tryout' => TryoutMarketplaceScreen(currentGoal: _currentGoal),
-    '/leaderboard' => const LeaderboardScreen(),
     '/profile' => const ProfileScreen(),
     '/create-to' => const CreateTryoutScreen(),
     '/view-to' => const Placeholder(),
@@ -474,19 +474,6 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// TOP BAR  — light surface
-// ─────────────────────────────────────────────
-// ignore_for_file: deprecated_member_use
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GOAL DATA
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODEL  — id diganti, sekarang pakai name.toLowerCase() sebagai key
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _Goal {
   final String key; // name.toLowerCase() — dipakai sebagai identifier
   final String name; // display name: 'LPDP', 'CPNS', dll
@@ -700,12 +687,13 @@ class _GoalPickerSheetState extends State<_GoalPickerSheet> {
           .doc(uid)
           .get();
       final goal = (doc.data()?['goal'] as String?)?.toLowerCase();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _selected = goal;
           _saved = goal;
           _loadingUser = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingUser = false);
     }
@@ -1073,31 +1061,6 @@ class _SaveButtonState extends State<_SaveButton> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// LOADING STATE
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _LoadingState extends StatelessWidget {
-  const _LoadingState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(
-            color: AppColors.primary,
-            strokeWidth: 2.5,
-          ),
-          AppSpacing.vmd,
-          Text('Memuat data...', style: AppText.bodySm),
-        ],
       ),
     );
   }

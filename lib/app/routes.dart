@@ -2,32 +2,19 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:lulusasn/features/home/screens/StatisticScreen.dart';
 import '../admin/pages/CreateTO.dart';
 import '../admin/pages/ViewTO.dart';
-import '../admin/pages/promotion_verification_screen.dart' show PromotionVerificationScreen;
-import '../features/TO/owned_tryout_screen.dart';
-import '../features/TO/tryout_detail_screen.dart';
-import '../features/TO/tryout_marketplace_screen.dart';
-import '../features/auth/screens/goal_setting_screen.dart';
-import '../features/auth/screens/onboarding_screen.dart';
-import 'package:lulusasn/features/auth/screens/login_screen.dart';
-import '../features/exam/models/exam_result_model.dart';
-import '../features/exam/screens/ad_interstitial_page.dart';
-import '../features/exam/screens/exam_list_screen.dart';
-import '../features/exam/screens/exam_result_screen.dart';
-import '../features/exam/screens/exam_review_screen.dart';
-import '../features/exam/screens/exam_session_screen.dart';
-import '../features/exam/screens/pre_exam_screen.dart';
-import '../features/home/screens/ProfileScreen.dart';
-import '../features/home/screens/leaderboard_screen.dart';
-import '../features/main_navigation/main_screen..dart';
-
-import 'package:lulusasn/features/auth/screens/splash_screen.dart';
-import 'package:lulusasn/features/home/screens/UserDashboard.dart';
-
+import '../admin/pages/promotion_verification_screen.dart'
+    show PromotionVerificationScreen;
 import 'package:firebase_auth/firebase_auth.dart';
-
+import '../users/TO/owned_tryout_screen.dart';
+import '../users/TO/tryout_detail_screen.dart';
+import '../users/TO/tryout_marketplace_screen.dart';
+import '../users/auth/screens/goal_setting_screen.dart';
+import 'package:lulusasn/users/auth/screens/login_screen.dart';
+import '../users/home/screens/ProfileScreen.dart';
+import '../users/main_navigation/main_screen..dart';
+import 'package:lulusasn/users/home/screens/UserDashboard.dart';
 
 // ============================================================================
 // ROUTE NAMES
@@ -106,22 +93,11 @@ class AppRouter {
 
     switch (routeName) {
       // ==================== PUBLIC ROUTES ====================
-      case AppRoutes.splash:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const SplashScreen(),
-        );
 
       case AppRoutes.login:
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const LoginScreen(),
-        );
-
-      case AppRoutes.onboarding:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const OnboardingScreen(),
         );
 
       case AppRoutes.goalSetting:
@@ -147,17 +123,6 @@ class AppRouter {
           settings: settings,
           builder: (_) => const ProfileScreen(),
         );
-      case AppRoutes.leaderboard:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const LeaderboardScreen(),
-        );
-
-      case AppRoutes.statistics:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => StatisticsScreen(),
-        );
 
       // Di dalam switch statement, tambahkan setelah case AppRoutes.adminMain:
 
@@ -175,7 +140,7 @@ class AppRouter {
       case AppRoutes.adminVerificationTO:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const PromotionVerificationScreen (),
+          builder: (_) => const PromotionVerificationScreen(),
         );
 
       case AppRoutes.mytryout:
@@ -195,71 +160,7 @@ class AppRouter {
         );
 
       // ==================== EXAM ROUTES ====================
-      case AppRoutes.examList:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const ExamListScreen(),
-        );
-      case AppRoutes.examPre:
-        // ✅ FIX: Safe argument parsing
-        final args = arguments as Map<String, dynamic>? ?? {};
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => PreExamScreen(
-            packageId: args['packageId'] as String?, // ✅ Extract dari args
-            category: args['category'] as String? ?? 'TWK',
-            questionCount: args['questionCount'] as int? ?? 10,
-            energyCost: args['energyCost'] as int? ?? 1,
-            isPremium: args['isPremium'] as bool? ?? false,
-          ),
-        );
 
-      case AppRoutes.examSession:
-        // ✅ FIX: Safe argument parsing
-        final args = arguments as Map<String, dynamic>? ?? {};
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => ExamSessionScreen(
-            category: args['category'] as String? ?? 'TWK',
-            questionCount: args['questionCount'] as int? ?? 10,
-          ),
-        );
-
-      case AppRoutes.examAd:
-        final args = arguments as Map<String, dynamic>? ?? {};
-        final result = args['result'] as ExamResultModel?;
-
-        if (result == null) {
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => const HomeScreen(),
-          );
-        }
-
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => AdInterstitialScreen(
-            result: result,
-          ), // ✅ Gunakan AdInterstitialPage
-        );
-
-      case AppRoutes.examResult:
-        // ✅ FIX: Safe argument parsing dengan null check
-        final args = arguments as Map<String, dynamic>? ?? {};
-        final result = args['result'] as ExamResultModel?;
-
-        if (result == null) {
-          // Redirect ke home jika result null
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => const HomeScreen(),
-          );
-        }
-
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => ExamResultScreen(result: result),
-        );
       case AppRoutes.examReview:
         final args = arguments as Map<String, dynamic>? ?? {};
         final examId = args['examId'] as String?;
@@ -270,11 +171,6 @@ class AppRouter {
             builder: (_) => const HomeScreen(),
           );
         }
-
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => ExamReviewScreen(examId: examId),
-        );
       // ==================== ERROR ROUTES ====================
       case AppRoutes.notFound:
       default:
@@ -283,6 +179,7 @@ class AppRouter {
           builder: (_) => const NotFoundScreen(),
         );
     }
+    return null;
   }
 
   static Route<dynamic> onUnknownRoute(RouteSettings settings) {
