@@ -898,27 +898,30 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ManageCategoriesScreen(),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ManageCategoriesScreen(),
+                          ),
+                        );
+                        if (mounted) _loadExamTypes();
+                      },
+                      icon: const Icon(Icons.settings_rounded, size: 16),
+                      label: const Text('Kelola Kategori'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                        side: const BorderSide(color: AppColors.border),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.sm,
                         ),
-                      );
-                      if (mounted) _loadExamTypes();
-                    },
-                    icon: const Icon(Icons.settings_rounded, size: 16),
-                    label: const Text('Kelola Kategori'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary,
-                      side: const BorderSide(color: AppColors.border),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.sm,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
                 ],
@@ -1250,16 +1253,20 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
     return Row(
       children: [
         if (_currentStep > 0)
-          OutlinedButton.icon(
-            onPressed: () => setState(() => _currentStep--),
-            icon: const Icon(Icons.arrow_back_rounded, size: 16),
-            label: const Text('Kembali'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textSecondary,
-              side: const BorderSide(color: AppColors.border),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: 14,
+          IntrinsicWidth(
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() => _currentStep--),
+              icon: const Icon(Icons.arrow_back_rounded, size: 16),
+              label: const Text('Kembali'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: const BorderSide(color: AppColors.border),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: 14,
+                ),
               ),
             ),
           ),

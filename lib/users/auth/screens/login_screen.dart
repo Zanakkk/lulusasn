@@ -24,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLogin = true;
   bool _obscure = true;
   bool _emailSent = false;
+  bool _showResendBtn = false;
   String? _error;
 
   @override
@@ -49,7 +50,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (!cred.user!.emailVerified) {
           await FirebaseAuth.instance.signOut();
-          return _setError('Email belum diverifikasi. Cek inbox Anda!');
+          setState(() {
+            _error =
+                'Email Anda belum diverifikasi.\n'
+                'Cek inbox atau folder Spam, lalu klik link verifikasi yang kami kirim saat pendaftaran.';
+            _showResendBtn = true;
+          });
+          return;
         }
 
         final uid = cred.user!.uid;
@@ -280,10 +287,13 @@ class _LoginScreenState extends State<LoginScreen> {
               onToggleMode: () => setState(() {
                 _isLogin = !_isLogin;
                 _error = null;
+                _showResendBtn = false;
               }),
               onToggleObscure: () => setState(() => _obscure = !_obscure),
               onSubmit: _handleAuth,
               onForgot: _showForgotDialog,
+              onResend: _resendVerification,
+              showResendBtn: _showResendBtn,
             ),
           ),
         ),
@@ -319,10 +329,13 @@ class _LoginScreenState extends State<LoginScreen> {
           onToggleMode: () => setState(() {
             _isLogin = !_isLogin;
             _error = null;
+            _showResendBtn = false;
           }),
           onToggleObscure: () => setState(() => _obscure = !_obscure),
           onSubmit: _handleAuth,
           onForgot: _showForgotDialog,
+          onResend: _resendVerification,
+          showResendBtn: _showResendBtn,
         ),
         const SizedBox(height: 24),
         Text(
@@ -426,7 +439,12 @@ class _FormCard extends StatelessWidget {
   final String? error;
   final GlobalKey<FormState> formKey;
   final TextEditingController emailCtrl, passwordCtrl;
-  final VoidCallback onToggleMode, onToggleObscure, onSubmit, onForgot;
+  final VoidCallback onToggleMode,
+      onToggleObscure,
+      onSubmit,
+      onForgot,
+      onResend;
+  final bool showResendBtn;
 
   const _FormCard({
     required this.isLogin,
@@ -440,6 +458,8 @@ class _FormCard extends StatelessWidget {
     required this.onToggleObscure,
     required this.onSubmit,
     required this.onForgot,
+    required this.onResend,
+    required this.showResendBtn,
   });
 
   @override
@@ -561,6 +581,25 @@ class _FormCard extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+
+          // ── Forgot password ──
+          if (showResendBtn) ...[
+            AppSpacing.vsm,
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onResend,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Kirim Ulang Email Verifikasi'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.warning,
+                  side: const BorderSide(color: AppColors.warning),
+                  minimumSize: const Size.fromHeight(44),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+                ),
               ),
             ),
           ],

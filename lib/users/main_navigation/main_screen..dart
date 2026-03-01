@@ -129,12 +129,15 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   String _route = '/home';
+  bool _collapsed = false;
   @override
   Widget build(BuildContext context) => _Shell(
     route: _route,
     mobileItems: _userMobile,
     desktopItems: _userDesktop,
     isAdmin: false,
+    collapsed: _collapsed,
+    onCollapse: () => setState(() => _collapsed = !_collapsed),
     onNav: (r) => setState(() => _route = r),
     onLogout: () => _logout(context),
   );
@@ -149,12 +152,15 @@ class AdminMainNavigationScreen extends StatefulWidget {
 
 class _AdminMainNavigationScreenState extends State<AdminMainNavigationScreen> {
   String _route = '/dashboardAdmin';
+  bool _collapsed = false;
   @override
   Widget build(BuildContext context) => _Shell(
     route: _route,
     mobileItems: _adminMobile,
     desktopItems: _adminDesktop,
     isAdmin: true,
+    collapsed: _collapsed,
+    onCollapse: () => setState(() => _collapsed = !_collapsed),
     onNav: (r) => setState(() => _route = r),
     onLogout: () => _logout(context),
   );
@@ -170,14 +176,18 @@ class _Shell extends StatefulWidget {
   final String route;
   final List<_NavItem> mobileItems, desktopItems;
   final bool isAdmin;
+  final bool collapsed;
   final ValueChanged<String> onNav;
   final VoidCallback onLogout;
+  final VoidCallback onCollapse;
 
   const _Shell({
     required this.route,
     required this.mobileItems,
     required this.desktopItems,
     required this.isAdmin,
+    required this.collapsed,
+    required this.onCollapse,
     required this.onNav,
     required this.onLogout,
   });
@@ -254,12 +264,19 @@ class _ShellState extends State<_Shell> {
       backgroundColor: AppColors.bg,
       body: Row(
         children: [
-          _Sidebar(
-            items: widget.desktopItems,
-            route: widget.route,
-            onNav: widget.onNav,
-            onLogout: widget.onLogout,
-            isAdmin: widget.isAdmin,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            width: widget.collapsed ? 64 : 220,
+            child: _Sidebar(
+              items: widget.desktopItems,
+              route: widget.route,
+              onNav: widget.onNav,
+              onLogout: widget.onLogout,
+              isAdmin: widget.isAdmin,
+              collapsed: widget.collapsed,
+              onCollapse: widget.onCollapse,
+            ),
           ),
           Expanded(
             child: Column(
@@ -288,187 +305,279 @@ class _Sidebar extends StatelessWidget {
   final ValueChanged<String> onNav;
   final VoidCallback onLogout;
   final bool isAdmin;
+  final bool collapsed;
+  final VoidCallback onCollapse;
   const _Sidebar({
     required this.items,
     required this.route,
     required this.onNav,
     required this.onLogout,
     required this.isAdmin,
+    required this.collapsed,
+    required this.onCollapse,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 220,
-      decoration: const BoxDecoration(
-        gradient: AppGradient.navy,
-        border: Border(right: BorderSide(color: Color(0x18FFFFFF))),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 28),
+    final c = collapsed;
+    return ClipRect(
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: AppGradient.navy,
+          border: Border(right: BorderSide(color: Color(0x18FFFFFF))),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
 
-          // ── Brand ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                // Logo mark
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.gold, width: 1.5),
-                    borderRadius: AppRadius.bSm,
-                  ),
-                  child: Center(
-                    child: Text(
-                      'L',
-                      style: AppText.h3.copyWith(color: AppColors.gold),
+            // ── Brand + collapse toggle ──
+            SizedBox(
+              height: 34,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.gold, width: 1.5),
+                        borderRadius: AppRadius.bSm,
+                      ),
+                      child: Center(
+                        child: Text(
+                          'L',
+                          style: AppText.h3.copyWith(color: AppColors.gold),
+                        ),
+                      ),
                     ),
-                  ),
+                    if (!c) ...[
+                      AppSpacing.hsm,
+                      Expanded(
+                        child: Text(
+                          'LULUZZZ',
+                          style: AppText.h3.copyWith(
+                            color: AppColors.white,
+                            letterSpacing: 1,
+                          ),
+                          overflow: TextOverflow.clip,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                AppSpacing.hsm,
-                Text(
-                  'LULUZZZ',
-                  style: AppText.h3.copyWith(
-                    color: AppColors.white,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── Admin badge ──
-          if (isAdmin) ...[
-            AppSpacing.vsm,
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.12),
-                borderRadius: AppRadius.bSm,
-                border: Border.all(color: AppColors.error.withOpacity(0.3)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.admin_panel_settings,
-                    size: 13,
-                    color: AppColors.error,
-                  ),
-                  AppSpacing.hxs,
-                  Text(
-                    'Admin Panel',
-                    style: AppText.caption.copyWith(
-                      color: AppColors.error,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
               ),
             ),
-          ],
 
-          AppSpacing.vmd,
-
-          // ── Nav items ──
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              children: items.map((item) {
-                final active = route == item.route;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: InkWell(
-                    onTap: () => onNav(item.route),
-                    borderRadius: AppRadius.bMd,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
+            // ── Admin badge ──
+            if (isAdmin) ...[
+              AppSpacing.vsm,
+              c
+                  ? Tooltip(
+                      message: 'Admin Panel',
+                      child: Icon(
+                        Icons.admin_panel_settings,
+                        size: 16,
+                        color: AppColors.error,
+                      ),
+                    )
+                  : Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 12),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 11,
+                        horizontal: 10,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: active
-                            ? AppColors.white.withOpacity(0.10)
-                            : Colors.transparent,
-                        borderRadius: AppRadius.bMd,
-                        border: active
-                            ? Border.all(
-                                color: AppColors.gold.withOpacity(0.25),
-                              )
-                            : null,
+                        color: AppColors.error.withOpacity(0.12),
+                        borderRadius: AppRadius.bSm,
+                        border: Border.all(
+                          color: AppColors.error.withOpacity(0.3),
+                        ),
                       ),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            active ? item.activeIcon : item.icon,
-                            size: 19,
-                            color: active
-                                ? AppColors.gold
-                                : AppColors.white.withOpacity(0.55),
+                            Icons.admin_panel_settings,
+                            size: 13,
+                            color: AppColors.error,
                           ),
-                          AppSpacing.hsm,
-                          Expanded(
-                            child: Text(
-                              item.label,
-                              style: AppText.label.copyWith(
-                                color: active
-                                    ? AppColors.gold
-                                    : AppColors.white.withOpacity(0.7),
-                                fontWeight: active
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                              ),
+                          AppSpacing.hxs,
+                          Text(
+                            'Admin Panel',
+                            style: AppText.caption.copyWith(
+                              color: AppColors.error,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                          if (active)
-                            Container(
-                              width: 4,
-                              height: 4,
-                              decoration: const BoxDecoration(
-                                color: AppColors.gold,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
                         ],
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+            ],
 
-          // ── Logout ──
-          Divider(height: 1, color: AppColors.white.withOpacity(0.08)),
-          InkWell(
-            onTap: onLogout,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.logout_rounded,
-                    size: 18,
-                    color: AppColors.error.withOpacity(0.8),
-                  ),
-                  AppSpacing.hsm,
-                  Text(
-                    'Keluar',
-                    style: AppText.label.copyWith(
-                      color: AppColors.error.withOpacity(0.8),
+            AppSpacing.vmd,
+
+            // ── Nav items ──
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.symmetric(horizontal: c ? 6 : 10),
+                children: items.map((item) {
+                  final active = route == item.route;
+                  final iconWidget = Icon(
+                    active ? item.activeIcon : item.icon,
+                    size: 20,
+                    color: active
+                        ? AppColors.gold
+                        : AppColors.white.withOpacity(0.55),
+                  );
+
+                  final tile = AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: c ? 0 : 12,
+                      vertical: 10,
                     ),
-                  ),
-                ],
+                    decoration: BoxDecoration(
+                      color: active
+                          ? AppColors.white.withOpacity(0.10)
+                          : Colors.transparent,
+                      borderRadius: AppRadius.bMd,
+                      border: active
+                          ? Border.all(color: AppColors.gold.withOpacity(0.25))
+                          : null,
+                    ),
+                    child: c
+                        ? Center(child: iconWidget)
+                        : Row(
+                            children: [
+                              iconWidget,
+                              AppSpacing.hsm,
+                              Expanded(
+                                child: Text(
+                                  item.label,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: AppText.label.copyWith(
+                                    color: active
+                                        ? AppColors.gold
+                                        : AppColors.white.withOpacity(0.7),
+                                    fontWeight: active
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              if (active)
+                                Container(
+                                  width: 4,
+                                  height: 4,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.gold,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                  );
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Tooltip(
+                      message: c ? item.label : '',
+                      preferBelow: false,
+                      child: InkWell(
+                        onTap: () => onNav(item.route),
+                        borderRadius: AppRadius.bMd,
+                        child: tile,
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
+
+            // ── Logout ──
+            Divider(height: 1, color: AppColors.white.withOpacity(0.08)),
+            Tooltip(
+              message: c ? 'Keluar' : '',
+              child: InkWell(
+                onTap: onLogout,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: c ? 0 : 22,
+                    vertical: 14,
+                  ),
+                  child: c
+                      ? Center(
+                          child: Icon(
+                            Icons.logout_rounded,
+                            size: 18,
+                            color: AppColors.error.withOpacity(0.8),
+                          ),
+                        )
+                      : Row(
+                          children: [
+                            Icon(
+                              Icons.logout_rounded,
+                              size: 18,
+                              color: AppColors.error.withOpacity(0.8),
+                            ),
+                            AppSpacing.hsm,
+                            Text(
+                              'Keluar',
+                              style: AppText.label.copyWith(
+                                color: AppColors.error.withOpacity(0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+
+            // ── Collapse toggle ──
+            Divider(height: 1, color: AppColors.white.withOpacity(0.05)),
+            Tooltip(
+              message: c ? 'Perluas sidebar' : '',
+              child: InkWell(
+                onTap: onCollapse,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: c ? 0 : 22,
+                    vertical: 12,
+                  ),
+                  child: c
+                      ? Center(
+                          child: Icon(
+                            Icons.keyboard_double_arrow_right_rounded,
+                            size: 16,
+                            color: AppColors.white.withOpacity(0.3),
+                          ),
+                        )
+                      : Row(
+                          children: [
+                            Icon(
+                              Icons.keyboard_double_arrow_left_rounded,
+                              size: 16,
+                              color: AppColors.white.withOpacity(0.3),
+                            ),
+                            AppSpacing.hsm,
+                            Text(
+                              'Ciutkan',
+                              style: AppText.caption.copyWith(
+                                color: AppColors.white.withOpacity(0.3),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
       ),
     );
   }
