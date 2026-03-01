@@ -7,6 +7,7 @@ import '../admin/pages/ViewTO.dart';
 import '../admin/pages/promotion_verification_screen.dart'
     show PromotionVerificationScreen;
 import 'package:firebase_auth/firebase_auth.dart';
+import '../users/TO/exam_review_screen.dart';
 import '../users/TO/owned_tryout_screen.dart';
 import '../users/TO/tryout_detail_screen.dart';
 import '../users/TO/tryout_marketplace_screen.dart';
@@ -14,7 +15,7 @@ import '../users/auth/screens/goal_setting_screen.dart';
 import 'package:lulusasn/users/auth/screens/login_screen.dart';
 import '../users/home/screens/ProfileScreen.dart';
 import '../users/main_navigation/main_screen..dart';
-import 'package:lulusasn/users/home/screens/UserDashboard.dart';
+import 'theme.dart';
 
 // ============================================================================
 // ROUTE NAMES
@@ -23,7 +24,7 @@ import 'package:lulusasn/users/home/screens/UserDashboard.dart';
 abstract class AppRoutes {
   AppRoutes._();
 
-  // ==================== PUBLIC ROUTES ====================
+  // Public
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
@@ -31,163 +32,133 @@ abstract class AppRoutes {
   static const String goalSetting = '/goal-setting';
   static const String onboarding = '/onboarding';
 
-  // ==================== AUTHENTICATED ROUTES ====================
+  // Authenticated
   static const String main = '/main';
   static const String home = '/home';
   static const String learn = '/learn';
   static const String leaderboard = '/leaderboard';
   static const String profile = '/profile';
 
-  // ==================== Tryout ROUTES ====================
-  static const String mytryout = '/my-tryout';
-  static const String purchasetryout = '/purchase-tryout';
-  static const String tryoutDetail = '/detail-tryout';
+  // Tryout
+  static const String myTryout = '/my-tryout';
+  static const String purchaseTryout = '/purchase-tryout';
+  static const String tryoutDetail = '/tryout-detail';
 
-  // ==================== EXAM ROUTES ====================
-
-  static const String examList = '/exam/list'; // 🆕 TAMBAH INI
+  // Exam
+  static const String examList = '/exam/list';
   static const String examPre = '/exam/pre';
   static const String examSession = '/exam/session';
-  static const String examAd = '/exam/ad'; // 🆕 NEW - Ad Interstitial Route
+  static const String examAd = '/exam/ad';
   static const String examResult = '/exam/result';
   static const String examReview = '/exam/review';
 
-  // ==================== LEARN ROUTES ====================
+  // Learn
   static const String learnCategory = '/learn/category';
   static const String learnReview = '/learn/review';
 
-  // ==================== PROFILE ROUTES ====================
-  static const String userProfile = '/user';
+  // Profile sub-pages
   static const String statistics = '/profile/statistics';
   static const String achievements = '/profile/achievements';
   static const String settings = '/profile/settings';
 
-  // ==================== PAYMENT ROUTES ====================
+  // Payment
   static const String diamondPurchase = '/diamond';
   static const String premium = '/premium';
   static const String payment = '/payment';
   static const String paymentSuccess = '/payment/success';
   static const String paymentFailed = '/payment/failed';
 
-  // ==================== ERROR ROUTES ====================
-  static const String notFound = '/404';
-
-  // ==================== ADMIN ROUTES ====================
+  // Admin
   static const String adminMain = '/admin-main';
+  static const String adminDashboard = '/admin/dashboard';
   static const String adminCreateTO = '/admin/create-to';
   static const String adminViewTO = '/admin/view-to';
   static const String adminVerificationTO = '/admin/verification';
-  static const String adminDashboard = '/admin/dashboard';
+
+  // Error
+  static const String notFound = '/404';
 }
 
 // ============================================================================
-// ROUTE GENERATOR
+// ROUTER
 // ============================================================================
 
 class AppRouter {
   AppRouter._();
 
-  static Route<dynamic>? generateRoute(RouteSettings settings) {
-    final String routeName = settings.name ?? AppRoutes.notFound;
-    final Object? arguments = settings.arguments; // ✅ FIX: Extract arguments
+  static Route<dynamic> generateRoute(RouteSettings settings) {
+    final args = settings.arguments; // bisa Map atau String tergantung route
 
-    switch (routeName) {
-      // ==================== PUBLIC ROUTES ====================
-
+    switch (settings.name) {
+      // ── Public ──────────────────────────────────────────────────────────
       case AppRoutes.login:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const LoginScreen(),
-        );
+        return _route(settings, const LoginScreen());
 
       case AppRoutes.goalSetting:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const GoalSettingScreen(),
-        );
+        return _route(settings, const GoalSettingScreen());
 
-      // ==================== AUTHENTICATED ROUTES ====================
+      // ── Authenticated ───────────────────────────────────────────────────
       case AppRoutes.main:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const MainNavigationScreen(),
-        );
-      case AppRoutes.adminMain:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const AdminMainNavigationScreen(),
-        );
+        return _route(settings, const MainNavigationScreen());
 
       case AppRoutes.profile:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const ProfileScreen(),
-        );
+        return _route(settings, const ProfileScreen());
 
-      // Di dalam switch statement, tambahkan setelah case AppRoutes.adminMain:
+      // ── Tryout ──────────────────────────────────────────────────────────
+      case AppRoutes.myTryout:
+        return _route(settings, const MyTryoutsScreen());
+
+      // TryoutMarketplace tidak butuh currentGoal dari router.
+      // Screen mengambil goal sendiri dari Firestore user doc.
+      case AppRoutes.purchaseTryout:
+        return _route(settings, const TryoutMarketplaceScreen());
+
+      // Navigasi: Navigator.pushNamed(context, AppRoutes.tryoutDetail,
+      //   arguments: {'tryoutId': 'abc123'})
+      case AppRoutes.tryoutDetail:
+        final map = args as Map<String, dynamic>? ?? {};
+        final id = map['tryoutId'] as String? ?? '';
+        if (id.isEmpty) return _fallback(settings);
+        return _route(settings, TryoutDetailScreen(tryoutId: id));
+
+      // Navigasi: Navigator.pushNamed(context, AppRoutes.examReview,
+      //   arguments: {'resultId': 'xyz'})
+      case AppRoutes.examReview:
+        final map = args as Map<String, dynamic>? ?? {};
+        final resultId = map['resultId'] as String? ?? '';
+        if (resultId.isEmpty) return _fallback(settings);
+        return _route(settings, ExamReviewScreen(resultId: resultId));
+
+      // ── Admin ────────────────────────────────────────────────────────────
+      case AppRoutes.adminMain:
+        return _route(settings, const AdminMainNavigationScreen());
 
       case AppRoutes.adminCreateTO:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const CreateTryoutScreen(),
-        );
+        return _route(settings, const CreateTryoutScreen());
 
       case AppRoutes.adminViewTO:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const ViewTryoutScreen(),
-        );
+        return _route(settings, const ViewTryoutScreen());
+
       case AppRoutes.adminVerificationTO:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const PromotionVerificationScreen(),
-        );
+        return _route(settings, const PromotionVerificationScreen());
 
-      case AppRoutes.mytryout:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const MyTryoutsScreen(),
-        );
-      case AppRoutes.purchasetryout:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const TryoutMarketplaceScreen(),
-        );
-      case AppRoutes.tryoutDetail:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const TryoutDetailScreen(tryoutId: ''),
-        );
-
-      // ==================== EXAM ROUTES ====================
-
-      case AppRoutes.examReview:
-        final args = arguments as Map<String, dynamic>? ?? {};
-        final examId = args['examId'] as String?;
-
-        if (examId == null) {
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => const HomeScreen(),
-          );
-        }
-      // ==================== ERROR ROUTES ====================
+      // ── Error / default ──────────────────────────────────────────────────
       case AppRoutes.notFound:
       default:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const NotFoundScreen(),
-        );
+        return _route(settings, const NotFoundScreen());
     }
-    return null;
   }
 
-  static Route<dynamic> onUnknownRoute(RouteSettings settings) {
-    return MaterialPageRoute(
-      settings: settings,
-      builder: (_) => const NotFoundScreen(),
-    );
-  }
+  static Route<dynamic> onUnknownRoute(RouteSettings settings) =>
+      _route(settings, const NotFoundScreen());
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  static MaterialPageRoute<dynamic> _route(RouteSettings s, Widget page) =>
+      MaterialPageRoute(settings: s, builder: (_) => page);
+
+  /// Fallback jika argumen wajib tidak tersedia — kembali ke NotFound
+  static MaterialPageRoute<dynamic> _fallback(RouteSettings s) =>
+      MaterialPageRoute(settings: s, builder: (_) => const NotFoundScreen());
 }
 
 class AuthGate extends StatelessWidget {
@@ -259,62 +230,81 @@ class AuthGate extends StatelessWidget {
 // ============================================================================
 // FALLBACK SCREENS
 // ============================================================================
-
+// ignore_for_file: deprecated_member_use
+// ─────────────────────────────────────────────────────────────────────────────
+// 404 — NOT FOUND SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
 class NotFoundScreen extends StatelessWidget {
   const NotFoundScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.bg,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              '404',
-              style: TextStyle(fontSize: 72, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            const Text('Halaman tidak ditemukan'),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () =>
-                  Navigator.pushReplacementNamed(context, AppRoutes.splash),
-              child: const Text('KEMBALI KE HOME'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // ── Gold accent strip ───────────────────────────────────
+                Container(
+                  width: 56,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    gradient: AppGradient.gold,
+                    borderRadius: AppRadius.bFull,
+                  ),
+                ),
+                AppSpacing.vlg,
 
-class ErrorScreen extends StatelessWidget {
-  final String error;
-  const ErrorScreen({super.key, required this.error});
+                // ── 404 headline ────────────────────────────────────────
+                ShaderMask(
+                  shaderCallback: (bounds) =>
+                      AppGradient.navy.createShader(bounds),
+                  blendMode: BlendMode.srcIn,
+                  child: Text(
+                    '404',
+                    style: AppText.display.copyWith(
+                      fontSize: 96,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -4,
+                      height: 1,
+                    ),
+                  ),
+                ),
+                AppSpacing.vsm,
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              const Text(
-                'Terjadi Kesalahan',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                error,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
-              ),
-            ],
+                Text(
+                  'Halaman Tidak Ditemukan',
+                  style: AppText.h2,
+                  textAlign: TextAlign.center,
+                ),
+                AppSpacing.vsm,
+
+                Text(
+                  'Sepertinya halaman yang kamu cari\nsudah dipindahkan atau tidak tersedia.',
+                  style: AppText.bodySm,
+                  textAlign: TextAlign.center,
+                ),
+                AppSpacing.vxl,
+
+                // ── CTA ─────────────────────────────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pushReplacementNamed(
+                      context,
+                      AppRoutes.splash,
+                    ),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                    label: const Text('Kembali ke Home'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -322,14 +312,128 @@ class ErrorScreen extends StatelessWidget {
   }
 }
 
-class LoadingScreen extends StatelessWidget {
-  const LoadingScreen({super.key});
+// ─────────────────────────────────────────────────────────────────────────────
+// ERROR SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+class ErrorScreen extends StatelessWidget {
+  final String error;
+  final VoidCallback? onRetry;
+
+  const ErrorScreen({super.key, required this.error, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
+      backgroundColor: AppColors.bg,
       body: Center(
-        child: CircularProgressIndicator(strokeWidth: 3, color: Colors.black),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // ── Error icon badge ────────────────────────────────────
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.softBg(AppColors.error),
+                    borderRadius: AppRadius.bXl,
+                  ),
+                  child: const Icon(
+                    Icons.error_outline_rounded,
+                    size: 40,
+                    color: AppColors.error,
+                  ),
+                ),
+                AppSpacing.vlg,
+
+                Text('Terjadi Kesalahan', style: AppText.h2),
+                AppSpacing.vsm,
+
+                Text(error, textAlign: TextAlign.center, style: AppText.bodySm),
+                AppSpacing.vxl,
+
+                // ── Actions ─────────────────────────────────────────────
+                if (onRetry != null) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: onRetry,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text('Coba Lagi'),
+                    ),
+                  ),
+                  AppSpacing.vsm,
+                ],
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pushReplacementNamed(
+                      context,
+                      AppRoutes.splash,
+                    ),
+                    child: const Text('Kembali ke Home'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOADING SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+class LoadingScreen extends StatelessWidget {
+  final String? message;
+  const LoadingScreen({super.key, this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // ── Navy + Gold branded loader ──────────────────────────────
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer ring — gold
+                  CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.gold.withOpacity(0.3),
+                    ),
+                    value: 1,
+                  ),
+                  // Spinner — navy
+                  const CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (message != null) ...[
+              AppSpacing.vmd,
+              Text(message!, style: AppText.bodySm),
+            ],
+          ],
+        ),
       ),
     );
   }

@@ -1,5 +1,5 @@
 // lib/features/tryout/screens/exam_session_screen.dart
-// ignore_for_file: deprecated_member_use, curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use, curly_braces_in_flow_control_structures, unused_local_variable
 
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -27,7 +27,6 @@ class ExamSessionScreen extends StatefulWidget {
 
 class _ExamSessionScreenState extends State<ExamSessionScreen>
     with TickerProviderStateMixin {
-
   // ── State ──────────────────────────────────────────────────────────────────
   bool _isLoading = true;
   String? _error;
@@ -87,11 +86,17 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
   }
 
   Future<void> _loadAndStart() async {
-    setState(() { _isLoading = true; _error = null; });
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
       final qList = widget.subtestData['questions'] as List<dynamic>?;
-      if (qList == null || qList.isEmpty) throw Exception('Tidak ada soal di subtes ini');
-      _questions = qList.map((q) => Map<String, dynamic>.from(q as Map)).toList();
+      if (qList == null || qList.isEmpty)
+        throw Exception('Tidak ada soal di subtes ini');
+      _questions = qList
+          .map((q) => Map<String, dynamic>.from(q as Map))
+          .toList();
       _totalSeconds = (widget.subtestData['estimatedMinutes'] ?? 30) * 60;
       _remainingSeconds = _totalSeconds;
       _sessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
@@ -101,7 +106,10 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
       _slideCtrl.forward();
       setState(() => _isLoading = false);
     } catch (e) {
-      setState(() { _error = e.toString(); _isLoading = false; });
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
     }
   }
 
@@ -120,14 +128,19 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
   void _goToQuestion(int index) {
     if (index < 0 || index >= _questions.length) return;
     HapticFeedback.selectionClick();
-    setState(() { _currentQuestionIndex = index; _showNavigator = false; });
+    setState(() {
+      _currentQuestionIndex = index;
+      _showNavigator = false;
+    });
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
     );
-    _fadeCtrl.reset(); _slideCtrl.reset();
-    _fadeCtrl.forward(); _slideCtrl.forward();
+    _fadeCtrl.reset();
+    _slideCtrl.reset();
+    _fadeCtrl.forward();
+    _slideCtrl.forward();
   }
 
   void _selectAnswer(int optionIndex) {
@@ -138,108 +151,234 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
   String get _userId => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   // ── Submit ─────────────────────────────────────────────────────────────────
+
   Future<void> _submitExam() async {
     try {
       HapticFeedback.heavyImpact();
       final endTime = DateTime.now();
       final totalSecs = endTime.difference(_startTime!).inSeconds;
 
+      // ── Ambil konfigurasi ──────────────────────────────────────────────────
+      final rawCfg =
+          widget.subtestData['scoringConfig'] as Map<String, dynamic>?;
+      final correctPt = (rawCfg?['correctScore'] as num?)?.toDouble() ?? 1.0;
+      final wrongPt = (rawCfg?['wrongScore'] as num?)?.toDouble() ?? 0.0;
+      final emptyPt = (rawCfg?['emptyScore'] as num?)?.toDouble() ?? 0.0;
+
+      final subtestType = widget.subtestData['type'] as String? ?? 'objective';
+      final isLikert = subtestType == 'likert';
+
+      // ── Hitung skor ────────────────────────────────────────────────────────
       int correct = 0, wrong = 0;
-      final Map<String, Map<String, int>> catScores = {};
+      double earnedScore = 0;
+      double maxScore = 0;
+
+      final Map<String, Map<String, dynamic>> catScores = {};
       final List<Map<String, dynamic>> detailed = [];
 
       for (int i = 0; i < _questions.length; i++) {
         final q = _questions[i];
-        final ua = _answers[i];
-        final ca = q['correctIndex'] as int?;
+        final ua = _answers[i]; // null = tidak dijawab
         final cat = q['category'] as String? ?? 'N/A';
-        final isOk = ua != null && ua == ca;
-        if (isOk) {
-          correct++;
-        } else if (ua != null) wrong++;
-        catScores.putIfAbsent(cat, () => {'correct': 0, 'total': 0});
-        catScores[cat]!['total'] = catScores[cat]!['total']! + 1;
-        if (isOk) catScores[cat]!['correct'] = catScores[cat]!['correct']! + 1;
-        detailed.add({'questionId': q['id'] ?? 'q_$i', 'userAnswer': ua, 'correctAnswer': ca, 'isCorrect': isOk});
+
+        catScores.putIfAbsent(
+          cat,
+          () => {'correct': 0, 'total': 0, 'earnedScore': 0.0, 'maxScore': 0.0},
+        );
+        catScores[cat]!['total'] = (catScores[cat]!['total'] as int) + 1;
+
+        if (isLikert) {
+          // ── Likert: skor dari scores[userAnswer] ─────────────────────────
+          final scores =
+              (q['scores'] as List<dynamic>?)
+                  ?.map((s) => (s as num).toDouble())
+                  .toList() ??
+              [];
+          final qMax = scores.isEmpty
+              ? 0.0
+              : scores.reduce((a, b) => a > b ? a : b);
+          final qEarned = (ua != null && ua < scores.length) ? scores[ua] : 0.0;
+
+          earnedScore += qEarned;
+          maxScore += qMax;
+          catScores[cat]!['earnedScore'] =
+              (catScores[cat]!['earnedScore'] as double) + qEarned;
+          catScores[cat]!['maxScore'] =
+              (catScores[cat]!['maxScore'] as double) + qMax;
+
+          detailed.add({
+            'questionId': q['id'] ?? 'q_$i',
+            'userAnswer': ua,
+            'earnedScore': qEarned,
+            'isCorrect': true, // likert tidak ada benar/salah
+          });
+        } else {
+          // ── Objective: pakai scoringConfig ───────────────────────────────
+          final ca = q['correctIndex'] as int?;
+          final isOk = ua != null && ua == ca;
+          double qPt;
+          if (ua == null) {
+            qPt = emptyPt;
+          } else if (isOk) {
+            qPt = correctPt;
+            correct++;
+            catScores[cat]!['correct'] =
+                (catScores[cat]!['correct'] as int) + 1;
+          } else {
+            qPt = wrongPt;
+            wrong++;
+          }
+
+          earnedScore += qPt;
+          // Skor maks objective = semua soal dijawab benar
+          maxScore += correctPt;
+          catScores[cat]!['earnedScore'] =
+              (catScores[cat]!['earnedScore'] as double) + qPt;
+          catScores[cat]!['maxScore'] =
+              (catScores[cat]!['maxScore'] as double) + correctPt;
+
+          detailed.add({
+            'questionId': q['id'] ?? 'q_$i',
+            'userAnswer': ua,
+            'correctAnswer': ca,
+            'isCorrect': isOk,
+          });
+        }
       }
 
-      final score = _questions.isNotEmpty
-          ? ((correct / _questions.length) * 100).round() : 0;
+      // ── Persentase skor (0–100) ────────────────────────────────────────────
+      final scorePct = maxScore > 0
+          ? ((earnedScore / maxScore) * 100).round()
+          : 0;
 
-      final catFormatted = catScores.map((k, v) => MapEntry(k, {
-        'correct': v['correct'], 'total': v['total'],
-        'percentage': v['total']! > 0 ? ((v['correct']! / v['total']!) * 100).round() : 0,
-      }));
-
-      final resultId = 'result_${DateTime.now().millisecondsSinceEpoch}';
-      await FirebaseFirestore.instance.collection('exam_results').doc(resultId).set({
-        'userId': _userId, 'tryoutId': widget.tryoutId, 'subtestId': widget.subtestId,
-        'sessionId': _sessionId, 'totalQuestions': _questions.length,
-        'correctAnswers': correct, 'wrongAnswers': wrong,
-        'unanswered': _questions.length - _answers.length,
-        'score': score, 'categoryScores': catFormatted,
-        'startedAt': Timestamp.fromDate(_startTime!),
-        'completedAt': Timestamp.fromDate(endTime),
-        'totalTimeSeconds': totalSecs, 'answers': detailed,
-        'createdAt': FieldValue.serverTimestamp(),
+      // ── Format categoryScores ──────────────────────────────────────────────
+      final catFormatted = catScores.map((k, v) {
+        final cMax = (v['maxScore'] as double);
+        final cEarned = (v['earnedScore'] as double);
+        return MapEntry(k, {
+          'correct': v['correct'],
+          'total': v['total'],
+          'earnedScore': cEarned,
+          'maxScore': cMax,
+          'percentage': cMax > 0 ? ((cEarned / cMax) * 100).round() : 0,
+        });
       });
 
-      final userTryoutRef = FirebaseFirestore.instance
+      // ── Simpan exam_results ────────────────────────────────────────────────
+      final resultId = 'result_${DateTime.now().millisecondsSinceEpoch}';
+      await FirebaseFirestore.instance
+          .collection('exam_results')
+          .doc(resultId)
+          .set({
+            'userId': _userId,
+            'tryoutId': widget.tryoutId,
+            'subtestId': widget.subtestId,
+            'sessionId': _sessionId,
+            'type': subtestType,
+            'totalQuestions': _questions.length,
+            'correctAnswers': correct,
+            'wrongAnswers': wrong,
+            'unanswered': _questions.length - _answers.length,
+            'score': scorePct,
+            'earnedScore': earnedScore,
+            'maxScore': maxScore,
+            'categoryScores': catFormatted,
+            'startedAt': Timestamp.fromDate(_startTime!),
+            'completedAt': Timestamp.fromDate(endTime),
+            'totalTimeSeconds': totalSecs,
+            'answers': detailed,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+      // ── Update user_tryouts ────────────────────────────────────────────────
+      final progressRef = FirebaseFirestore.instance
           .collection('user_tryouts')
           .doc('${_userId}_tryout_${widget.tryoutId}');
-      final snap = await userTryoutRef.get();
+      final snap = await progressRef.get();
 
       if (snap.exists) {
-        final existing = snap.data() as Map<String, dynamic>;
-        final sp = existing['subtestProgress'] as Map<String, dynamic>? ?? {};
-        final cur = sp[widget.subtestId] as Map<String, dynamic>? ?? {};
-        final best = cur['bestScore'] as int? ?? 0;
-        await userTryoutRef.update({
+        final cur =
+            ((snap.data()!['subtestProgress']
+                    as Map<String, dynamic>?)?[widget.subtestId]
+                as Map<String, dynamic>?) ??
+            {};
+        final bestPct = cur['bestScore'] as int? ?? 0;
+        final bestEarned = (cur['bestEarnedScore'] as num?)?.toDouble() ?? 0;
+
+        await progressRef.update({
           'subtestProgress.${widget.subtestId}.status': 'completed',
-          'subtestProgress.${widget.subtestId}.attempts': FieldValue.increment(1),
-          'subtestProgress.${widget.subtestId}.bestScore': score > best ? score : best,
-          'subtestProgress.${widget.subtestId}.lastAttemptAt': FieldValue.serverTimestamp(),
+          'subtestProgress.${widget.subtestId}.attempts': FieldValue.increment(
+            1,
+          ),
+          // simpan persentase terbaik
+          'subtestProgress.${widget.subtestId}.bestScore': scorePct > bestPct
+              ? scorePct
+              : bestPct,
+          // simpan earned/max terbaik (berdasarkan earned absolut)
+          'subtestProgress.${widget.subtestId}.bestEarnedScore':
+              earnedScore > bestEarned ? earnedScore : bestEarned,
+          'subtestProgress.${widget.subtestId}.bestMaxScore': maxScore,
+          'subtestProgress.${widget.subtestId}.lastAttemptAt':
+              FieldValue.serverTimestamp(),
           'lastAttemptAt': FieldValue.serverTimestamp(),
           'totalAttempts': FieldValue.increment(1),
           'updatedAt': FieldValue.serverTimestamp(),
         });
       } else {
-        await userTryoutRef.set({
-          'userId': _userId, 'tryoutId': widget.tryoutId,
+        await progressRef.set({
+          'userId': _userId,
+          'tryoutId': widget.tryoutId,
           'subtestProgress': {
             widget.subtestId: {
-              'status': 'completed', 'attempts': 1, 'bestScore': score,
+              'status': 'completed',
+              'attempts': 1,
+              'bestScore': scorePct,
+              'bestEarnedScore': earnedScore,
+              'bestMaxScore': maxScore,
               'lastAttemptAt': FieldValue.serverTimestamp(),
             },
           },
           'lastAttemptAt': FieldValue.serverTimestamp(),
-          'totalAttempts': 1, 'createdAt': FieldValue.serverTimestamp(),
+          'totalAttempts': 1,
+          'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Row(children: [
-            const Icon(Icons.check_circle_rounded, color: AppColors.white),
-            AppSpacing.hsm,
-            Text('Selesai! Skor kamu: $score', style: AppText.body.copyWith(color: AppColors.white)),
-          ]),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
-          margin: const EdgeInsets.all(16),
-        ));
+        final msg = isLikert
+            ? 'Selesai! Skor kamu: ${earnedScore.toInt()} / ${maxScore.toInt()}'
+            : 'Selesai! Skor kamu: $scorePct';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: AppColors.white),
+                AppSpacing.hsm,
+                Text(msg, style: AppText.body.copyWith(color: AppColors.white)),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e', style: AppText.body.copyWith(color: AppColors.white)),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error: $e',
+              style: AppText.body.copyWith(color: AppColors.white),
+            ),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+          ),
+        );
       }
     }
   }
@@ -249,18 +388,20 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
   // ============================================================================
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return Scaffold(backgroundColor: AppColors.bg, body: _buildLoading());
-    if (_error != null) return Scaffold(backgroundColor: AppColors.bg, body: _buildError());
+    if (_isLoading)
+      return Scaffold(backgroundColor: AppColors.bg, body: _buildLoading());
+    if (_error != null)
+      return Scaffold(backgroundColor: AppColors.bg, body: _buildError());
 
     return WillPopScope(
       onWillPop: () async => (await _confirmExit()) ?? false,
       child: Scaffold(
         backgroundColor: AppColors.bg,
-        body: LayoutBuilder(builder: (ctx, box) {
-          return box.maxWidth > 900
-              ? _buildDesktop()
-              : _buildMobile();
-        }),
+        body: LayoutBuilder(
+          builder: (ctx, box) {
+            return box.maxWidth > 900 ? _buildDesktop() : _buildMobile();
+          },
+        ),
       ),
     );
   }
@@ -369,13 +510,18 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                   color: AppColors.gold.withOpacity(0.15),
                   borderRadius: AppRadius.bSm,
                 ),
-                child: const Icon(Icons.grid_view_rounded,
-                    color: AppColors.gold, size: 16),
+                child: const Icon(
+                  Icons.grid_view_rounded,
+                  color: AppColors.gold,
+                  size: 16,
+                ),
               ),
               AppSpacing.hsm,
               Expanded(
-                child: Text('Navigator Soal',
-                    style: AppText.label.copyWith(color: AppColors.white)),
+                child: Text(
+                  'Navigator Soal',
+                  style: AppText.label.copyWith(color: AppColors.white),
+                ),
               ),
             ],
           ),
@@ -383,7 +529,8 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
           Text(
             widget.subtestData['name'] ?? 'Ujian',
             style: AppText.bodySm.copyWith(
-                color: AppColors.white.withOpacity(0.55)),
+              color: AppColors.white.withOpacity(0.55),
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -536,8 +683,11 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
             ),
             child: Row(
               children: [
-                const Icon(Icons.quiz_rounded,
-                    size: 14, color: AppColors.primary),
+                const Icon(
+                  Icons.quiz_rounded,
+                  size: 14,
+                  color: AppColors.primary,
+                ),
                 AppSpacing.hxs,
                 Text(
                   '${_currentQuestionIndex + 1} / ${_questions.length}',
@@ -558,8 +708,10 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
               ),
               child: Text(
                 _questions[_currentQuestionIndex]['category'] ?? 'N/A',
-                style: AppText.label
-                    .copyWith(color: AppColors.info, fontSize: 11),
+                style: AppText.label.copyWith(
+                  color: AppColors.info,
+                  fontSize: 11,
+                ),
               ),
             ),
 
@@ -576,8 +728,11 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
             ),
             child: Row(
               children: [
-                Icon(isLow ? Icons.timer_off_rounded : Icons.timer_rounded,
-                    size: 16, color: timerColor),
+                Icon(
+                  isLow ? Icons.timer_off_rounded : Icons.timer_rounded,
+                  size: 16,
+                  color: timerColor,
+                ),
                 AppSpacing.hxs,
                 Text(
                   '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}',
@@ -608,8 +763,11 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                 borderRadius: AppRadius.bSm,
                 border: Border.all(color: AppColors.border),
               ),
-              child: const Icon(Icons.close_rounded,
-                  size: 18, color: AppColors.textSecondary),
+              child: const Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
         ],
@@ -642,8 +800,11 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                 color: AppColors.white.withOpacity(0.1),
                 borderRadius: AppRadius.bSm,
               ),
-              child: const Icon(Icons.grid_view_rounded,
-                  color: AppColors.white, size: 20),
+              child: const Icon(
+                Icons.grid_view_rounded,
+                color: AppColors.white,
+                size: 20,
+              ),
             ),
           ),
           AppSpacing.hmd,
@@ -654,13 +815,17 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                 Text(
                   'Soal ${_currentQuestionIndex + 1} dari ${_questions.length}',
                   style: AppText.bodyLg.copyWith(
-                      color: AppColors.white, fontWeight: FontWeight.w700),
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 if (_questions.isNotEmpty)
                   Text(
                     _questions[_currentQuestionIndex]['category'] ?? '',
-                    style: AppText.caption
-                        .copyWith(color: AppColors.gold, fontSize: 11),
+                    style: AppText.caption.copyWith(
+                      color: AppColors.gold,
+                      fontSize: 11,
+                    ),
                   ),
               ],
             ),
@@ -675,15 +840,18 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                   : AppColors.white.withOpacity(0.1),
               borderRadius: AppRadius.bMd,
               border: Border.all(
-                  color: isLow
-                      ? AppColors.error.withOpacity(0.5)
-                      : AppColors.white.withOpacity(0.2)),
+                color: isLow
+                    ? AppColors.error.withOpacity(0.5)
+                    : AppColors.white.withOpacity(0.2),
+              ),
             ),
             child: Row(
               children: [
-                Icon(Icons.timer_rounded,
-                    size: 14,
-                    color: isLow ? AppColors.error : AppColors.gold),
+                Icon(
+                  Icons.timer_rounded,
+                  size: 14,
+                  color: isLow ? AppColors.error : AppColors.gold,
+                ),
                 AppSpacing.hxs,
                 Text(
                   '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}',
@@ -712,8 +880,10 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
       itemCount: _questions.length,
       onPageChanged: (i) {
         setState(() => _currentQuestionIndex = i);
-        _fadeCtrl.reset(); _slideCtrl.reset();
-        _fadeCtrl.forward(); _slideCtrl.forward();
+        _fadeCtrl.reset();
+        _slideCtrl.reset();
+        _fadeCtrl.forward();
+        _slideCtrl.forward();
       },
       itemBuilder: (_, i) => _buildQuestionCard(_questions[i], i),
     );
@@ -756,7 +926,9 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 gradient: AppGradient.navy,
                                 borderRadius: AppRadius.bFull,
@@ -764,14 +936,18 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                               child: Text(
                                 'Soal ${index + 1}',
                                 style: AppText.label.copyWith(
-                                    color: AppColors.white, fontSize: 11),
+                                  color: AppColors.white,
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
                             AppSpacing.hxs,
                             if (q['category'] != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AppColors.softBg(AppColors.gold),
                                   borderRadius: AppRadius.bFull,
@@ -779,17 +955,22 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                                 child: Text(
                                   q['category'].toString(),
                                   style: AppText.label.copyWith(
-                                      color: AppColors.gold, fontSize: 11),
+                                    color: AppColors.gold,
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ),
                           ],
                         ),
                         AppSpacing.vmd,
-                        Text(text,
-                            style: AppText.bodyLg.copyWith(
-                                fontWeight: FontWeight.w600,
-                                height: 1.65,
-                                fontSize: 16)),
+                        Text(
+                          text,
+                          style: AppText.bodyLg.copyWith(
+                            fontWeight: FontWeight.w600,
+                            height: 1.65,
+                            fontSize: 16,
+                          ),
+                        ),
                         if (qImage != null && qImage.isNotEmpty) ...[
                           AppSpacing.vmd,
                           ClipRRect(
@@ -800,12 +981,13 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                               loadingBuilder: (_, child, prog) => prog == null
                                   ? child
                                   : Container(
-                                height: 140,
-                                alignment: Alignment.center,
-                                child: const CircularProgressIndicator(
-                                    color: AppColors.primary,
-                                    strokeWidth: 2),
-                              ),
+                                      height: 140,
+                                      alignment: Alignment.center,
+                                      child: const CircularProgressIndicator(
+                                        color: AppColors.primary,
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
                               errorBuilder: (_, __, ___) => Container(
                                 height: 44,
                                 alignment: Alignment.center,
@@ -813,9 +995,12 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                                   color: AppColors.softBg(AppColors.error),
                                   borderRadius: AppRadius.bSm,
                                 ),
-                                child: Text('Gambar tidak dapat dimuat',
-                                    style: AppText.caption
-                                        .copyWith(color: AppColors.error)),
+                                child: Text(
+                                  'Gambar tidak dapat dimuat',
+                                  style: AppText.caption.copyWith(
+                                    color: AppColors.error,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -834,9 +1019,6 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                         ? optImages[i] as String?
                         : null;
                     final isSelected = selected == i;
-                    final score = isLikert && q['scores'] != null
-                        ? (q['scores'] as List)[i]
-                        : null;
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -844,9 +1026,7 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                         label: label,
                         text: optText,
                         optionImage: optImg,
-                        score: score,
                         isSelected: isSelected,
-                        isLikert: isLikert,
                         onTap: () => _selectAnswer(i),
                       ),
                     );
@@ -888,18 +1068,23 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                   width: 130,
                   height: 44,
                   child: OutlinedButton.icon(
-                    onPressed: isFirst ? null : () => _goToQuestion(_currentQuestionIndex - 1),
+                    onPressed: isFirst
+                        ? null
+                        : () => _goToQuestion(_currentQuestionIndex - 1),
                     icon: const Icon(Icons.arrow_back_rounded, size: 15),
                     label: const Text('Sebelum'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       disabledForegroundColor: AppColors.textHint,
                       side: BorderSide(
-                          color: isFirst ? AppColors.border : AppColors.primary),
+                        color: isFirst ? AppColors.border : AppColors.primary,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.bMd),
-                      textStyle: AppText.btnSm
-                          .copyWith(color: AppColors.primary),
+                        borderRadius: AppRadius.bMd,
+                      ),
+                      textStyle: AppText.btnSm.copyWith(
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
                 ),
@@ -914,7 +1099,9 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                         Text(
                           '${_answers.length}/${_questions.length}',
                           style: AppText.label.copyWith(
-                              color: AppColors.textSecondary, fontSize: 11),
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                          ),
                         ),
                         AppSpacing.vxs,
                         ClipRRect(
@@ -942,14 +1129,23 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                         ? _showReviewDialog
                         : () => _goToQuestion(_currentQuestionIndex + 1),
                     icon: Icon(
-                        isLast ? Icons.check_rounded : Icons.arrow_forward_rounded,
-                        size: 15),
+                      isLast
+                          ? Icons.check_rounded
+                          : Icons.arrow_forward_rounded,
+                      size: 15,
+                    ),
                     label: Text(isLast ? 'Selesai' : 'Lanjut'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isLast ? AppColors.gold : AppColors.primary,
-                      foregroundColor: isLast ? AppColors.primary : AppColors.white,
+                      backgroundColor: isLast
+                          ? AppColors.gold
+                          : AppColors.primary,
+                      foregroundColor: isLast
+                          ? AppColors.primary
+                          : AppColors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.bMd,
+                      ),
                       textStyle: AppText.btnSm,
                     ),
                   ),
@@ -977,16 +1173,18 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
         content: Column(
           children: [
             _ReviewStatRow(
-                icon: Icons.check_circle_rounded,
-                label: 'Terjawab',
-                value: '${_answers.length}',
-                color: AppColors.success),
+              icon: Icons.check_circle_rounded,
+              label: 'Terjawab',
+              value: '${_answers.length}',
+              color: AppColors.success,
+            ),
             AppSpacing.vsm,
             _ReviewStatRow(
-                icon: Icons.help_outline_rounded,
-                label: 'Belum dijawab',
-                value: '$unanswered',
-                color: unanswered > 0 ? AppColors.warning : AppColors.success),
+              icon: Icons.help_outline_rounded,
+              label: 'Belum dijawab',
+              value: '$unanswered',
+              color: unanswered > 0 ? AppColors.warning : AppColors.success,
+            ),
             if (unanswered > 0) ...[
               AppSpacing.vmd,
               Container(
@@ -997,14 +1195,18 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded,
-                        color: AppColors.warning, size: 14),
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      color: AppColors.warning,
+                      size: 14,
+                    ),
                     AppSpacing.hxs,
                     Expanded(
                       child: Text(
                         '$unanswered soal belum dijawab. Yakin ingin mengumpulkan?',
-                        style: AppText.bodySm
-                            .copyWith(color: AppColors.warning),
+                        style: AppText.bodySm.copyWith(
+                          color: AppColors.warning,
+                        ),
                       ),
                     ),
                   ],
@@ -1093,11 +1295,12 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
             ),
           ),
           AppSpacing.vlg,
-          Text('Menyiapkan Soal...',
-              style: AppText.h3.copyWith(color: AppColors.textPrimary)),
+          Text(
+            'Menyiapkan Soal...',
+            style: AppText.h3.copyWith(color: AppColors.textPrimary),
+          ),
           AppSpacing.vsm,
-          Text('Mohon tunggu sebentar',
-              style: AppText.bodySm),
+          Text('Mohon tunggu sebentar', style: AppText.bodySm),
         ],
       ),
     );
@@ -1116,14 +1319,20 @@ class _ExamSessionScreenState extends State<ExamSessionScreen>
                 color: AppColors.softBg(AppColors.error),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.error_outline_rounded,
-                  color: AppColors.error, size: 48),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: AppColors.error,
+                size: 48,
+              ),
             ),
             AppSpacing.vlg,
             Text('Gagal Memuat Soal', style: AppText.h3),
             AppSpacing.vsm,
-            Text(_error ?? 'Error tidak diketahui',
-                style: AppText.bodySm, textAlign: TextAlign.center),
+            Text(
+              _error ?? 'Error tidak diketahui',
+              style: AppText.bodySm,
+              textAlign: TextAlign.center,
+            ),
             AppSpacing.vxl,
             SizedBox(
               width: 160,
@@ -1147,19 +1356,16 @@ class _OptionTile extends StatelessWidget {
   final String label;
   final String text;
   final String? optionImage;
-  final dynamic score;
   final bool isSelected;
-  final bool isLikert;
   final VoidCallback onTap;
 
   const _OptionTile({
     required this.label,
     required this.text,
     required this.optionImage,
-    required this.score,
     required this.isSelected,
-    required this.isLikert,
     required this.onTap,
+    // score & isLikert dihapus — tidak relevan saat ujian berlangsung
   });
 
   @override
@@ -1173,7 +1379,9 @@ class _OptionTile extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.softBg(AppColors.primary) : AppColors.surface,
+            color: isSelected
+                ? AppColors.softBg(AppColors.primary)
+                : AppColors.surface,
             borderRadius: AppRadius.bMd,
             border: Border.all(
               color: isSelected ? AppColors.primary : AppColors.border,
@@ -1199,14 +1407,15 @@ class _OptionTile extends StatelessWidget {
                   child: Text(
                     label,
                     style: AppText.label.copyWith(
-                      color: isSelected ? AppColors.white : AppColors.textSecondary,
+                      color: isSelected
+                          ? AppColors.white
+                          : AppColors.textSecondary,
                       fontSize: 13,
                     ),
                   ),
                 ),
               ),
               AppSpacing.hmd,
-
               // Text + image
               Expanded(
                 child: Column(
@@ -1215,8 +1424,12 @@ class _OptionTile extends StatelessWidget {
                     Text(
                       text,
                       style: AppText.body.copyWith(
-                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         height: 1.5,
                       ),
                     ),
@@ -1233,35 +1446,22 @@ class _OptionTile extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (score != null) ...[
-                      AppSpacing.vxs,
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.softBg(AppColors.gold),
-                          borderRadius: AppRadius.bFull,
-                        ),
-                        child: Text(
-                          'Skor: $score',
-                          style: AppText.caption.copyWith(color: AppColors.gold),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
-
-              // Check indicator
               if (isSelected) ...[
                 AppSpacing.hmd,
                 Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check_rounded,
-                      size: 12, color: AppColors.white),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    size: 12,
+                    color: AppColors.white,
+                  ),
                 ),
               ],
             ],
@@ -1276,7 +1476,11 @@ class _ProgressChip extends StatelessWidget {
   final String label;
   final IconData icon;
   final Color color;
-  const _ProgressChip({required this.label, required this.icon, required this.color});
+  const _ProgressChip({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1293,9 +1497,11 @@ class _ProgressChip extends StatelessWidget {
             Icon(icon, size: 12, color: color),
             AppSpacing.hxs,
             Flexible(
-              child: Text(label,
-                  style: AppText.label.copyWith(color: color, fontSize: 10),
-                  overflow: TextOverflow.ellipsis),
+              child: Text(
+                label,
+                style: AppText.label.copyWith(color: color, fontSize: 10),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -1309,7 +1515,12 @@ class _ReviewStatRow extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  const _ReviewStatRow({required this.icon, required this.label, required this.value, required this.color});
+  const _ReviewStatRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1391,8 +1602,12 @@ class _LuluzzDialog extends StatelessWidget {
                         foregroundColor: AppColors.textSecondary,
                         side: const BorderSide(color: AppColors.border),
                         minimumSize: const Size.fromHeight(44),
-                        shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
-                        textStyle: AppText.btnMd.copyWith(color: AppColors.textSecondary),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: AppRadius.bMd,
+                        ),
+                        textStyle: AppText.btnMd.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                       child: Text(cancelLabel!),
                     ),
@@ -1407,7 +1622,9 @@ class _LuluzzDialog extends StatelessWidget {
                       foregroundColor: AppColors.white,
                       elevation: 0,
                       minimumSize: const Size.fromHeight(44),
-                      shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.bMd,
+                      ),
                       textStyle: AppText.btnMd,
                     ),
                     child: Text(confirmLabel),

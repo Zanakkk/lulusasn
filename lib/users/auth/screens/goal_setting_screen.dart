@@ -98,7 +98,6 @@ class _GoalSettingScreenState extends State<GoalSettingScreen>
     super.dispose();
   }
 
-
   Future<void> _onContinue() async {
     if (_selectedGoal == null) {
       context.showError('Pilih tujuan kamu terlebih dahulu');

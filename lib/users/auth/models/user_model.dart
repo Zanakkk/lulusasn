@@ -7,7 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// Matches Firestore schema exactly for type safety
 // lib/core/models/user_model.dart
 
-
 class UserModel {
   final String userId;
   final String email;
@@ -83,7 +82,9 @@ class UserModel {
       'photoURL': photoURL,
       'admin': admin,
       'createdAt': Timestamp.fromDate(createdAt),
-      'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
+      'lastLoginAt': lastLoginAt != null
+          ? Timestamp.fromDate(lastLoginAt!)
+          : null,
       if (goal != null) 'goal': goal,
       'settings': settings.toMap(),
     };
@@ -111,7 +112,6 @@ class UserModel {
     );
   }
 }
-
 
 // ── UserSettings ─────────────────────────────────────────────────────────────
 class UserSettings {
@@ -149,10 +149,7 @@ class DiamondStats {
   final int totalPurchased;
   final int totalSpent;
 
-  const DiamondStats({
-    required this.totalPurchased,
-    required this.totalSpent,
-  });
+  const DiamondStats({required this.totalPurchased, required this.totalSpent});
 
   factory DiamondStats.fromMap(Map<String, dynamic> map) {
     return DiamondStats(
@@ -162,10 +159,7 @@ class DiamondStats {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'totalPurchased': totalPurchased,
-      'totalSpent': totalSpent,
-    };
+    return {'totalPurchased': totalPurchased, 'totalSpent': totalSpent};
   }
 }
 
@@ -226,10 +220,8 @@ class UserStats {
 
   factory UserStats.fromMap(Map<String, dynamic> map) {
     final byCategory = (map['byCategory'] as Map<String, dynamic>? ?? {}).map(
-          (key, value) => MapEntry(
-        key,
-        CategoryStats.fromMap(value as Map<String, dynamic>),
-      ),
+      (key, value) =>
+          MapEntry(key, CategoryStats.fromMap(value as Map<String, dynamic>)),
     );
 
     return UserStats(
@@ -247,7 +239,9 @@ class UserStats {
       'totalQuestions': totalQuestions,
       'totalCorrect': totalCorrect,
       'overallAccuracy': overallAccuracy,
-      'byCategory': byCategory.map((key, value) => MapEntry(key, value.toMap())),
+      'byCategory': byCategory.map(
+        (key, value) => MapEntry(key, value.toMap()),
+      ),
     };
   }
 }
@@ -272,11 +266,7 @@ class CategoryStats {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'total': total,
-      'correct': correct,
-      'accuracy': accuracy,
-    };
+    return {'total': total, 'correct': correct, 'accuracy': accuracy};
   }
 }
 
@@ -339,7 +329,9 @@ class AdsData {
       'totalBannerImpressions': totalBannerImpressions,
       'totalInterstitialShown': totalInterstitialShown,
       'totalRewardedWatched': totalRewardedWatched,
-      'lastRewardedAt': lastRewardedAt != null ? Timestamp.fromDate(lastRewardedAt!) : null,
+      'lastRewardedAt': lastRewardedAt != null
+          ? Timestamp.fromDate(lastRewardedAt!)
+          : null,
     };
   }
 }

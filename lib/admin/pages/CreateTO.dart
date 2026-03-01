@@ -7,11 +7,39 @@ import 'package:excel/excel.dart' hide Border, BorderStyle, TextSpan;
 import 'dart:html' as html;
 
 import '../../app/theme.dart';
-import 'createTO/manage_categories_screen.dart';
+import 'manage_categories_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODELS
 // ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// REVISI 1: MODEL — Tambah ScoringConfig ke SubTest
+// Ganti class SubTest yang lama dengan ini
+// ═══════════════════════════════════════════════════════════════════════════
+
+class ScoringConfig {
+  double correctScore;
+  double wrongScore;
+  double emptyScore;
+
+  ScoringConfig({
+    this.correctScore = 1.0,
+    this.wrongScore = -0.33,
+    this.emptyScore = 0.0,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'correctScore': correctScore,
+    'wrongScore': wrongScore,
+    'emptyScore': emptyScore,
+  };
+
+  factory ScoringConfig.fromMap(Map<String, dynamic> m) => ScoringConfig(
+    correctScore: (m['correctScore'] as num?)?.toDouble() ?? 1.0,
+    wrongScore: (m['wrongScore'] as num?)?.toDouble() ?? -0.33,
+    emptyScore: (m['emptyScore'] as num?)?.toDouble() ?? 0.0,
+  );
+}
 
 class SubTest {
   String id;
@@ -20,10 +48,11 @@ class SubTest {
   String category;
   String difficulty;
   int estimatedMinutes;
-  String type;
+  String type; // 'objective' | 'likert'
   String? fileName;
   int? questionCount;
   List<Map<String, dynamic>>? questions;
+  ScoringConfig scoringConfig; // ← BARU
 
   SubTest({
     required this.id,
@@ -36,7 +65,8 @@ class SubTest {
     this.fileName,
     this.questionCount,
     this.questions,
-  });
+    ScoringConfig? scoringConfig,
+  }) : scoringConfig = scoringConfig ?? ScoringConfig();
 }
 
 class ProcessingStatus {
@@ -44,6 +74,233 @@ class ProcessingStatus {
   final bool isError;
   const ProcessingStatus({required this.message, this.isError = false});
 }
+
+// ── Template Model ────────────────────────────────────────────────────────────
+class _TryoutTemplate {
+  final String id;
+  final String name;
+  final String description;
+  final IconData icon;
+  final Color color;
+  final String tryoutTitle;
+  final String tryoutDesc;
+  final int price;
+  final bool isActive;
+  final List<_TemplateSubTest> subtests;
+
+  const _TryoutTemplate({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.tryoutTitle,
+    required this.tryoutDesc,
+    required this.price,
+    required this.isActive,
+    required this.subtests,
+  });
+}
+
+class _TemplateSubTest {
+  final String name;
+  final String description;
+  final String category;
+  final String type;
+  final String difficulty;
+  final int estimatedMinutes;
+  final ScoringConfig scoringConfig;
+
+  const _TemplateSubTest({
+    required this.name,
+    required this.description,
+    required this.category,
+    required this.type,
+    required this.difficulty,
+    required this.estimatedMinutes,
+    required this.scoringConfig,
+  });
+}
+
+// ── Built-in Templates ────────────────────────────────────────────────────────
+final _builtinTemplates = [
+  _TryoutTemplate(
+    id: 'cpns_skd',
+    name: 'CPNS SKD',
+    description: 'Seleksi Kompetensi Dasar: TWK, TIU, TKP',
+    icon: Icons.account_balance_rounded,
+    color: AppColors.info,
+    tryoutTitle: 'CPNS 2026 – Paket Simulasi 1',
+    tryoutDesc:
+        'Paket simulasi pertama CPNS 2026 dengan 110 soal lengkap 30 soal TWK, 35 soal TIU, dan 45 soal TKP. Dirancang sesuai standar SKD BKN dengan timer, skoring otomatis, dan pembahasan detail.',
+    price: 25000,
+    isActive: true,
+    subtests: [
+      _TemplateSubTest(
+        name: 'TIU – CPNS',
+        description:
+            'Uji kemampuan penalaran verbal, numerik, dan logika dengan 35 soal standar BKN. Mencakup sinonim, antonim, analogi, deret angka, aritmatika, dan logika analitis — dirancang untuk mengukur kecepatan dan ketepatan berpikir.',
+        category: 'TIU',
+        type: 'objective',
+        difficulty: 'medium',
+        estimatedMinutes: 35,
+        scoringConfig: ScoringConfig(
+          correctScore: 5,
+          wrongScore: 0,
+          emptyScore: 0,
+        ),
+      ),
+      _TemplateSubTest(
+        name: 'TWK – CPNS',
+        description:
+            'Uji pemahaman kebangsaan dan kenegaraan Anda melalui 30 soal yang mencakup Pancasila, UUD 1945, sejarah nasional, sistem ketatanegaraan, dan wawasan nusantara sesuai kisi-kisi resmi SKD BKN.',
+        category: 'TWK',
+        type: 'objective',
+        difficulty: 'medium',
+        estimatedMinutes: 30,
+        scoringConfig: ScoringConfig(
+          correctScore: 5,
+          wrongScore: 0,
+          emptyScore: 0,
+        ),
+      ),
+      _TemplateSubTest(
+        name: 'TKP – CPNS',
+        description:
+            'Uji karakter dan perilaku kerja Anda sebagai calon ASN melalui 45 soal situasional. Tidak ada jawaban benar atau salah — setiap pilihan memiliki bobot nilai 1–5 yang mencerminkan tingkat profesionalisme, integritas, dan pelayanan publik Anda.',
+        category: 'TKP',
+        type: 'likert',
+        difficulty: 'medium',
+        estimatedMinutes: 45,
+        scoringConfig: ScoringConfig(
+          correctScore: 5,
+          wrongScore: 0,
+          emptyScore: 0,
+        ),
+      ),
+    ],
+  ),
+  _TryoutTemplate(
+    id: 'lpdp_tbs',
+    name: 'LPDP TBS',
+    description: 'Tes Beasiswa LPDP: Verbal, Numerik, Penalaran',
+    icon: Icons.school_rounded,
+    color: const Color(0xFFD4AF37),
+    tryoutTitle: 'LPDP TBS – Tes Beasiswa',
+    tryoutDesc:
+        'Simulasi Tes Beasiswa LPDP dengan 60 soal TBS mencakup penalaran verbal, kuantitatif, dan pemecahan masalah. Total waktu 90 menit dirancang sesuai standar seleksi LPDP.',
+    price: 0,
+    isActive: true,
+    subtests: [
+      _TemplateSubTest(
+        name: 'Penalaran Verbal',
+        description:
+            'Uji kemampuan memahami teks, sinonim/antonim, analogi, dan penarikan kesimpulan logis dari bacaan melalui 23 soal terstruktur.',
+        category: 'Verbal',
+        type: 'objective',
+        difficulty: 'hard',
+        estimatedMinutes: 30,
+        scoringConfig: ScoringConfig(
+          correctScore: 1,
+          wrongScore: 0,
+          emptyScore: 0,
+        ),
+      ),
+      _TemplateSubTest(
+        name: 'Penalaran Kuantitatif',
+        description:
+            'Uji kemampuan berhitung, logika numerik, dan analisis data dasar melalui 25 soal yang mengukur kecepatan dan akurasi penalaran angka.',
+        category: 'Numerik',
+        type: 'objective',
+        difficulty: 'hard',
+        estimatedMinutes: 40,
+        scoringConfig: ScoringConfig(
+          correctScore: 1,
+          wrongScore: 0,
+          emptyScore: 0,
+        ),
+      ),
+      _TemplateSubTest(
+        name: 'Pemecahan Masalah',
+        description:
+            'Uji kemampuan menyelesaikan situasi kompleks menggunakan logika dan strategi analitis melalui 12 soal penalaran logis dan analitis.',
+        category: 'Penalaran',
+        type: 'objective',
+        difficulty: 'hard',
+        estimatedMinutes: 20,
+        scoringConfig: ScoringConfig(
+          correctScore: 1,
+          wrongScore: 0,
+          emptyScore: 0,
+        ),
+      ),
+    ],
+  ),
+  _TryoutTemplate(
+    id: 'bumn_tbs',
+    name: 'BUMN TBS',
+    description: 'Rekrutmen BUMN: Verbal, Numerik, Kepribadian',
+    icon: Icons.business_rounded,
+    color: AppColors.success,
+    tryoutTitle: 'BUMN TBS – Rekrutmen Bersama',
+    tryoutDesc: 'Simulasi Tes Bersama BUMN sesuai standar FHCI.',
+    price: 0,
+    isActive: true,
+    subtests: [
+      _TemplateSubTest(
+        name: 'Verbal',
+        description: 'Sinonim, antonim, analogi',
+        category: 'Verbal',
+        type: 'objective',
+        difficulty: 'medium',
+        estimatedMinutes: 30,
+        scoringConfig: ScoringConfig(
+          correctScore: 1,
+          wrongScore: -0.25,
+          emptyScore: 0,
+        ),
+      ),
+      _TemplateSubTest(
+        name: 'Numerik',
+        description: 'Aritmatika, deret, interpretasi data',
+        category: 'Numerik',
+        type: 'objective',
+        difficulty: 'medium',
+        estimatedMinutes: 30,
+        scoringConfig: ScoringConfig(
+          correctScore: 1,
+          wrongScore: -0.25,
+          emptyScore: 0,
+        ),
+      ),
+      _TemplateSubTest(
+        name: 'Kepribadian',
+        description: 'Big Five Personality, situasional',
+        category: 'Kepribadian',
+        type: 'likert',
+        difficulty: 'easy',
+        estimatedMinutes: 25,
+        scoringConfig: ScoringConfig(
+          correctScore: 5,
+          wrongScore: 1,
+          emptyScore: 0,
+        ),
+      ),
+    ],
+  ),
+  _TryoutTemplate(
+    id: 'blank',
+    name: 'Mulai dari Kosong',
+    description: 'Buat Try Out dari awal tanpa template',
+    icon: Icons.add_circle_outline_rounded,
+    color: AppColors.textSecondary,
+    tryoutTitle: '',
+    tryoutDesc: '',
+    price: 0,
+    isActive: true,
+    subtests: [],
+  ),
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SCREEN
@@ -95,6 +352,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
 
   // ── Step UI ───────────────────────────────────────────────────
   int _currentStep = 0; // 0=Info, 1=ExamType, 2=Schedule, 3=Subtests
+  bool _templateChosen = false; // false = tampilkan picker template
 
   @override
   void initState() {
@@ -123,6 +381,64 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
   // ─────────────────────────────────────────────────────────────
   // DATA
   // ─────────────────────────────────────────────────────────────
+  void _applyTemplate(_TryoutTemplate tpl) {
+    // Reset controllers lama
+    for (final c in _nameCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _descCtrl2.values) {
+      c.dispose();
+    }
+    for (final c in _timeCtrl.values) {
+      c.dispose();
+    }
+    _nameCtrl.clear();
+    _descCtrl2.clear();
+    _timeCtrl.clear();
+
+    _titleCtrl.text = tpl.tryoutTitle;
+    _descCtrl.text = tpl.tryoutDesc;
+    _priceCtrl.text = tpl.price.toString();
+
+    _subTests.clear();
+    if (tpl.subtests.isEmpty) {
+      _subTests.add(
+        SubTest(id: DateTime.now().millisecondsSinceEpoch.toString()),
+      );
+      _nameCtrl[0] = TextEditingController();
+      _descCtrl2[0] = TextEditingController();
+      _timeCtrl[0] = TextEditingController(text: '30');
+    } else {
+      for (int i = 0; i < tpl.subtests.length; i++) {
+        final ts = tpl.subtests[i];
+        _subTests.add(
+          SubTest(
+            id: '${DateTime.now().millisecondsSinceEpoch}_$i',
+            name: ts.name,
+            description: ts.description,
+            category: ts.category,
+            type: ts.type,
+            difficulty: ts.difficulty,
+            estimatedMinutes: ts.estimatedMinutes,
+            scoringConfig: ts.scoringConfig,
+          ),
+        );
+        _nameCtrl[i] = TextEditingController(text: ts.name);
+        _descCtrl2[i] = TextEditingController(text: ts.description);
+        _timeCtrl[i] = TextEditingController(
+          text: ts.estimatedMinutes.toString(),
+        );
+      }
+    }
+
+    setState(() {
+      _isActive = tpl.isActive;
+      _templateChosen = true;
+      _activeTab = 0;
+      _currentStep = 0;
+      _errorMsg = null;
+    });
+  }
 
   Future<void> _loadExamTypes() async {
     if (!mounted) return;
@@ -240,6 +556,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
             'type': _subTests[i].type,
             'questionCount': _subTests[i].questionCount ?? 0,
             'isActive': true,
+            'scoringConfig': _subTests[i].scoringConfig.toMap(), // ← BARU
             'questions': _subTests[i].questions ?? [],
           },
       ];
@@ -396,7 +713,23 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
           18,
         ).split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
 
-        if (type == 'likert') {
+        final isLikert = type == 'likert';
+
+        if (isLikert) {
+          // Validasi: likert harus punya minimal 1 skor valid
+          final rawScores = [
+            int.tryParse(cell(row, 11)),
+            int.tryParse(cell(row, 12)),
+            int.tryParse(cell(row, 13)),
+            int.tryParse(cell(row, 14)),
+            int.tryParse(cell(row, 15)),
+          ];
+          // Trim skor hanya sejumlah opsi yang ada
+          final scores = rawScores
+              .take(opts.length)
+              .map((s) => s ?? 0)
+              .toList();
+
           questions.add({
             'package': pkg,
             'category': cat,
@@ -404,13 +737,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
             'question': q,
             'type': 'likert',
             'options': opts,
-            'scores': [
-              int.tryParse(cell(row, 11)) ?? 0,
-              int.tryParse(cell(row, 12)) ?? 0,
-              int.tryParse(cell(row, 13)) ?? 0,
-              int.tryParse(cell(row, 14)) ?? 0,
-              int.tryParse(cell(row, 15)) ?? 0,
-            ],
+            'scores': scores, // ← skor per opsi dari Excel
             'explanationShort': exShort,
             'explanationFull': exFull,
             'tags': tags,
@@ -619,54 +946,55 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
       backgroundColor: AppColors.bg,
       body: Stack(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Left sidebar steps ─────────────────────────────
-              _StepSidebar(
-                current: _currentStep,
-                onTap: (i) => setState(() => _currentStep = i),
-              ),
-              // ── Main content ───────────────────────────────────
-              Expanded(
-                child: Form(
-                  key: _formKey,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildPageHeader(),
-                        const SizedBox(height: AppSpacing.lg),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 260),
-                          transitionBuilder: (child, anim) => FadeTransition(
-                            opacity: anim,
-                            child: SlideTransition(
-                              position: Tween(
-                                begin: const Offset(0.04, 0),
-                                end: Offset.zero,
-                              ).animate(anim),
-                              child: child,
+          if (!_templateChosen)
+            _TemplatePicker(onSelect: _applyTemplate)
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _StepSidebar(
+                  current: _currentStep,
+                  onTap: (i) => setState(() => _currentStep = i),
+                ),
+                Expanded(
+                  child: Form(
+                    key: _formKey,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPageHeader(),
+                          const SizedBox(height: AppSpacing.lg),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 260),
+                            transitionBuilder: (child, anim) => FadeTransition(
+                              opacity: anim,
+                              child: SlideTransition(
+                                position: Tween(
+                                  begin: const Offset(0.04, 0),
+                                  end: Offset.zero,
+                                ).animate(anim),
+                                child: child,
+                              ),
+                            ),
+                            child: KeyedSubtree(
+                              key: ValueKey(_currentStep),
+                              child: _buildStep(_currentStep),
                             ),
                           ),
-                          child: KeyedSubtree(
-                            key: ValueKey(_currentStep),
-                            child: _buildStep(_currentStep),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        if (_errorMsg != null) _buildError(),
-                        const SizedBox(height: AppSpacing.md),
-                        _buildFooterActions(),
-                      ],
+                          const SizedBox(height: AppSpacing.lg),
+                          if (_errorMsg != null) _buildError(),
+                          const SizedBox(height: AppSpacing.md),
+                          _buildFooterActions(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          // ── Floating toast ────────────────────────────────────
+              ],
+            ),
+          // ── Floating toast ─────────────────────────────────────
           ValueListenableBuilder<ProcessingStatus?>(
             valueListenable: _toast,
             builder: (_, status, __) {
@@ -727,6 +1055,14 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
               ],
             ),
           ),
+          _TemplateBtn(
+            label: 'Ganti Template',
+            icon: Icons.swap_horiz_rounded,
+            color: AppColors.gold,
+            textColor: AppColors.primary,
+            onTap: () => setState(() => _templateChosen = false),
+          ),
+          const SizedBox(width: AppSpacing.sm),
           // Template download pills
           _TemplateBtn(
             label: 'TWK/TIU',
@@ -1127,10 +1463,22 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
           ),
         ),
         const SizedBox(height: AppSpacing.md),
+
         // Upload area
         _Card(
+          icon: Icons.calculate_rounded,
+          title: 'Konfigurasi Penilaian',
+          accentColor: AppColors.warning,
+          child: _ScoringConfigPanel(
+            sub: sub,
+            onChanged: () => setState(() {}),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        _Card(
           icon: Icons.upload_file_rounded,
-          title: 'File Soal Excel',
+          title: 'Upload Soal Excel',
           accentColor: AppColors.info,
           child: _buildUploadSection(sub),
         ),
@@ -2481,4 +2829,642 @@ class _EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REVISI 4: Widget BARU — _ScoringConfigPanel
+// Taruh di bagian bawah file, setelah widget _EmptyState
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ScoringConfigPanel extends StatefulWidget {
+  final SubTest sub;
+  final VoidCallback onChanged;
+
+  const _ScoringConfigPanel({required this.sub, required this.onChanged});
+
+  @override
+  State<_ScoringConfigPanel> createState() => _ScoringConfigPanelState();
+}
+
+class _ScoringConfigPanelState extends State<_ScoringConfigPanel> {
+  late final TextEditingController _correctCtrl;
+  late final TextEditingController _wrongCtrl;
+  late final TextEditingController _emptyCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final sc = widget.sub.scoringConfig;
+    _correctCtrl = TextEditingController(text: sc.correctScore.toString());
+    _wrongCtrl = TextEditingController(text: sc.wrongScore.toString());
+    _emptyCtrl = TextEditingController(text: sc.emptyScore.toString());
+  }
+
+  @override
+  void dispose() {
+    _correctCtrl.dispose();
+    _wrongCtrl.dispose();
+    _emptyCtrl.dispose();
+    super.dispose();
+  }
+
+  void _sync() {
+    widget.sub.scoringConfig
+      ..correctScore = double.tryParse(_correctCtrl.text) ?? 1.0
+      ..wrongScore = double.tryParse(_wrongCtrl.text) ?? -0.33
+      ..emptyScore = double.tryParse(_emptyCtrl.text) ?? 0.0;
+    widget.onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isLikert = widget.sub.type == 'likert';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Info banner sesuai tipe ──────────────────────────────
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: isLikert
+                ? AppColors.softBg(AppColors.info)
+                : AppColors.softBg(AppColors.success),
+            borderRadius: AppRadius.bMd,
+            border: Border.all(
+              color: isLikert
+                  ? AppColors.info.withOpacity(0.3)
+                  : AppColors.success.withOpacity(0.3),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isLikert ? Icons.bar_chart_rounded : Icons.rule_rounded,
+                size: 16,
+                color: isLikert ? AppColors.info : AppColors.success,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  isLikert
+                      ? 'Mode Likert: skor per opsi diambil dari kolom Score A–E di file Excel. '
+                            'Tidak ada jawaban benar/salah, setiap opsi memiliki bobot masing-masing.'
+                      : 'Mode Objektif: tentukan poin untuk jawaban benar, salah, dan kosong di bawah.',
+                  style: AppText.caption.copyWith(
+                    color: isLikert ? AppColors.info : AppColors.success,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── Scoring fields (hanya untuk objective) ───────────────
+        if (!isLikert) ...[
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: _ScoreField(
+                  label: '✅ Jawaban Benar',
+                  hint: 'misal: 1',
+                  controller: _correctCtrl,
+                  color: AppColors.success,
+                  onChanged: (_) => _sync(),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _ScoreField(
+                  label: '❌ Jawaban Salah',
+                  hint: 'misal: -0.33',
+                  controller: _wrongCtrl,
+                  color: AppColors.error,
+                  onChanged: (_) => _sync(),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _ScoreField(
+                  label: '⬜ Tidak Dijawab',
+                  hint: 'misal: 0',
+                  controller: _emptyCtrl,
+                  color: AppColors.textSecondary,
+                  onChanged: (_) => _sync(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          // Preview formula
+          _ScoringPreviewBar(config: widget.sub.scoringConfig),
+        ],
+
+        // ── Likert: preview bobot skor dari soal ─────────────────
+        if (isLikert && widget.sub.questions != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          _LikertScoresSummary(questions: widget.sub.questions!),
+        ],
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WIDGET BARU — _ScoreField
+// Input field khusus untuk nilai scoring (mendukung desimal & negatif)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ScoreField extends StatelessWidget {
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final Color color;
+  final ValueChanged<String> onChanged;
+
+  const _ScoreField({
+    required this.label,
+    required this.hint,
+    required this.controller,
+    required this.color,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppText.label),
+        const SizedBox(height: AppSpacing.xs),
+        TextFormField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(
+            decimal: true,
+            signed: true,
+          ),
+          onChanged: onChanged,
+          style: AppText.bodyLg.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: AppRadius.bMd,
+              borderSide: BorderSide(color: color.withOpacity(0.4)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: AppRadius.bMd,
+              borderSide: BorderSide(color: color, width: 2),
+            ),
+          ),
+          validator: (v) {
+            if (v?.trim().isEmpty ?? true) return 'Wajib diisi';
+            if (double.tryParse(v!) == null) return 'Harus angka';
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WIDGET BARU — _ScoringPreviewBar
+// Menampilkan simulasi formula penilaian secara visual
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ScoringPreviewBar extends StatelessWidget {
+  final ScoringConfig config;
+
+  const _ScoringPreviewBar({required this.config});
+
+  @override
+  Widget build(BuildContext context) {
+    final formula =
+        'Nilai = (Benar × ${config.correctScore}) + (Salah × ${config.wrongScore}) + (Kosong × ${config.emptyScore})';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceAlt,
+        borderRadius: AppRadius.bMd,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.functions_rounded,
+            size: 16,
+            color: AppColors.textSecondary,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              formula,
+              style: AppText.caption.copyWith(
+                fontFamily: 'monospace',
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE PICKER
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TemplatePicker extends StatefulWidget {
+  final ValueChanged<_TryoutTemplate> onSelect;
+  const _TemplatePicker({required this.onSelect});
+
+  @override
+  State<_TemplatePicker> createState() => _TemplatePickerState();
+}
+
+class _TemplatePickerState extends State<_TemplatePicker> {
+  int? _hovered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.bg,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 860),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Header ──
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  decoration: BoxDecoration(
+                    gradient: AppGradient.navy,
+                    borderRadius: AppRadius.bLg,
+                    boxShadow: AppShadow.md,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: AppColors.gold,
+                          borderRadius: AppRadius.bMd,
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: AppColors.primary,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Pilih Template Try Out',
+                            style: AppText.h1.copyWith(color: AppColors.white),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Mulai cepat dengan template atau buat dari awal',
+                            style: AppText.bodySm.copyWith(
+                              color: AppColors.white.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // ── Grid template ──
+                Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
+                  children: _builtinTemplates.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final tpl = entry.value;
+                    final isBlank = tpl.id == 'blank';
+                    final hover = _hovered == i;
+
+                    return MouseRegion(
+                      onEnter: (_) => setState(() => _hovered = i),
+                      onExit: (_) => setState(() => _hovered = null),
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => widget.onSelect(tpl),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: 260,
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          decoration: BoxDecoration(
+                            color: hover
+                                ? AppColors.softBg(tpl.color)
+                                : AppColors.surface,
+                            borderRadius: AppRadius.bLg,
+                            border: Border.all(
+                              color: hover
+                                  ? tpl.color
+                                  : isBlank
+                                  ? AppColors.border
+                                  : tpl.color.withOpacity(0.3),
+                              width: hover ? 2 : 1,
+                            ),
+                            boxShadow: hover ? AppShadow.md : AppShadow.sm,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Icon
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: isBlank
+                                      ? AppColors.surfaceAlt
+                                      : AppColors.softBg(tpl.color),
+                                  borderRadius: AppRadius.bMd,
+                                  border: Border.all(
+                                    color: tpl.color.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Icon(
+                                  tpl.icon,
+                                  size: 24,
+                                  color: tpl.color,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+
+                              // Name
+                              Text(
+                                tpl.name,
+                                style: AppText.h3.copyWith(
+                                  color: hover
+                                      ? tpl.color
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(tpl.description, style: AppText.bodySm),
+
+                              // Subtest chips
+                              if (!isBlank && tpl.subtests.isNotEmpty) ...[
+                                const SizedBox(height: AppSpacing.md),
+                                Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: tpl.subtests.map((s) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.softBg(tpl.color),
+                                        borderRadius: AppRadius.bFull,
+                                        border: Border.all(
+                                          color: tpl.color.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        s.name.split('–').first.trim(),
+                                        style: AppText.caption.copyWith(
+                                          color: tpl.color,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  '${tpl.subtests.length} subtes  ·  '
+                                  '${tpl.subtests.fold(0, (s, t) => s + t.estimatedMinutes)} menit',
+                                  style: AppText.caption.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+
+                              const SizedBox(height: AppSpacing.md),
+
+                              // CTA
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 180,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: hover
+                                            ? tpl.color
+                                            : AppColors.surfaceAlt,
+                                        borderRadius: AppRadius.bMd,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            isBlank
+                                                ? Icons.add_rounded
+                                                : Icons.flash_on_rounded,
+                                            size: 14,
+                                            color: hover
+                                                ? AppColors.white
+                                                : AppColors.textSecondary,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            isBlank
+                                                ? 'Mulai Kosong'
+                                                : 'Gunakan Template',
+                                            style: AppText.btnSm.copyWith(
+                                              color: hover
+                                                  ? AppColors.white
+                                                  : AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: AppSpacing.lg),
+                Center(
+                  child: Text(
+                    'Template hanya mengisi form — soal Excel tetap harus diupload secara manual.',
+                    style: AppText.caption,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WIDGET BARU — _LikertScoresSummary
+// Menampilkan ringkasan distribusi skor opsi dari soal-soal Likert
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LikertScoresSummary extends StatelessWidget {
+  final List<Map<String, dynamic>> questions;
+
+  const _LikertScoresSummary({required this.questions});
+
+  @override
+  Widget build(BuildContext context) {
+    // Hitung frekuensi setiap skor (1–5) di seluruh soal
+    final Map<int, int> freq = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+    int totalOpts = 0;
+
+    for (final q in questions) {
+      final scores = (q['scores'] as List?)?.cast<int>() ?? [];
+      for (final s in scores) {
+        if (freq.containsKey(s)) freq[s] = freq[s]! + 1;
+        totalOpts++;
+      }
+    }
+
+    final maxScore = questions.fold<double>(0, (acc, q) {
+      final scores = (q['scores'] as List?)?.cast<int>() ?? [];
+      return acc +
+          (scores.isEmpty ? 0 : scores.reduce((a, b) => a > b ? a : b));
+    });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Distribusi Bobot Opsi (${questions.length} soal)',
+          style: AppText.label,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        // Bar chart distribusi skor
+        ...freq.entries.map((e) {
+          final pct = totalOpts == 0 ? 0.0 : e.value / totalOpts;
+          final color = _scoreColor(e.key);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: AppColors.softBg(color),
+                    borderRadius: AppRadius.bSm,
+                    border: Border.all(color: color.withOpacity(0.4)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${e.key}',
+                      style: AppText.caption.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: AppRadius.bFull,
+                    child: LinearProgressIndicator(
+                      value: pct,
+                      minHeight: 10,
+                      backgroundColor: AppColors.surfaceAlt,
+                      valueColor: AlwaysStoppedAnimation(color),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                SizedBox(
+                  width: 36,
+                  child: Text(
+                    '${e.value}x',
+                    style: AppText.caption,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: AppSpacing.sm),
+        // Total skor maksimum
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.softBg(AppColors.gold),
+            borderRadius: AppRadius.bMd,
+            border: Border.all(color: AppColors.gold.withOpacity(0.4)),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.emoji_events_rounded,
+                size: 16,
+                color: AppColors.gold,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'Total skor maksimum (jika semua opsi terbaik): $maxScore',
+                style: AppText.caption.copyWith(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _scoreColor(int score) => switch (score) {
+    5 => AppColors.success,
+    4 => const Color(0xFF4CAF50),
+    3 => AppColors.warning,
+    2 => const Color(0xFFFF7043),
+    _ => AppColors.error,
+  };
 }

@@ -64,8 +64,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '975581006036',
     projectId: 'lulusasn-e15a3',
     storageBucket: 'lulusasn-e15a3.firebasestorage.app',
-    androidClientId: '975581006036-tahvqkn0oc8o48n7uqsbis9r01tjq4jb.apps.googleusercontent.com',
-    iosClientId: '975581006036-5a4tn96raa722h5473cvel2evsdo72i5.apps.googleusercontent.com',
+    androidClientId:
+        '975581006036-tahvqkn0oc8o48n7uqsbis9r01tjq4jb.apps.googleusercontent.com',
+    iosClientId:
+        '975581006036-5a4tn96raa722h5473cvel2evsdo72i5.apps.googleusercontent.com',
     iosBundleId: 'lulus.asn.lulusasn',
   );
 
@@ -75,8 +77,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '975581006036',
     projectId: 'lulusasn-e15a3',
     storageBucket: 'lulusasn-e15a3.firebasestorage.app',
-    androidClientId: '975581006036-tahvqkn0oc8o48n7uqsbis9r01tjq4jb.apps.googleusercontent.com',
-    iosClientId: '975581006036-5a4tn96raa722h5473cvel2evsdo72i5.apps.googleusercontent.com',
+    androidClientId:
+        '975581006036-tahvqkn0oc8o48n7uqsbis9r01tjq4jb.apps.googleusercontent.com',
+    iosClientId:
+        '975581006036-5a4tn96raa722h5473cvel2evsdo72i5.apps.googleusercontent.com',
     iosBundleId: 'lulus.asn.lulusasn',
   );
 

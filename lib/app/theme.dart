@@ -21,21 +21,30 @@ class Formatters {
   Formatters._();
 
   // Rupiah — dipakai lewat .toRupiah / .toRupiahCompact
-  static String rupiah(int v) =>
-      NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
-          .format(v);
+  static String rupiah(int v) => NumberFormat.currency(
+    locale: 'id_ID',
+    symbol: 'Rp ',
+    decimalDigits: 0,
+  ).format(v);
 
   static String rupiahCompact(int v) {
-    if (v >= 1000000) return 'Rp ${(v / 1000000).toStringAsFixed(v % 1000000 == 0 ? 0 : 1)}M';
-    if (v >= 1000) return 'Rp ${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)}K';
+    if (v >= 1000000) {
+      return 'Rp ${(v / 1000000).toStringAsFixed(v % 1000000 == 0 ? 0 : 1)}M';
+    }
+    if (v >= 1000) {
+      return 'Rp ${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)}K';
+    }
     return rupiah(v);
   }
 
   // Tanggal — dipakai lewat DateTimeExtensions
-  static String date(DateTime d) => DateFormat('d MMMM yyyy', 'id_ID').format(d);
-  static String dateShort(DateTime d) => DateFormat('d MMM yyyy', 'id_ID').format(d);
+  static String date(DateTime d) =>
+      DateFormat('d MMMM yyyy', 'id_ID').format(d);
+  static String dateShort(DateTime d) =>
+      DateFormat('d MMM yyyy', 'id_ID').format(d);
   static String time(DateTime d) => DateFormat('HH:mm').format(d);
-  static String dateTime(DateTime d) => DateFormat('d MMM yyyy, HH:mm', 'id_ID').format(d);
+  static String dateTime(DateTime d) =>
+      DateFormat('d MMM yyyy, HH:mm', 'id_ID').format(d);
 
   static String relativeTime(DateTime d) {
     final diff = DateTime.now().difference(d);
@@ -91,13 +100,18 @@ extension BuildContextX on BuildContext {
       Navigator.of(this).push<T>(MaterialPageRoute(builder: (_) => page));
 
   // Snackbar
-  void showSnackbar(String msg, {Color? bg, Duration duration = const Duration(seconds: 3)}) {
+  void showSnackbar(
+    String msg, {
+    Color? bg,
+    Duration duration = const Duration(seconds: 3),
+  }) {
     ScaffoldMessenger.of(this).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: bg, duration: duration),
     );
   }
 
-  void showSuccess(String msg) => showSnackbar(msg, bg: const Color(0xFF10B981));
+  void showSuccess(String msg) =>
+      showSnackbar(msg, bg: const Color(0xFF10B981));
   void showError(String msg) => showSnackbar(msg, bg: const Color(0xFFEF4444));
 
   void hideKeyboard() => FocusScope.of(this).unfocus();

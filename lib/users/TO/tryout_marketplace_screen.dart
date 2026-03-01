@@ -216,7 +216,6 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
     );
   }
 
-
   Widget _buildList() {
     Query<Map<String, dynamic>> query = FirebaseFirestore.instance
         .collection('tryouts')

@@ -362,7 +362,6 @@ class StorageService {
 
   /// Print all data with values (debug only)
 
-
   /// Get status summary (debug only)
   String getStatusSummary() {
     return '''

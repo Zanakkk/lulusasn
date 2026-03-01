@@ -1,135 +1,379 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" dir="ltr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 
-    <!-- SEO Basic -->
-    <title>LulusASN – Platform Latihan Ujian Nasional (CPNS, BUMN, Kedinasan)</title>
-    <meta name="description" content="Platform latihan ujian online untuk CPNS, BUMN, dan Kedinasan. Sistem gamifikasi, soal adaptif, dan pembahasan lengkap.">
-    <meta name="keywords" content="CPNS, BUMN, Kedinasan, latihan soal, ujian online">
+    <!-- ══════════════════════════════════════════════
+         SEO — Primary
+    ══════════════════════════════════════════════ -->
+    <title>Luluzzz – Platform Latihan Ujian CPNS, BUMN & Kedinasan</title>
+    <meta name="description" content="Platform latihan ujian online untuk CPNS, BUMN, dan Kedinasan. Soal adaptif, sistem gamifikasi, dan pembahasan lengkap. Belajar lebih cerdas, lulus lebih cepat.">
+    <meta name="keywords" content="CPNS, BUMN, Kedinasan, SKD, TWK, TIU, TKP, latihan soal, ujian online, tryout CPNS 2025, bimbel ASN, luluzzz">
+    <meta name="author" content="Luluzzz">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="rating" content="general">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="canonical" href="https://luluzzz.id/">
 
-    <!-- Performance Hints -->
-    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-    <link rel="dns-prefetch" href="https://www.googleapis.com">
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
-
-
-    <!-- Theme Color (Neobrutalism black) -->
-    <meta name="theme-color" content="#000000">
-
-    <!-- Favicon (use base64 to avoid extra request) -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='80'>🎓</text></svg>">
-
-    <!-- Apple Touch Icon -->
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='80'>🎓</text></svg>">
-
-    <!-- Open Graph (Social Share) -->
-    <meta property="og:title" content="LulusASN – Platform Latihan Ujian">
-    <meta property="og:description" content="Latihan soal CPNS, BUMN, Kedinasan dengan sistem gamifikasi">
+    <!-- ══════════════════════════════════════════════
+         SEO — Open Graph
+    ══════════════════════════════════════════════ -->
     <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Luluzzz">
+    <meta property="og:title" content="Luluzzz – Platform Latihan Ujian CPNS, BUMN & Kedinasan">
+    <meta property="og:description" content="Soal adaptif, gamifikasi, dan pembahasan lengkap. Belajar lebih cerdas, lulus lebih cepat.">
+    <meta property="og:url" content="https://luluzzz.id/">
+    <meta property="og:image" content="https://luluzzz.id/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Luluzzz – Platform Latihan Ujian Online">
+    <meta property="og:locale" content="id_ID">
 
-    <!-- Critical CSS (Inline untuk instant render) -->
+    <!-- ══════════════════════════════════════════════
+         SEO — Twitter Card
+    ══════════════════════════════════════════════ -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@luluzzz_id">
+    <meta name="twitter:title" content="Luluzzz – Platform Latihan Ujian CPNS, BUMN & Kedinasan">
+    <meta name="twitter:description" content="Soal adaptif, gamifikasi, dan pembahasan lengkap.">
+    <meta name="twitter:image" content="https://luluzzz.id/assets/og-image.png">
+    <meta name="twitter:image:alt" content="Luluzzz – Platform Latihan Ujian Online">
+
+    <!-- ══════════════════════════════════════════════
+         PWA & Mobile
+    ══════════════════════════════════════════════ -->
+    <meta name="theme-color" content="#0F172A">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Luluzzz">
+    <meta name="application-name" content="Luluzzz">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- ══════════════════════════════════════════════
+         Favicons — SVG-first approach (zero extra request)
+    ══════════════════════════════════════════════ -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230F172A'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='38' font-family='system-ui'>🎓</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230F172A'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='38' font-family='system-ui'>🎓</text></svg>">
+
+    <!-- ══════════════════════════════════════════════
+         Performance Hints
+    ══════════════════════════════════════════════ -->
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="dns-prefetch" href="https://www.googleapis.com">
+    <link rel="preload" href="flutter.js" as="script">
+    <link rel="preload" href="main.dart.js" as="script">
+
+    <!-- ══════════════════════════════════════════════
+         Structured Data — JSON-LD
+    ══════════════════════════════════════════════ -->
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "Luluzzz",
+            "url": "https://luluzzz.id",
+            "description": "Platform latihan ujian online untuk CPNS, BUMN, dan Kedinasan dengan soal adaptif dan sistem gamifikasi.",
+            "applicationCategory": "EducationApplication",
+            "operatingSystem": "Web, Android, iOS",
+            "inLanguage": "id-ID",
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "IDR"
+            },
+            "publisher": {
+                "@type": "Organization",
+                "name": "Luluzzz",
+                "url": "https://luluzzz.id",
+                "logo": "https://luluzzz.id/assets/logo.png"
+            }
+        }
+    </script>
+
+    <!-- ══════════════════════════════════════════════
+         Critical CSS — inline untuk zero render-block
+         Palette: Navy #0F172A | Gold #D4AF37 | White #FFFFFF
+         Bg: #F8F9FC | Surface: #FFFFFF
+    ══════════════════════════════════════════════ -->
     <style>
-        * {
+        *, *::before, *::after {
           margin: 0;
           padding: 0;
           box-sizing: border-box;
+        }
+
+        :root {
+          --navy:   #0F172A;
+          --navy2:  #1E293B;
+          --gold:   #D4AF37;
+          --gold2:  #F0D060;
+          --white:  #FFFFFF;
+          --bg:     #F8F9FC;
+          --border: #E2E8F0;
+          --text-secondary: #64748B;
         }
 
         html, body {
           width: 100%;
           height: 100%;
           overflow: hidden;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background: var(--bg);
+          /* Plus Jakarta Sans via system stack — font load terjadi di Flutter */
+          font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          text-rendering: optimizeLegibility;
         }
 
-        /* Loading screen (sebelum Flutter hydrate) */
-        #loading {
+        /* ── Loading screen ─────────────────────────────── */
+        #lz-loading {
           position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: #fff;
+          inset: 0;
+          background: var(--white);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 32px;
+          z-index: 9999;
+          /* Safe area for notched devices */
+          padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                   env(safe-area-inset-bottom) env(safe-area-inset-left);
+          transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        /* ── Brand mark ─────────────────────────────────── */
+        .lz-brand {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .lz-logo-wrap {
+          width: 64px;
+          height: 64px;
+          border-radius: 18px;
+          background: linear-gradient(135deg, var(--navy), var(--navy2));
           display: flex;
           align-items: center;
           justify-content: center;
-          flex-direction: column;
-          z-index: 9999;
+          font-size: 32px;
+          line-height: 1;
+          box-shadow: 0 8px 24px rgba(15,23,42,0.18);
         }
 
-        #loading-text {
-          font-size: 48px;
-          font-weight: 900;
-          letter-spacing: -2px;
-          margin-bottom: 16px;
+        .lz-wordmark {
+          font-size: 28px;
+          font-weight: 800;
+          letter-spacing: -1px;
+          color: var(--navy);
+          line-height: 1;
         }
 
-        #loading-spinner {
-          width: 40px;
-          height: 40px;
-          border: 4px solid #000;
-          border-top-color: transparent;
+        .lz-wordmark span {
+          /* Gold accent on last "z" */
+          background: linear-gradient(90deg, var(--gold), var(--gold2));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .lz-tagline {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          letter-spacing: 0.2px;
+          text-align: center;
+        }
+
+        /* ── Gold accent bar ────────────────────────────── */
+        .lz-gold-bar {
+          width: 48px;
+          height: 3px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, var(--gold), var(--gold2));
+        }
+
+        /* ── Spinner — dual ring ────────────────────────── */
+        .lz-spinner-wrap {
+          position: relative;
+          width: 44px;
+          height: 44px;
+        }
+
+        .lz-ring {
+          position: absolute;
+          inset: 0;
           border-radius: 50%;
-          animation: spin 0.8s linear infinite;
+          border: 3px solid transparent;
         }
 
-        @keyframes spin {
+        .lz-ring-outer {
+          border-color: rgba(212, 175, 55, 0.25);
+        }
+
+        .lz-ring-inner {
+          border-top-color: var(--navy);
+          border-right-color: transparent;
+          border-bottom-color: transparent;
+          border-left-color: transparent;
+          animation: lz-spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes lz-spin {
           to { transform: rotate(360deg); }
         }
 
-        /* Hide loading setelah Flutter ready */
-        .flutter-loaded #loading {
+        /* ── Loading text ───────────────────────────────── */
+        .lz-loading-label {
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 1.5px;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+        }
+
+        /* ── Hide state ─────────────────────────────────── */
+        .flutter-loaded #lz-loading {
           opacity: 0;
+          visibility: hidden;
           pointer-events: none;
-          transition: opacity 0.3s;
+        }
+
+        /* ── Fade-in app ────────────────────────────────── */
+        #app-container {
+          width: 100%;
+          height: 100%;
+        }
+
+        /* ── Noscript fallback ──────────────────────────── */
+        .lz-noscript {
+          position: fixed;
+          inset: 0;
+          background: var(--bg);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          padding: 32px;
+          text-align: center;
+          z-index: 99999;
+        }
+
+        .lz-noscript h1 {
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--navy);
+        }
+
+        .lz-noscript p {
+          font-size: 14px;
+          color: var(--text-secondary);
+          max-width: 320px;
+        }
+
+        /* ── Reduced motion ─────────────────────────────── */
+        @media (prefers-reduced-motion: reduce) {
+          .lz-ring-inner { animation-duration: 1.5s; }
+          #lz-loading { transition: none; }
         }
     </style>
-
 </head>
+
 <body>
-<!-- Loading Screen -->
-<div id="loading">
-    <div id="loading-text">LULUSASN</div>
-    <div id="loading-spinner"></div>
+
+<!-- No-JS fallback -->
+<noscript>
+    <div class="lz-noscript">
+        <div style="font-size:40px">🎓</div>
+        <h1>JavaScript Diperlukan</h1>
+        <p>Luluzzz membutuhkan JavaScript untuk berjalan. Aktifkan JavaScript di browser kamu dan muat ulang halaman.</p>
+    </div>
+</noscript>
+
+<!-- ── Loading Screen ────────────────────────────── -->
+<div id="lz-loading" role="status" aria-label="Memuat aplikasi Luluzzz" aria-live="polite">
+    <div class="lz-brand">
+        <div class="lz-logo-wrap" aria-hidden="true">🎓</div>
+        <div class="lz-wordmark" aria-hidden="true">Luluz<span>zz</span></div>
+        <div class="lz-gold-bar" aria-hidden="true"></div>
+        <p class="lz-tagline">Platform Latihan Ujian Online</p>
+    </div>
+
+    <div class="lz-spinner-wrap" aria-hidden="true">
+        <div class="lz-ring lz-ring-outer"></div>
+        <div class="lz-ring lz-ring-inner"></div>
+    </div>
+
+    <p class="lz-loading-label" aria-hidden="true">Memuat...</p>
 </div>
 
-<!-- Flutter App Container -->
+<!-- ── Flutter App Container ─────────────────────── -->
 <div id="app-container"></div>
 
-<!-- Flutter Bootstrap Script -->
+<!-- ── Bootstrap Script ──────────────────────────── -->
 <script>
-    // Service Worker registration (for PWA & caching)
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/flutter_service_worker.js');
-      });
-    }
+    (function () {
+      'use strict';
 
-    // Load Flutter Engine
-    window.addEventListener('load', function(ev) {
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: {{flutter_service_worker_version}},
-        },
-        onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine({
-            // Use HTML renderer by default (lightest)
-            renderer: "html",
-          }).then(function(appRunner) {
-            // Hide loading screen
-            document.body.classList.add('flutter-loaded');
+      // ── Service Worker (PWA + caching) ──────────────
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker
+            .register('/flutter_service_worker.js', { scope: '/' })
+            .catch(function (err) {
+              console.warn('[SW] Registration failed:', err);
+            });
+        });
+      }
 
-            // Start Flutter app
-            appRunner.runApp();
-          });
+      // ── Flutter Engine Bootstrap ─────────────────────
+      window.addEventListener('load', function () {
+        var loader = window._flutter && window._flutter.loader;
+        if (!loader) {
+          console.error('[Luluzzz] flutter.js not loaded.');
+          return;
         }
+
+        loader.loadEntrypoint({
+          serviceWorker: {
+            serviceWorkerVersion: '{{flutter_service_worker_version}}',
+          },
+          onEntrypointLoaded: function (engineInitializer) {
+            engineInitializer
+              .initializeEngine({
+                renderer: 'canvaskit',         // CanvasKit — consistent rendering
+                hostElement: document.getElementById('app-container'),
+              })
+              .then(function (appRunner) {
+                // Hide splash with slight delay so Flutter paints first frame
+                requestAnimationFrame(function () {
+                  document.body.classList.add('flutter-loaded');
+                });
+                return appRunner.runApp();
+              })
+              .catch(function (err) {
+                console.error('[Luluzzz] Engine init failed:', err);
+              });
+          },
+        });
       });
-    });
+
+      // ── Performance mark ─────────────────────────────
+      if (window.performance && window.performance.mark) {
+        window.performance.mark('luluzzz-html-parsed');
+      }
+    })();
 </script>
 
-<!-- Flutter Auto-inject Script -->
+<!-- Flutter bootstrap (defer = non-blocking) -->
 <script src="flutter.js" defer></script>
+
 </body>
 </html>

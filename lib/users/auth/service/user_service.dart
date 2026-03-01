@@ -110,11 +110,7 @@ class UserService {
 
   /// Stream user data (real-time updates)
   Stream<UserModel?> streamUser(String userId) {
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .snapshots()
-        .map((doc) {
+    return _firestore.collection('users').doc(userId).snapshots().map((doc) {
       if (!doc.exists) return null;
       return UserModel.fromFirestore(doc);
     });
@@ -199,9 +195,7 @@ class UserService {
   /// Update user goal
   Future<void> updateGoal(String userId, String goal) async {
     try {
-      await _firestore.collection('users').doc(userId).update({
-        'goal': goal,
-      });
+      await _firestore.collection('users').doc(userId).update({'goal': goal});
 
       if (kDebugMode) {
         print('✅ Goal updated: $goal');
@@ -219,10 +213,7 @@ class UserService {
   // ============================================================================
 
   /// Activate premium subscription
-  Future<void> activatePremium(
-      String userId, {
-        int durationDays = 30,
-      }) async {
+  Future<void> activatePremium(String userId, {int durationDays = 30}) async {
     try {
       final now = DateTime.now();
       final until = now.add(Duration(days: durationDays));

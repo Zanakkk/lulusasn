@@ -16,7 +16,6 @@ void main() async {
   // ✅ Initialize storage
   await StorageService.instance.initialize();
 
-
   runApp(const LulusASNApp());
 }
 

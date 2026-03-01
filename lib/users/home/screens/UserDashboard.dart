@@ -1,12 +1,13 @@
 // lib/features/home/screens/home_screen.dart
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, avoid_types_as_parameter_names
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-
 import '../../../app/theme.dart';
+import '../../../core/services/firebase_service.dart';
+import '../../TO/tryout_marketplace_screen.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // DATA MODELS
@@ -76,20 +77,34 @@ class _TryoutSession {
 
   DateTime get completedAt => lastAttemptAt;
 
-  int get score => totalBestScore;
-
   // Subtest yang sudah completed
   bool get hasCompletedSubtest =>
       subtestProgress.values.any((v) => v['status'] == 'completed');
 
-  // Total best score dari semua subtest
-  int get totalBestScore => subtestProgress.values
-      .map((v) => v['bestScore'] as int? ?? 0)
+  // Total poin diraih dari semua subtest (sum bestEarnedScore)
+  int get totalEarnedScore => subtestProgress.values
+      .map((v) => (v['bestEarnedScore'] as num?)?.toInt() ?? 0)
       .fold(0, (a, b) => a + b);
 
-  // Map subtest -> bestScore untuk chart & analisis
-  Map<String, int> get subtestBestScores =>
-      subtestProgress.map((k, v) => MapEntry(k, v['bestScore'] as int? ?? 0));
+  // Total poin maksimum dari semua subtest (sum bestMaxScore)
+  int get totalMaxScore => subtestProgress.values
+      .map((v) => (v['bestMaxScore'] as num?)?.toInt() ?? 0)
+      .fold(0, (a, b) => a + b);
+
+  // Untuk backward-compat (chart dll masih pakai ini)
+  int get totalBestScore => totalEarnedScore;
+
+  // score: persentase untuk chart & analisis kelemahan
+  int get score =>
+      totalMaxScore > 0 ? (totalEarnedScore / totalMaxScore * 100).round() : 0;
+
+  // subtestBestScores: pakai persentase per subtest (untuk analisis kelemahan)
+  Map<String, int> get subtestBestScores => subtestProgress.map((k, v) {
+    final earned = (v['bestEarnedScore'] as num?)?.toInt() ?? 0;
+    final max = (v['bestMaxScore'] as num?)?.toInt() ?? 0;
+    final pct = max > 0 ? (earned / max * 100).round() : 0;
+    return MapEntry(k, pct);
+  });
 }
 
 class _RecommendedTO {
@@ -212,11 +227,24 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Computed ───────────────────────────────────────────────────────────────
 
   // Rata-rata totalBestScore dari semua user_tryouts yang isActive
+
+  // Total earned & max untuk semua sesi aktif (untuk display hero)
+  int get _totalEarned {
+    final active = _sessions.where((s) => s.isActive).toList();
+    return active.fold(0, (sum, s) => sum + s.totalEarnedScore);
+  }
+
+  int get _totalMax {
+    final active = _sessions.where((s) => s.isActive).toList();
+    return active.fold(0, (sum, s) => sum + s.totalMaxScore);
+  }
+
+  // Rata-rata persen (untuk CircleProgress & passing grade check)
   double get _avgScore {
     final active = _sessions.where((s) => s.isActive).toList();
     if (active.isEmpty) return 0;
-    return active.map((s) => s.totalBestScore).reduce((a, b) => a + b) /
-        active.length;
+    final totalPct = active.map((s) => s.score).reduce((a, b) => a + b);
+    return totalPct / active.length;
   }
 
   // Gabungkan semua subtestProgress dari semua sesi, ambil yg bestScore terendah
@@ -475,8 +503,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(width: 10),
         _HeroStatBox(
-          value: _avgScore > 0 ? _avgScore.toStringAsFixed(0) : '-',
-          label: 'Nilai\nRata-rata',
+          value: _totalMax > 0 ? '$_totalEarned/$_totalMax' : '-',
+          label: 'Skor\nTotal',
           icon: Icons.bar_chart_rounded,
           iconColor: AppColors.gold,
         ),
@@ -531,10 +559,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        avg > 0 ? avg.toStringAsFixed(0) : '-',
+                        _totalMax > 0 ? '$_totalEarned' : '-',
                         style: AppText.h2.copyWith(fontWeight: FontWeight.w800),
                       ),
-                      Text('/ 500', style: AppText.caption),
+                      Text(
+                        _totalMax > 0 ? '/ $_totalMax' : '',
+                        style: AppText.caption,
+                      ),
                     ],
                   ),
                 ],
@@ -548,12 +579,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: avg >= passingGrade
+              color: _avgScore >= 51
                   ? AppColors.success.withOpacity(0.08)
                   : AppColors.warning.withOpacity(0.08),
               borderRadius: AppRadius.bMd,
               border: Border.all(
-                color: avg >= passingGrade
+                color: _avgScore >= 51
                     ? AppColors.success.withOpacity(0.25)
                     : AppColors.warning.withOpacity(0.25),
               ),
@@ -561,20 +592,20 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               children: [
                 Icon(
-                  avg >= passingGrade
+                  _avgScore >= 51
                       ? Icons.check_circle_outline_rounded
                       : Icons.info_outline_rounded,
                   size: 14,
-                  color: avg >= passingGrade
+                  color: _avgScore >= 51
                       ? AppColors.success
                       : AppColors.warning,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    avg >= passingGrade
-                        ? 'Nilaimu sudah melewati passing grade!'
-                        : 'Passing grade ${p.goalLabel}: $passingGrade poin',
+                    _avgScore >= 51
+                        ? 'Rata-rata nilaimu sudah di atas 50%!'
+                        : 'Tingkatkan skormu — rata-rata saat ini ${_avgScore.toStringAsFixed(0)}%',
                     style: AppText.caption.copyWith(
                       color: AppColors.textPrimary,
                       fontSize: 11,
@@ -721,7 +752,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildDailyChallenge(_UserProfile p) {
     // Soal harian — di implementasi nyata, fetch dari collection `daily_questions`
     // berdasarkan tanggal hari ini (1 read, cached seharian)
-    final today = DateFormat('d MMMM yyyy', ).format(DateTime.now());
+    final today = DateFormat('d MMMM yyyy').format(DateTime.now());
 
     return _Card(
       child: Column(
@@ -918,7 +949,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const Spacer(),
             TextButton(
-              onPressed: () {}, // navigate ke marketplace
+              onPressed: () {},
               child: Text(
                 'Lihat Semua',
                 style: AppText.label.copyWith(color: AppColors.primary),
@@ -1196,12 +1227,40 @@ class _SubtestBar extends StatelessWidget {
   }
 }
 
-class _RecommendCard extends StatelessWidget {
+class _RecommendCard extends StatefulWidget {
   final _RecommendedTO r;
   const _RecommendCard(this.r);
 
   @override
+  State<_RecommendCard> createState() => _RecommendCardState();
+}
+
+class _RecommendCardState extends State<_RecommendCard> {
+  String? _currentGoal;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchGoal();
+  }
+
+  Future<void> _fetchGoal() async {
+    try {
+      final uid = FirebaseService.instance.currentUser?.uid;
+      if (uid == null) return;
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final goal = (doc.data()?['goal'] as String?)?.toLowerCase();
+      if (mounted) setState(() => _currentGoal = goal);
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final r = widget.r;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1289,9 +1348,18 @@ class _RecommendCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      TryoutMarketplaceScreen(currentGoal: _currentGoal),
+                ),
+              );
+            },
             child: Container(
+              width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 9),
               decoration: BoxDecoration(
                 gradient: AppGradient.navy,

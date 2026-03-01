@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'firebase_service.dart';
 
 /// Authentication service for all auth operations.
-/// 
+///
 /// Responsibilities:
 /// - Login/Register
 /// - Password reset
@@ -23,7 +23,7 @@ class AuthService {
   // ============================================================================
 
   /// Login with email and password
-  /// 
+  ///
   /// Returns User if successful, throws FirebaseAuthException otherwise
   Future<User> loginWithEmail({
     required String email,
@@ -53,7 +53,7 @@ class AuthService {
   }
 
   /// Register with email and password
-  /// 
+  ///
   /// Automatically sends verification email
   /// Returns User if successful, throws FirebaseAuthException otherwise
   Future<User> registerWithEmail({
@@ -130,7 +130,7 @@ class AuthService {
   }
 
   /// Check if email is verified
-  /// 
+  ///
   /// Reloads user to get latest verification status
   Future<bool> isEmailVerified() async {
     try {

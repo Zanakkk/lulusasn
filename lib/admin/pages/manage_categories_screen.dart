@@ -3,7 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../../../app/theme.dart';
+import '../../app/theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODEL
@@ -46,8 +46,9 @@ class ExamType {
     'categories': categories,
     'order': order,
     'isActive': isActive,
-    'createdAt':
-    isNew ? FieldValue.serverTimestamp() : Timestamp.fromDate(createdAt ?? DateTime.now()),
+    'createdAt': isNew
+        ? FieldValue.serverTimestamp()
+        : Timestamp.fromDate(createdAt ?? DateTime.now()),
   };
 }
 
@@ -97,7 +98,10 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: AppText.bodyLg.copyWith(color: AppColors.white)),
+        content: Text(
+          msg,
+          style: AppText.bodyLg.copyWith(color: AppColors.white),
+        ),
         backgroundColor: success ? AppColors.success : AppColors.error,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
@@ -133,7 +137,10 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Batal', style: AppText.btnMd.copyWith(color: AppColors.textSecondary)),
+            child: Text(
+              'Batal',
+              style: AppText.btnMd.copyWith(color: AppColors.textSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -157,7 +164,11 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
   Widget build(BuildContext context) {
     final isDesktop = AppResponsive.isDesktop(context);
     final isTablet = AppResponsive.isTablet(context);
-    final hPad = isDesktop ? 48.0 : isTablet ? 32.0 : 20.0;
+    final hPad = isDesktop
+        ? 48.0
+        : isTablet
+        ? 32.0
+        : 20.0;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -177,7 +188,11 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
 
           final list = snap.data ?? [];
 
-          final cols = isDesktop ? 3 : isTablet ? 2 : 1;
+          final cols = isDesktop
+              ? 3
+              : isTablet
+              ? 2
+              : 1;
 
           return CustomScrollView(
             slivers: [
@@ -196,7 +211,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                   sliver: const SliverToBoxAdapter(child: _EmptyState()),
                 )
               else
-              // ── Grid ─────────────────────────────────────
+                // ── Grid ─────────────────────────────────────
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 120),
                   sliver: SliverGrid(
@@ -205,10 +220,14 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                       mainAxisSpacing: 16,
                       crossAxisSpacing: 16,
                       // Biarkan Flutter hitung tinggi otomatis per item
-                      childAspectRatio: isDesktop ? 1.15 : isTablet ? 1.05 : 1.3,
+                      childAspectRatio: isDesktop
+                          ? 1.15
+                          : isTablet
+                          ? 1.05
+                          : 1.3,
                     ),
                     delegate: SliverChildBuilderDelegate(
-                          (_, i) => _ExamTypeCard(
+                      (_, i) => _ExamTypeCard(
                         examType: list[i],
                         onEdit: () => _openDialog(editing: list[i]),
                         onToggle: () => _toggle(list[i]),
@@ -244,7 +263,11 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
               gradient: AppGradient.navy,
               borderRadius: AppRadius.bSm,
             ),
-            child: const Icon(Icons.category_rounded, color: AppColors.white, size: 18),
+            child: const Icon(
+              Icons.category_rounded,
+              color: AppColors.white,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 10),
           Text('Kelola Kategori Ujian', style: AppText.h2),
@@ -266,8 +289,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
       label: Text('Tambah Tipe Ujian', style: AppText.btnMd),
     );
   }
-
- }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HERO BANNER
@@ -293,14 +315,20 @@ class _HeroBanner extends StatelessWidget {
               children: [
                 // Badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     gradient: AppGradient.gold,
                     borderRadius: AppRadius.bFull,
                   ),
                   child: Text(
                     'Admin Panel',
-                    style: AppText.label.copyWith(color: AppColors.primary, fontSize: 11),
+                    style: AppText.label.copyWith(
+                      color: AppColors.primary,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -311,7 +339,9 @@ class _HeroBanner extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   'Kelola tipe ujian dan kategori soal secara fleksibel\ndan dinamis tanpa deployment ulang.',
-                  style: AppText.bodySm.copyWith(color: AppColors.white.withOpacity(0.7)),
+                  style: AppText.bodySm.copyWith(
+                    color: AppColors.white.withOpacity(0.7),
+                  ),
                 ),
               ],
             ),
@@ -333,7 +363,9 @@ class _HeroBanner extends StatelessWidget {
                 ),
                 Text(
                   'Tipe Ujian',
-                  style: AppText.caption.copyWith(color: AppColors.white.withOpacity(0.6)),
+                  style: AppText.caption.copyWith(
+                    color: AppColors.white.withOpacity(0.6),
+                  ),
                 ),
               ],
             ),
@@ -386,10 +418,18 @@ class _ExamTypeCard extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    gradient: active ? AppGradient.navy : const LinearGradient(colors: [Color(0xFFB0B8C8), Color(0xFFB0B8C8)]),
+                    gradient: active
+                        ? AppGradient.navy
+                        : const LinearGradient(
+                            colors: [Color(0xFFB0B8C8), Color(0xFFB0B8C8)],
+                          ),
                     borderRadius: AppRadius.bSm,
                   ),
-                  child: const Icon(Icons.school_rounded, color: AppColors.white, size: 20),
+                  child: const Icon(
+                    Icons.school_rounded,
+                    color: AppColors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -407,7 +447,10 @@ class _ExamTypeCard extends StatelessWidget {
                           ),
                           // Status badge
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: active
                                   ? AppColors.softBg(AppColors.success)
@@ -418,7 +461,9 @@ class _ExamTypeCard extends StatelessWidget {
                               active ? 'Aktif' : 'Nonaktif',
                               style: AppText.label.copyWith(
                                 fontSize: 10,
-                                color: active ? AppColors.success : AppColors.textHint,
+                                color: active
+                                    ? AppColors.success
+                                    : AppColors.textHint,
                               ),
                             ),
                           ),
@@ -437,7 +482,12 @@ class _ExamTypeCard extends StatelessWidget {
                   ),
                 ),
                 // Menu
-                _CardMenu(onEdit: onEdit, onToggle: onToggle, onDelete: onDelete, isActive: active),
+                _CardMenu(
+                  onEdit: onEdit,
+                  onToggle: onToggle,
+                  onDelete: onDelete,
+                  isActive: active,
+                ),
               ],
             ),
           ),
@@ -458,10 +508,12 @@ class _ExamTypeCard extends StatelessWidget {
                 examType.categories.isEmpty
                     ? Text('—', style: AppText.bodySm)
                     : Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: examType.categories.map((c) => _CategoryChip(label: c)).toList(),
-                ),
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: examType.categories
+                            .map((c) => _CategoryChip(label: c))
+                            .toList(),
+                      ),
               ],
             ),
           ),
@@ -501,12 +553,21 @@ class _CategoryChip extends StatelessWidget {
 class _CardMenu extends StatelessWidget {
   final VoidCallback onEdit, onToggle, onDelete;
   final bool isActive;
-  const _CardMenu({required this.onEdit, required this.onToggle, required this.onDelete, required this.isActive});
+  const _CardMenu({
+    required this.onEdit,
+    required this.onToggle,
+    required this.onDelete,
+    required this.isActive,
+  });
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: Icon(Icons.more_vert_rounded, color: AppColors.textSecondary, size: 20),
+      icon: Icon(
+        Icons.more_vert_rounded,
+        color: AppColors.textSecondary,
+        size: 20,
+      ),
       shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
       color: AppColors.surface,
       elevation: 4,
@@ -524,12 +585,22 @@ class _CardMenu extends StatelessWidget {
           AppColors.textPrimary,
         ),
         const PopupMenuDivider(height: 1),
-        _menuItem('delete', Icons.delete_outline_rounded, 'Hapus', AppColors.error),
+        _menuItem(
+          'delete',
+          Icons.delete_outline_rounded,
+          'Hapus',
+          AppColors.error,
+        ),
       ],
     );
   }
 
-  PopupMenuItem<String> _menuItem(String val, IconData icon, String label, Color color) {
+  PopupMenuItem<String> _menuItem(
+    String val,
+    IconData icon,
+    String label,
+    Color color,
+  ) {
     return PopupMenuItem(
       value: val,
       height: 40,
@@ -559,7 +630,9 @@ class _ExamTypeDialog extends StatefulWidget {
 
 class _ExamTypeDialogState extends State<_ExamTypeDialog> {
   late final _nameCtrl = TextEditingController(text: widget.editing?.name);
-  late final _descCtrl = TextEditingController(text: widget.editing?.description);
+  late final _descCtrl = TextEditingController(
+    text: widget.editing?.description,
+  );
   final _catCtrl = TextEditingController();
   late final List<String> _cats = List.from(widget.editing?.categories ?? []);
   bool _saving = false;
@@ -641,7 +714,10 @@ class _ExamTypeDialogState extends State<_ExamTypeDialog> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(gradient: AppGradient.navy, borderRadius: AppRadius.bSm),
+                    decoration: BoxDecoration(
+                      gradient: AppGradient.navy,
+                      borderRadius: AppRadius.bSm,
+                    ),
                     child: Icon(
                       _isEdit ? Icons.edit_outlined : Icons.add_rounded,
                       color: AppColors.white,
@@ -670,7 +746,9 @@ class _ExamTypeDialogState extends State<_ExamTypeDialog> {
               TextField(
                 controller: _nameCtrl,
                 style: AppText.bodyLg,
-                decoration: const InputDecoration(hintText: 'Contoh: CPNS, PCPM, TBS LPDP'),
+                decoration: const InputDecoration(
+                  hintText: 'Contoh: CPNS, PCPM, TBS LPDP',
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -681,7 +759,9 @@ class _ExamTypeDialogState extends State<_ExamTypeDialog> {
                 controller: _descCtrl,
                 style: AppText.body,
                 maxLines: 2,
-                decoration: const InputDecoration(hintText: 'Opsional — jelaskan tipe ujian ini'),
+                decoration: const InputDecoration(
+                  hintText: 'Opsional — jelaskan tipe ujian ini',
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -694,7 +774,9 @@ class _ExamTypeDialogState extends State<_ExamTypeDialog> {
                     child: TextField(
                       controller: _catCtrl,
                       style: AppText.body,
-                      decoration: const InputDecoration(hintText: 'Contoh: TWK, TIU, TKP'),
+                      decoration: const InputDecoration(
+                        hintText: 'Contoh: TWK, TIU, TKP',
+                      ),
                       onSubmitted: (_) => _addCat(),
                     ),
                   ),
@@ -710,12 +792,17 @@ class _ExamTypeDialogState extends State<_ExamTypeDialog> {
                   runSpacing: 8,
                   children: _cats.map((c) {
                     return Chip(
-                      label: Text(c, style: AppText.label.copyWith(color: AppColors.primary)),
+                      label: Text(
+                        c,
+                        style: AppText.label.copyWith(color: AppColors.primary),
+                      ),
                       deleteIcon: const Icon(Icons.close_rounded, size: 14),
                       deleteIconColor: AppColors.textSecondary,
                       onDeleted: () => setState(() => _cats.remove(c)),
                       backgroundColor: AppColors.softBg(AppColors.primary),
-                      side: BorderSide(color: AppColors.primary.withOpacity(0.2)),
+                      side: BorderSide(
+                        color: AppColors.primary.withOpacity(0.2),
+                      ),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     );
@@ -735,23 +822,38 @@ class _ExamTypeDialogState extends State<_ExamTypeDialog> {
                       onPressed: _saving ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
-                        textStyle: AppText.btnMd.copyWith(color: AppColors.textSecondary),
+                        textStyle: AppText.btnMd.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                      child: Text('Batal', style: AppText.btnMd.copyWith(color: AppColors.textPrimary)),
+                      child: Text(
+                        'Batal',
+                        style: AppText.btnMd.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: _saving ? null : _submit,
-                      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                      ),
                       child: _saving
                           ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                          : Text(_isEdit ? 'Simpan Perubahan' : 'Tambahkan', style: AppText.btnMd),
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              _isEdit ? 'Simpan Perubahan' : 'Tambahkan',
+                              style: AppText.btnMd,
+                            ),
                     ),
                   ),
                 ],
@@ -778,7 +880,10 @@ class _AddButton extends StatelessWidget {
       child: Container(
         width: 48,
         height: 48,
-        decoration: BoxDecoration(gradient: AppGradient.navy, borderRadius: AppRadius.bMd),
+        decoration: BoxDecoration(
+          gradient: AppGradient.navy,
+          borderRadius: AppRadius.bMd,
+        ),
         child: const Icon(Icons.add_rounded, color: AppColors.white),
       ),
     );
@@ -808,10 +913,17 @@ class _EmptyState extends StatelessWidget {
               color: AppColors.surfaceAlt,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.layers_outlined, size: 40, color: AppColors.textHint),
+            child: const Icon(
+              Icons.layers_outlined,
+              size: 40,
+              color: AppColors.textHint,
+            ),
           ),
           const SizedBox(height: 16),
-          Text('Belum ada tipe ujian', style: AppText.h3.copyWith(color: AppColors.textSecondary)),
+          Text(
+            'Belum ada tipe ujian',
+            style: AppText.h3.copyWith(color: AppColors.textSecondary),
+          ),
           const SizedBox(height: 6),
           Text(
             'Tekan tombol "+ Tambah Tipe Ujian" untuk memulai',
@@ -839,7 +951,11 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.error),
+            const Icon(
+              Icons.wifi_off_rounded,
+              size: 48,
+              color: AppColors.error,
+            ),
             const SizedBox(height: 12),
             Text('Gagal memuat data', style: AppText.h3),
             const SizedBox(height: 6),
