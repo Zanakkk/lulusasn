@@ -4,14 +4,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:html' as html;
-
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
 import '../../app/theme.dart';
 
 final _currencyFmt = NumberFormat.currency(symbol: 'Rp ', decimalDigits: 0);
@@ -346,7 +345,8 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
           tryoutTitle: data['title'] as String? ?? '',
           tryoutDescription: data['description'] as String? ?? '',
           isPremium: data['isPremium'] as bool? ?? false,
-          energyCost: data['price'] as int? ?? 0,
+          energyCost: (data['price'] as num? ?? 0)
+              .toInt(), // ← pakai num dulu lalu toInt()
         ),
       ),
     ).then((_) => _prefetchOwnership()); // refresh ownership setelah kembali
@@ -1313,13 +1313,8 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
   // ═══════════════════════════════════════════════════════════════════════════
   // PAID SECTION
   // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildPaidSection() {
-    const methods = [
-      (Icons.qr_code_rounded, 'QRIS Payment', AppColors.info),
-      (Icons.credit_card_rounded, 'Credit Card', AppColors.primary),
-      (Icons.account_balance_rounded, 'Bank Transfer', AppColors.warning),
-    ];
 
+  Widget _buildPaidSection() {
     return Container(
       key: const ValueKey('paid'),
       padding: const EdgeInsets.all(24),
@@ -1330,64 +1325,77 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
         boxShadow: AppShadow.sm,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.06),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.construction_rounded,
-              size: 42,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text('Coming Soon', style: AppText.h3),
-          const SizedBox(height: 6),
-          Text(
-            'Metode pembayaran sedang dikembangkan.',
-            style: AppText.bodySm,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          ...methods.map(
-            (m) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
+          // ── Info harga ──────────────────────────────────────
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: AppGradient.gold,
+                  borderRadius: AppRadius.bSm,
+                ),
+                child: const Icon(
+                  Icons.payment_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: m.$3.withOpacity(0.10),
-                      borderRadius: AppRadius.bSm,
-                    ),
-                    child: Icon(m.$1, size: 18, color: m.$3),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    m.$2,
-                    style: AppText.body.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceAlt,
-                      borderRadius: AppRadius.bFull,
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Text(
-                      'Segera',
-                      style: AppText.caption.copyWith(fontSize: 10),
-                    ),
-                  ),
+                  Text('Pembayaran Langsung', style: AppText.label),
+                  Text('Akses instan setelah bayar', style: AppText.caption),
                 ],
               ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+          const Divider(color: AppColors.border),
+          const SizedBox(height: 16),
+
+          // ── Harga ────────────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Total Pembayaran', style: AppText.body),
+              Text(
+                _currencyFmt.format(widget.energyCost),
+                style: AppText.h2.copyWith(color: AppColors.gold),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── Info metode pembayaran ────────────────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.info.withOpacity(0.07),
+              borderRadius: AppRadius.bMd,
+              border: Border.all(color: AppColors.info.withOpacity(0.25)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  color: AppColors.info,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Kamu akan diarahkan ke halaman Flip untuk bayar via QRIS, transfer bank, atau kartu.',
+                    style: AppText.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1399,8 +1407,8 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
   // SUBMIT BUTTON
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildSubmitButton() {
-    final canSubmit = _selectedOption == 'free' && _allUploaded;
     final isPaid = _selectedOption == 'paid';
+    final canSubmit = isPaid ? true : _allUploaded; // ← paid selalu bisa klik
 
     return ValueListenableBuilder<UploadState>(
       valueListenable: _uploadState,
@@ -1415,7 +1423,6 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
             boxShadow: canSubmit && !isLoading
                 ? [
                     BoxShadow(
-                      // ── Gold glow saat siap submit ───────────────────────
                       color: AppColors.gold.withOpacity(0.28),
                       blurRadius: 18,
                       offset: const Offset(0, 6),
@@ -1424,9 +1431,12 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
                 : null,
           ),
           child: ElevatedButton(
-            onPressed: (canSubmit && !isLoading) ? _handleSubmit : null,
+            onPressed: (canSubmit && !isLoading)
+                ? (isPaid
+                      ? _handlePaidSubmit
+                      : _handleSubmit) // ← bedakan handler
+                : null,
             style: ElevatedButton.styleFrom(
-              // ── Aktif: Navy; Disabled: surfaceAlt ─────────────────────────
               backgroundColor: canSubmit && !isLoading
                   ? AppColors.primary
                   : AppColors.surfaceAlt,
@@ -1462,7 +1472,7 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
                           ),
                         ),
                         SizedBox(width: 10),
-                        Text('Mengirim...'),
+                        Text('Memproses...'),
                       ],
                     )
                   : Row(
@@ -1471,7 +1481,8 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
                       children: [
                         Icon(
                           isPaid
-                              ? Icons.lock_rounded
+                              ? Icons
+                                    .payment_rounded // ← ikon bayar
                               : canSubmit
                               ? Icons.check_circle_rounded
                               : Icons.upload_rounded,
@@ -1480,7 +1491,7 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
                         const SizedBox(width: 8),
                         Text(
                           isPaid
-                              ? 'Belum Tersedia'
+                              ? 'Bayar Sekarang' // ← bukan "Belum Tersedia"
                               : canSubmit
                               ? 'Kirim & Dapatkan Try Out'
                               : 'Upload Semua Bukti Terlebih Dahulu',
@@ -1492,6 +1503,90 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
         );
       },
     );
+  }
+
+  Future<void> _handlePaidSubmit() async {
+    // ── Cek login ──────────────────────────────────────────────────────────────
+    final user = FirebaseAuth.instance.currentUser;
+    print('👤 Current user: ${user?.uid}');
+    print('📧 Current email: ${user?.email}');
+
+    if (user == null) {
+      _uploadState.value = const UploadState(
+        stage: UploadStage.error,
+        message: 'Kamu belum login. Silakan login terlebih dahulu.',
+      );
+      return;
+    }
+
+    // ── Force refresh token ────────────────────────────────────────────────────
+    final idToken = await user.getIdToken(true);
+    print('🔑 Token refreshed');
+
+    _uploadState.value = const UploadState(
+      stage: UploadStage.uploading,
+      message: 'Membuat tagihan...',
+      progress: 0.3,
+    );
+
+    try {
+      const url =
+          'https://us-central1-lulusasn-e15a3.cloudfunctions.net/createBill';
+
+      print('📝 Calling createBill...');
+      print('   Amount: ${widget.energyCost}');
+      print('   TryoutId: ${widget.tryoutId}');
+      print('   User: ${user.uid}');
+      print('   Email: ${user.email}');
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({
+          'amount': widget.energyCost.toString(),
+          'tryoutId': widget.tryoutId,
+        }),
+      );
+
+      print('✅ createBill status: ${response.statusCode}');
+      print('✅ createBill body: ${response.body}');
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode != 200) {
+        throw Exception(data['error'] ?? 'Gagal membuat tagihan.');
+      }
+
+      final linkUrl = data['linkUrl'] as String?;
+      if (linkUrl == null || linkUrl.isEmpty) {
+        throw Exception('Link URL kosong dari server.');
+      }
+
+      _uploadState.value = const UploadState(
+        stage: UploadStage.done,
+        message: 'Mengarahkan ke halaman pembayaran...',
+        progress: 1.0,
+      );
+
+      await Future.delayed(const Duration(milliseconds: 600));
+
+      html.window.open(linkUrl, '_blank');
+
+      if (mounted) {
+        _uploadState.value = const UploadState();
+        Navigator.pop(context);
+      }
+    } catch (e, stackTrace) {
+      print('❌ Error: $e');
+      print('❌ Stack trace: $stackTrace');
+      _uploadState.value = UploadState(
+        stage: UploadStage.error,
+        message: 'Gagal: ${e.toString().replaceFirst('Exception: ', '')}',
+      );
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

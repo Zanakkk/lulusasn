@@ -1,7 +1,9 @@
 // lib/main.dart
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'app/routes.dart';
 import 'app/theme.dart';
 import 'core/services/storage_service.dart';
@@ -15,6 +17,17 @@ void main() async {
 
   // ✅ Initialize storage
   await StorageService.instance.initialize();
+
+  // ✅ Setup Firebase Functions emulator untuk development
+  if (!kIsWeb && const bool.fromEnvironment('dart.vm.product') == false) {
+    // Gunakan emulator hanya untuk non-web di development
+    // Untuk web, emulator tidak support dengan baik
+    try {
+      FirebaseFunctions.instance.useFunctionsEmulator('localhost', 5001);
+    } catch (e) {
+      debugPrint('Emulator not available: $e');
+    }
+  }
 
   runApp(const LulusASNApp());
 }

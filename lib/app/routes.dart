@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:lulusasn/users/TO/payment/payment_success.dart';
 import '../admin/pages/CreateTO.dart';
 import '../admin/pages/ViewTO.dart';
 import '../admin/pages/promotion_verification_screen.dart'
@@ -141,6 +142,9 @@ class AppRouter {
 
       case AppRoutes.adminVerificationTO:
         return _route(settings, const PromotionVerificationScreen());
+
+      case AppRoutes.paymentSuccess:
+        return _route(settings, const PaymentSuccessPage());
 
       // ── Error / default ──────────────────────────────────────────────────
       case AppRoutes.notFound:
