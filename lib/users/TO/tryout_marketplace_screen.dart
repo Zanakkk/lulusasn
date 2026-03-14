@@ -11,6 +11,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:lulusasn/app/routes.dart';
+import 'package:lulusasn/users/TO/payment/payment_status_screen.dart';
 import '../../app/theme.dart';
 
 final _currencyFmt = NumberFormat.currency(symbol: 'Rp ', decimalDigits: 0);
@@ -50,9 +52,14 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
     final snap = await FirebaseFirestore.instance
         .collection('user_tryouts')
         .where('userId', isEqualTo: _uid)
+        .where('isActive', isEqualTo: true) // ← tambah filter ini
         .get();
     final owned = {for (final d in snap.docs) d['tryoutId'] as String: true};
-    if (mounted) setState(() => _ownershipCache.addAll(owned));
+    if (mounted)
+      setState(() {
+        _ownershipCache.clear(); // ← clear dulu agar tidak stale
+        _ownershipCache.addAll(owned);
+      });
   }
 
   @override
@@ -1505,23 +1512,24 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
     );
   }
 
-  Future<void> _handlePaidSubmit() async {
-    // ── Cek login ──────────────────────────────────────────────────────────────
-    final user = FirebaseAuth.instance.currentUser;
-    print('👤 Current user: ${user?.uid}');
-    print('📧 Current email: ${user?.email}');
+  // Di _TryoutPurchaseScreenState
+  // Tambah import: import 'dart:html' as html;
+  //               import 'package:http/http.dart' as http;
+  //               import 'dart:convert';
 
+  Future<void> _handlePaidSubmit() async {
+    final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _uploadState.value = const UploadState(
         stage: UploadStage.error,
-        message: 'Kamu belum login. Silakan login terlebih dahulu.',
+        message: 'Kamu belum login.',
       );
       return;
     }
 
-    // ── Force refresh token ────────────────────────────────────────────────────
-    final idToken = await user.getIdToken(true);
-    print('🔑 Token refreshed');
+    // Buka tab baru SEKARANG (sync) — browser hanya izinkan window.open
+    // dari user gesture langsung, sebelum await apapun.
+    final newTab = html.window.open('about:blank', '_blank');
 
     _uploadState.value = const UploadState(
       stage: UploadStage.uploading,
@@ -1530,17 +1538,12 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
     );
 
     try {
-      const url =
-          'https://us-central1-lulusasn-e15a3.cloudfunctions.net/createBill';
-
-      print('📝 Calling createBill...');
-      print('   Amount: ${widget.energyCost}');
-      print('   TryoutId: ${widget.tryoutId}');
-      print('   User: ${user.uid}');
-      print('   Email: ${user.email}');
+      final idToken = await user.getIdToken(true);
 
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse(
+          'https://us-central1-lulusasn-e15a3.cloudfunctions.net/createBill',
+        ),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $idToken',
@@ -1548,22 +1551,31 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
         body: jsonEncode({
           'amount': widget.energyCost.toString(),
           'tryoutId': widget.tryoutId,
+          'tryoutTitle': widget.tryoutTitle, // ← untuk disimpan di Firestore
         }),
       );
-
-      print('✅ createBill status: ${response.statusCode}');
-      print('✅ createBill body: ${response.body}');
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
 
       if (response.statusCode != 200) {
+        newTab?.close();
         throw Exception(data['error'] ?? 'Gagal membuat tagihan.');
       }
 
       final linkUrl = data['linkUrl'] as String?;
+      final billLinkId = data['billLinkId'] as String?;
+
       if (linkUrl == null || linkUrl.isEmpty) {
+        newTab?.close();
         throw Exception('Link URL kosong dari server.');
       }
+      if (billLinkId == null || billLinkId.isEmpty) {
+        newTab?.close();
+        throw Exception('Bill ID kosong dari server.');
+      }
+
+      // Arahkan tab yang sudah terbuka ke Flip
+      newTab?.location.href = linkUrl;
 
       _uploadState.value = const UploadState(
         stage: UploadStage.done,
@@ -1571,20 +1583,25 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
         progress: 1.0,
       );
 
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
 
-      html.window.open(linkUrl, '_blank');
+      _uploadState.value = const UploadState();
 
-      if (mounted) {
-        _uploadState.value = const UploadState();
-        Navigator.pop(context);
-      }
-    } catch (e, stackTrace) {
-      print('❌ Error: $e');
-      print('❌ Stack trace: $stackTrace');
+      // Push ke PaymentStatusScreen dengan route + arguments
+      Navigator.pushReplacementNamed(
+        context,
+        AppRoutes.paymentStatus(billLinkId),
+        arguments: {
+          'tryoutId': widget.tryoutId,
+          'tryoutTitle': widget.tryoutTitle,
+          'amount': widget.energyCost,
+        },
+      );
+    } catch (e) {
       _uploadState.value = UploadState(
         stage: UploadStage.error,
-        message: 'Gagal: ${e.toString().replaceFirst('Exception: ', '')}',
+        message: e.toString().replaceFirst('Exception: ', ''),
       );
     }
   }

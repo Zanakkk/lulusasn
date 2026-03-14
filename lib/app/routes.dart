@@ -2,7 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:lulusasn/users/TO/payment/payment_success.dart';
+import 'package:lulusasn/users/TO/payment/payment_status_screen.dart';
 import '../admin/pages/CreateTO.dart';
 import '../admin/pages/ViewTO.dart';
 import '../admin/pages/promotion_verification_screen.dart'
@@ -17,153 +17,158 @@ import 'package:lulusasn/users/auth/screens/login_screen.dart';
 import '../users/home/screens/ProfileScreen.dart';
 import '../users/main_navigation/main_screen..dart';
 import 'theme.dart';
-
+import 'dart:html' as html;
 // ============================================================================
 // ROUTE NAMES
 // ============================================================================
 
+
 abstract class AppRoutes {
   AppRoutes._();
 
-  // Public
-  static const String splash = '/';
-  static const String login = '/login';
-  static const String register = '/register';
-  static const String forgotPassword = '/forgot-password';
-  static const String goalSetting = '/goal-setting';
-  static const String onboarding = '/onboarding';
+  static const splash              = '/';
+  static const login               = '/login';
+  static const register            = '/register';
+  static const forgotPassword      = '/forgot-password';
+  static const goalSetting         = '/goal-setting';
+  static const onboarding          = '/onboarding';
+  static const main                = '/main';
+  static const home                = '/home';
+  static const learn               = '/learn';
+  static const leaderboard         = '/leaderboard';
+  static const profile             = '/profile';
+  static const myTryout            = '/my-tryout';
+  static const purchaseTryout      = '/purchase-tryout';
+  static const tryoutDetail        = '/tryout-detail';
+  static const examList            = '/exam/list';
+  static const examPre             = '/exam/pre';
+  static const examSession         = '/exam/session';
+  static const examAd              = '/exam/ad';
+  static const examResult          = '/exam/result';
+  static const examReview          = '/exam/review';
+  static const learnCategory       = '/learn/category';
+  static const learnReview         = '/learn/review';
+  static const statistics          = '/profile/statistics';
+  static const achievements        = '/profile/achievements';
+  static const settings            = '/profile/settings';
+  static const diamondPurchase     = '/diamond';
+  static const premium             = '/premium';
+  static const payment             = '/payment';
+  static const paymentSuccess      = '/payment/success';
+  static const paymentFailed       = '/payment/failed';
 
-  // Authenticated
-  static const String main = '/main';
-  static const String home = '/home';
-  static const String learn = '/learn';
-  static const String leaderboard = '/leaderboard';
-  static const String profile = '/profile';
+  // ✅ Pakai prefix — billLinkId di-append saat push, di-parse saat deep link
+  static const paymentStatusPrefix = '/payment/status/';
 
-  // Tryout
-  static const String myTryout = '/my-tryout';
-  static const String purchaseTryout = '/purchase-tryout';
-  static const String tryoutDetail = '/tryout-detail';
+  static const adminMain           = '/admin-main';
+  static const adminDashboard      = '/admin/dashboard';
+  static const adminCreateTO       = '/admin/create-to';
+  static const adminViewTO         = '/admin/view-to';
+  static const adminVerificationTO = '/admin/verification';
+  static const notFound            = '/404';
 
-  // Exam
-  static const String examList = '/exam/list';
-  static const String examPre = '/exam/pre';
-  static const String examSession = '/exam/session';
-  static const String examAd = '/exam/ad';
-  static const String examResult = '/exam/result';
-  static const String examReview = '/exam/review';
-
-  // Learn
-  static const String learnCategory = '/learn/category';
-  static const String learnReview = '/learn/review';
-
-  // Profile sub-pages
-  static const String statistics = '/profile/statistics';
-  static const String achievements = '/profile/achievements';
-  static const String settings = '/profile/settings';
-
-  // Payment
-  static const String diamondPurchase = '/diamond';
-  static const String premium = '/premium';
-  static const String payment = '/payment';
-  static const String paymentSuccess = '/payment/success';
-  static const String paymentFailed = '/payment/failed';
-
-  // Admin
-  static const String adminMain = '/admin-main';
-  static const String adminDashboard = '/admin/dashboard';
-  static const String adminCreateTO = '/admin/create-to';
-  static const String adminViewTO = '/admin/view-to';
-  static const String adminVerificationTO = '/admin/verification';
-
-  // Error
-  static const String notFound = '/404';
+  // Helper: buat nama route lengkap dengan billLinkId
+  static String paymentStatus(String billLinkId) =>
+      '$paymentStatusPrefix$billLinkId';
 }
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // ROUTER
-// ============================================================================
-
+// ════════════════════════════════════════════════════════════════════════════
 class AppRouter {
   AppRouter._();
 
-  static Route<dynamic> generateRoute(RouteSettings settings) {
-    final args = settings.arguments; // bisa Map atau String tergantung route
+  // Dipanggil sekali dari main() — handle redirect Flip saat app pertama load
+  // Flip redirect ke: https://app.web.app/#/payment/status/BILL_ID
+  // Flutter Web membaca hash untuk menentukan initialRoute
+  static String get initialRoute {
+    final hash = html.window.location.hash; // contoh: '#/payment/status/abc123'
+    final path = hash.startsWith('#') ? hash.substring(1) : hash;
+    if (path.startsWith(AppRoutes.paymentStatusPrefix)) return path;
+    return AppRoutes.splash;
+  }
 
-    switch (settings.name) {
-      // ── Public ──────────────────────────────────────────────────────────
+  static Route<dynamic> generateRoute(RouteSettings s) {
+    final args = s.arguments as Map<String, dynamic>? ?? {};
+
+    // ── /payment/status/:billLinkId ─────────────────────────────────────────
+    // Bisa masuk dari 2 jalur:
+    //   1. Push dalam app   → arguments berisi semua data
+    //   2. Deep link Flip   → arguments kosong, data dibaca dari Firestore
+    final name = s.name ?? '';
+    if (name.startsWith(AppRoutes.paymentStatusPrefix)) {
+      final billLinkId = name.substring(AppRoutes.paymentStatusPrefix.length);
+      if (billLinkId.isEmpty) return _fallback(s);
+      return _page(
+        s,
+        PaymentStatusScreen(
+          billLinkId:   billLinkId,
+          // Kalau dari deep link, field ini kosong string —
+          // PaymentStatusScreen harus baca dari Firestore sendiri
+          tryoutId:     args['tryoutId']    as String? ?? '',
+          tryoutTitle:  args['tryoutTitle'] as String? ?? '',
+          amount:       args['amount']      as int?    ?? 0,
+        ),
+      );
+    }
+
+    switch (name) {
       case AppRoutes.login:
-        return _route(settings, const LoginScreen());
+        return _page(s, const LoginScreen());
 
       case AppRoutes.goalSetting:
-        return _route(settings, const GoalSettingScreen());
+        return _page(s, const GoalSettingScreen());
 
-      // ── Authenticated ───────────────────────────────────────────────────
       case AppRoutes.main:
-        return _route(settings, const MainNavigationScreen());
+        return _page(s, const MainNavigationScreen());
 
       case AppRoutes.profile:
-        return _route(settings, const ProfileScreen());
+        return _page(s, const ProfileScreen());
 
-      // ── Tryout ──────────────────────────────────────────────────────────
       case AppRoutes.myTryout:
-        return _route(settings, const MyTryoutsScreen());
+        return _page(s, const MyTryoutsScreen());
 
-      // TryoutMarketplace tidak butuh currentGoal dari router.
-      // Screen mengambil goal sendiri dari Firestore user doc.
       case AppRoutes.purchaseTryout:
-        return _route(settings, const TryoutMarketplaceScreen());
+        return _page(s, const TryoutMarketplaceScreen());
 
-      // Navigasi: Navigator.pushNamed(context, AppRoutes.tryoutDetail,
-      //   arguments: {'tryoutId': 'abc123'})
       case AppRoutes.tryoutDetail:
-        final map = args as Map<String, dynamic>? ?? {};
-        final id = map['tryoutId'] as String? ?? '';
-        if (id.isEmpty) return _fallback(settings);
-        return _route(settings, TryoutDetailScreen(tryoutId: id));
+        final id = args['tryoutId'] as String? ?? '';
+        if (id.isEmpty) return _fallback(s);
+        return _page(s, TryoutDetailScreen(tryoutId: id));
 
-      // Navigasi: Navigator.pushNamed(context, AppRoutes.examReview,
-      //   arguments: {'resultId': 'xyz'})
       case AppRoutes.examReview:
-        final map = args as Map<String, dynamic>? ?? {};
-        final resultId = map['resultId'] as String? ?? '';
-        if (resultId.isEmpty) return _fallback(settings);
-        return _route(settings, ExamReviewScreen(resultId: resultId));
+        final resultId = args['resultId'] as String? ?? '';
+        if (resultId.isEmpty) return _fallback(s);
+        return _page(s, ExamReviewScreen(resultId: resultId));
 
-      // ── Admin ────────────────────────────────────────────────────────────
       case AppRoutes.adminMain:
-        return _route(settings, const AdminMainNavigationScreen());
+        return _page(s, const AdminMainNavigationScreen());
 
       case AppRoutes.adminCreateTO:
-        return _route(settings, const CreateTryoutScreen());
+        return _page(s, const CreateTryoutScreen());
 
       case AppRoutes.adminViewTO:
-        return _route(settings, const ViewTryoutScreen());
+        return _page(s, const ViewTryoutScreen());
 
       case AppRoutes.adminVerificationTO:
-        return _route(settings, const PromotionVerificationScreen());
+        return _page(s, const PromotionVerificationScreen());
 
-      case AppRoutes.paymentSuccess:
-        return _route(settings, const PaymentSuccessPage());
-
-      // ── Error / default ──────────────────────────────────────────────────
       case AppRoutes.notFound:
       default:
-        return _route(settings, const NotFoundScreen());
+        return _page(s, const NotFoundScreen());
     }
   }
 
-  static Route<dynamic> onUnknownRoute(RouteSettings settings) =>
-      _route(settings, const NotFoundScreen());
+  static Route<dynamic> onUnknownRoute(RouteSettings s) =>
+      _page(s, const NotFoundScreen());
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-  static MaterialPageRoute<dynamic> _route(RouteSettings s, Widget page) =>
-      MaterialPageRoute(settings: s, builder: (_) => page);
+  static MaterialPageRoute<dynamic> _page(RouteSettings s, Widget w) =>
+      MaterialPageRoute(settings: s, builder: (_) => w);
 
-  /// Fallback jika argumen wajib tidak tersedia — kembali ke NotFound
   static MaterialPageRoute<dynamic> _fallback(RouteSettings s) =>
       MaterialPageRoute(settings: s, builder: (_) => const NotFoundScreen());
 }
+
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});

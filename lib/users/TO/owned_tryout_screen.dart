@@ -386,11 +386,14 @@ class _TryoutCard extends StatelessWidget {
     final examType = tryoutMeta['examTypeName'] as String? ?? '';
     final totalQ = tryoutMeta['totalQuestions'] as int? ?? 0;
     final totalMin = tryoutMeta['totalEstimatedMinutes'] as int? ?? 0;
-    final subtests = tryoutMeta['subtests'] as List<dynamic>? ?? [];
+    final subtests = tryoutMeta['subtests'] as List? ?? [];
     final subCount = subtests.length;
 
     final isActive = userDoc['isActive'] == true;
-    final proofStatus = userDoc['proofStatus'] as String? ?? 'pending_review';
+    final proofStatus =
+        userDoc['proofStatus'] as String? ?? ''; // ← satu deklarasi saja
+    final paymentMethod = userDoc['paymentMethod'] as String? ?? 'free';
+
     final subtestProgress =
         userDoc['subtestProgress'] as Map<String, dynamic>? ?? {};
 
@@ -402,11 +405,27 @@ class _TryoutCard extends StatelessWidget {
     final notStarted = completed == 0;
     final inProgress = !notStarted && !isDone;
 
+    // ── Pending banner message — bedakan free vs paid ─────────────────────────
+    String _pendingMessage() {
+      if (paymentMethod == 'flip') {
+        // Sudah bayar via Flip, webhook sedang diproses
+        return 'Pembayaran sedang dikonfirmasi otomatis oleh sistem...';
+      }
+      // Plan gratis — menunggu review admin
+      return proofStatus == 'pending_review'
+          ? 'Bukti promosi sedang diverifikasi admin'
+          : 'Menunggu verifikasi admin';
+    }
+
     // ── Status semantics ──────────────────────────────────────────────────────
-    final _StatusInfo status = !isActive
+    final _StatusInfo statusInfo = !isActive
         ? _StatusInfo(
-            label: 'Pending Review',
-            icon: Icons.schedule_rounded,
+            label: paymentMethod == 'flip'
+                ? 'Konfirmasi Pembayaran'
+                : 'Pending Review',
+            icon: paymentMethod == 'flip'
+                ? Icons.autorenew_rounded
+                : Icons.schedule_rounded,
             color: AppColors.warning,
           )
         : isDone
@@ -445,7 +464,7 @@ class _TryoutCard extends StatelessWidget {
             borderRadius: AppRadius.bLg,
             border: Border.all(
               color: isActive
-                  ? status.color.withOpacity(0.25)
+                  ? statusInfo.color.withOpacity(0.25)
                   : AppColors.border,
               width: isActive ? 1.5 : 1,
             ),
@@ -458,7 +477,7 @@ class _TryoutCard extends StatelessWidget {
               Container(
                 height: 4,
                 decoration: BoxDecoration(
-                  color: status.color,
+                  color: statusInfo.color,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(AppRadius.lg),
                   ),
@@ -470,7 +489,7 @@ class _TryoutCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Row 1: type badge + status pill ─────────────────
+                    // ── Row 1: type badge + status pill ──────────────────
                     Row(
                       children: [
                         if (examType.isNotEmpty) ...[
@@ -501,21 +520,25 @@ class _TryoutCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.softBg(status.color),
+                            color: AppColors.softBg(statusInfo.color),
                             borderRadius: AppRadius.bFull,
                             border: Border.all(
-                              color: status.color.withOpacity(0.3),
+                              color: statusInfo.color.withOpacity(0.3),
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(status.icon, size: 11, color: status.color),
+                              Icon(
+                                statusInfo.icon,
+                                size: 11,
+                                color: statusInfo.color,
+                              ),
                               AppSpacing.hxs,
                               Text(
-                                status.label,
+                                statusInfo.label,
                                 style: AppText.label.copyWith(
-                                  color: status.color,
+                                  color: statusInfo.color,
                                   fontSize: 10,
                                 ),
                               ),
@@ -690,33 +713,46 @@ class _TryoutCard extends StatelessWidget {
                       ),
                     ],
 
-                    // ── Pending banner ───────────────────────────────────
+                    // ── Pending banner ────────────────────────────────────
                     if (!isActive) ...[
                       AppSpacing.vmd,
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: AppColors.softBg(AppColors.warning),
+                          // Warna berbeda: biru untuk flip (otomatis), kuning untuk free (manual)
+                          color: AppColors.softBg(
+                            paymentMethod == 'flip'
+                                ? AppColors.info
+                                : AppColors.warning,
+                          ),
                           borderRadius: AppRadius.bMd,
                           border: Border.all(
-                            color: AppColors.warning.withOpacity(0.3),
+                            color:
+                                (paymentMethod == 'flip'
+                                        ? AppColors.info
+                                        : AppColors.warning)
+                                    .withOpacity(0.3),
                           ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.info_outline_rounded,
+                            Icon(
+                              paymentMethod == 'flip'
+                                  ? Icons.autorenew_rounded
+                                  : Icons.info_outline_rounded,
                               size: 14,
-                              color: AppColors.warning,
+                              color: paymentMethod == 'flip'
+                                  ? AppColors.info
+                                  : AppColors.warning,
                             ),
                             AppSpacing.hxs,
                             Expanded(
                               child: Text(
-                                proofStatus == 'pending_review'
-                                    ? 'Bukti pembayaran sedang diverifikasi admin'
-                                    : 'Menunggu verifikasi admin',
+                                _pendingMessage(),
                                 style: AppText.caption.copyWith(
-                                  color: AppColors.warning,
+                                  color: paymentMethod == 'flip'
+                                      ? AppColors.info
+                                      : AppColors.warning,
                                 ),
                               ),
                             ),
