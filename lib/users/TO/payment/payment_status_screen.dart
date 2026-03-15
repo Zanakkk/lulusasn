@@ -1,7 +1,6 @@
 // lib/users/TO/payment/payment_status_screen.dart
 // ignore_for_file: deprecated_member_use
 
-import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -19,9 +18,9 @@ class PaymentStatusScreen extends StatefulWidget {
   const PaymentStatusScreen({
     super.key,
     required this.billLinkId,
-    required this.tryoutId,
-    required this.tryoutTitle,
-    required this.amount,
+    this.tryoutId = '',
+    this.tryoutTitle = '',
+    this.amount = 0,
   });
 
   @override
@@ -29,97 +28,97 @@ class PaymentStatusScreen extends StatefulWidget {
 }
 
 class _PaymentStatusScreenState extends State<PaymentStatusScreen>
-    with TickerProviderStateMixin {
-  // ── Animations ──────────────────────────────────────────────────────────────
-  late final AnimationController _pulseCtrl = AnimationController(
+    with SingleTickerProviderStateMixin {
+  // ── State utama ─────────────────────────────────────────────────────────────
+  String _status = 'loading'; // loading → pending / success / failed
+  String _tryoutTitle = '';
+  String _tryoutId = '';
+  int _amount = 0;
+  String _failReason = '';
+  bool _checking = false; // untuk tombol cek manual
+
+  // ── Pulse animation ─────────────────────────────────────────────────────────
+  late final AnimationController _pulse = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1400),
   )..repeat(reverse: true);
 
-  late final AnimationController _appearCtrl = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 500),
-  )..forward();
-
-  late final Animation<double> _fade = CurvedAnimation(
-    parent: _appearCtrl,
-    curve: Curves.easeOut,
-  );
-  late final Animation<Offset> _slide = Tween<Offset>(
-    begin: const Offset(0, 0.04),
-    end: Offset.zero,
-  ).animate(CurvedAnimation(parent: _appearCtrl, curve: Curves.easeOutCubic));
-
-  // ── Data (bisa di-populate dari Firestore saat deep link) ───────────────────
-  late String _tryoutTitle = widget.tryoutTitle;
-  late int _amount = widget.amount;
-  late String _tryoutId = widget.tryoutId;
-
-  // ── Timer ───────────────────────────────────────────────────────────────────
-  Timer? _timeoutTimer;
-  Timer? _elapsedTimer;
-  bool _showManualCheck = false;
-  bool _timersCancelled = false;
-  int _elapsedSeconds = 0;
-
   @override
   void initState() {
     super.initState();
-    // Kalau masuk dari deep link Flip, widget fields kosong →
-    // ambil data dari Firestore sekali (non-blocking).
-    if (_tryoutTitle.isEmpty || _amount == 0) _fetchMissingData();
-    _startTimeout();
-    _startElapsed();
+    _load(); // baca Firestore langsung saat halaman dibuka
   }
 
   @override
   void dispose() {
-    _pulseCtrl.dispose();
-    _appearCtrl.dispose();
-    _cancelTimers();
+    _pulse.dispose();
     super.dispose();
   }
 
-  // ── Fetch data saat masuk dari deep link ─────────────────────────────────────
-  Future<void> _fetchMissingData() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('transactions')
-        .doc(widget.billLinkId)
-        .get();
-    if (!doc.exists || !mounted) return;
-    final d = doc.data()!;
-    setState(() {
-      _tryoutTitle = d['tryoutTitle'] as String? ?? _tryoutTitle;
-      _amount = (d['amount'] as num?)?.toInt() ?? _amount;
-      _tryoutId = d['tryoutId'] as String? ?? _tryoutId;
-    });
-  }
+  // ── Baca Firestore (dipanggil saat init & tombol cek manual) ────────────────
+  Future<void> _load({bool showFeedback = false}) async {
+    if (_checking) return;
+    setState(() => _checking = true);
 
-  // ── Timer helpers ────────────────────────────────────────────────────────────
-  void _startTimeout() {
-    _timeoutTimer = Timer(const Duration(minutes: 3), () {
-      if (mounted) setState(() => _showManualCheck = true);
-    });
-  }
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('transactions')
+          .doc(widget.billLinkId)
+          .get();
 
-  void _startElapsed() {
-    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _elapsedSeconds++);
-    });
-  }
+      if (!mounted) return;
 
-  // ✅ Cancel hanya sekali, tidak pernah dari dalam build()
-  void _cancelTimers() {
-    if (_timersCancelled) return;
-    _timersCancelled = true;
-    _timeoutTimer?.cancel();
-    _elapsedTimer?.cancel();
-  }
+      if (!doc.exists) {
+        setState(() {
+          _status = 'notfound';
+          _checking = false;
+        });
+        return;
+      }
 
-  String get _elapsedLabel {
-    final m = _elapsedSeconds ~/ 60;
-    final s = _elapsedSeconds % 60;
-    return m > 0 ? '${m}m ${s}s' : '${s}s';
+      final d = doc.data()!;
+      final status = (d['status'] as String? ?? 'pending').trim().toLowerCase();
+
+      setState(() {
+        _status = status;
+        _tryoutTitle = d['tryoutTitle'] as String? ?? widget.tryoutTitle;
+        _tryoutId = d['tryoutId'] as String? ?? widget.tryoutId;
+        _amount = (d['amount'] as num?)?.toInt() ?? widget.amount;
+        _failReason = d['failureReason'] as String? ?? '';
+        _checking = false;
+      });
+
+      debugPrint(
+        '📦 PaymentStatus loaded — status: $status, id: ${widget.billLinkId}',
+      );
+
+      if (showFeedback && mounted) {
+        final msg = switch (status) {
+          'success' => '✅ Pembayaran sudah dikonfirmasi!',
+          'failed' => '❌ Pembayaran gagal.',
+          _ => '⏳ Pembayaran belum terkonfirmasi.',
+        };
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              msg,
+              style: AppText.body.copyWith(color: AppColors.white),
+            ),
+            backgroundColor: status == 'success'
+                ? AppColors.success
+                : status == 'failed'
+                ? AppColors.error
+                : AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ _load error: $e');
+      if (mounted) setState(() => _checking = false);
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -131,58 +130,44 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen>
       canPop: false,
       onPopInvoked: (didPop) async {
         if (didPop) return;
+        if (_status == 'success' || _status == 'failed') {
+          Navigator.pop(context);
+          return;
+        }
         final ok = await _showExitDialog(context);
         if (ok == true && context.mounted) Navigator.pop(context);
       },
       child: Scaffold(
         backgroundColor: AppColors.bg,
-        body: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('transactions')
-              .doc(widget.billLinkId)
-              .snapshots(),
-          builder: (ctx, snap) {
-            if (snap.connectionState == ConnectionState.waiting &&
-                !snap.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppColors.gold),
-              );
-            }
-
-            final data = snap.data?.data() as Map<String, dynamic>? ?? {};
-            final status = data['status'] as String? ?? 'pending';
-
-            // Cancel timer di sini — dijaga flag agar hanya sekali
-            if (status == 'success' || status == 'failed') _cancelTimers();
-
-            return FadeTransition(
-              opacity: _fade,
-              child: SlideTransition(
-                position: _slide,
-                child: switch (status) {
-                  'success' => _buildSuccess(context),
-                  'failed' => _buildFailed(context, data),
-                  _ => _buildPending(context),
-                },
-              ),
-            );
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          child: switch (_status) {
+            'loading' => const Center(
+              key: ValueKey('loading'),
+              child: CircularProgressIndicator(color: AppColors.gold),
+            ),
+            'success' => _buildSuccess(),
+            'failed' => _buildFailed(),
+            'notfound' => _buildNotFound(),
+            _ => _buildPending(), // pending & default
           },
         ),
       ),
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════
   // PENDING
-  // ════════════════════════════════════════════════════════════════════════════
-  Widget _buildPending(BuildContext context) {
+  // ══════════════════════════════════════════════════════════════
+  Widget _buildPending() {
     return SafeArea(
+      key: const ValueKey('pending'),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28),
         child: Column(
           children: [
             const Spacer(flex: 2),
-            _PulseIcon(ctrl: _pulseCtrl),
+            _PulseIcon(ctrl: _pulse),
             const SizedBox(height: 32),
             Text(
               'Menunggu Konfirmasi',
@@ -191,7 +176,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Halaman ini update otomatis setelah\npembayaran dikonfirmasi Flip.',
+              'Tekan "Cek Pembayaran" setelah selesai membayar\nuntuk memverifikasi statusmu.',
               style: AppText.body.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.6,
@@ -210,43 +195,28 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen>
                 _InfoRow(
                   Icons.book_rounded,
                   'Try Out',
-                  _tryoutTitle,
+                  _tryoutTitle.isEmpty ? '-' : _tryoutTitle,
                   AppColors.info,
                 ),
                 _InfoRow(
                   Icons.payments_rounded,
                   'Total',
-                  _currencyFmt.format(_amount),
+                  _amount == 0 ? '-' : _currencyFmt.format(_amount),
                   AppColors.gold,
-                ),
-                _InfoRow(
-                  Icons.timer_rounded,
-                  'Menunggu',
-                  _elapsedLabel,
-                  AppColors.warning,
                 ),
               ],
             ),
-            if (_showManualCheck) ...[
-              const SizedBox(height: 16),
-              _SecondaryButton(
-                icon: Icons.refresh_rounded,
-                label: 'Sudah Bayar? Cek Status',
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Mengecek status...',
-                      style: AppText.body.copyWith(color: AppColors.white),
-                    ),
-                    backgroundColor: AppColors.primary,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
-                    margin: const EdgeInsets.all(16),
-                  ),
-                ),
-              ),
-            ],
-            const Spacer(),
+            const SizedBox(height: 24),
+            // ✅ Tombol CEK PEMBAYARAN
+            _PrimaryButton(
+              icon: _checking
+                  ? Icons.hourglass_top_rounded
+                  : Icons.search_rounded,
+              label: _checking ? 'Mengecek...' : 'Cek Pembayaran',
+              color: AppColors.primary,
+              onTap: _checking ? () {} : () => _load(showFeedback: true),
+            ),
+            const SizedBox(height: 12),
             _SecondaryButton(
               icon: Icons.storefront_rounded,
               label: 'Kembali ke Marketplace',
@@ -262,11 +232,12 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen>
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════
   // SUCCESS
-  // ════════════════════════════════════════════════════════════════════════════
-  Widget _buildSuccess(BuildContext context) {
+  // ══════════════════════════════════════════════════════════════
+  Widget _buildSuccess() {
     return SafeArea(
+      key: const ValueKey('success'),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28),
         child: Column(
@@ -321,7 +292,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen>
                 _InfoRow(
                   Icons.book_rounded,
                   'Try Out',
-                  _tryoutTitle,
+                  _tryoutTitle.isEmpty ? '-' : _tryoutTitle,
                   AppColors.info,
                 ),
                 _InfoRow(
@@ -362,18 +333,17 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen>
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════
   // FAILED
-  // ════════════════════════════════════════════════════════════════════════════
-  Widget _buildFailed(BuildContext context, Map<String, dynamic> data) {
-    final reason = data['failureReason'] as String? ?? 'FAILED';
-    final reasonLabel = switch (reason) {
+  // ══════════════════════════════════════════════════════════════
+  Widget _buildFailed() {
+    final reasonLabel = switch (_failReason) {
       'EXPIRED' => 'Waktu pembayaran habis',
       'CANCELLED' => 'Pembayaran dibatalkan',
       _ => 'Pembayaran gagal diproses',
     };
-
     return SafeArea(
+      key: const ValueKey('failed'),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28),
         child: Column(
@@ -424,7 +394,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen>
                 _InfoRow(
                   Icons.book_rounded,
                   'Try Out',
-                  _tryoutTitle,
+                  _tryoutTitle.isEmpty ? '-' : _tryoutTitle,
                   AppColors.info,
                 ),
                 _InfoRow(
@@ -464,6 +434,47 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen>
     );
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // NOT FOUND
+  // ══════════════════════════════════════════════════════════════
+  Widget _buildNotFound() {
+    return SafeArea(
+      key: const ValueKey('notfound'),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.search_off_rounded,
+                size: 64,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Transaksi tidak ditemukan',
+                style: AppText.h2.copyWith(color: AppColors.textPrimary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Bill ID: ${widget.billLinkId}',
+                style: AppText.bodySm.copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 32),
+              _SecondaryButton(
+                icon: Icons.storefront_rounded,
+                label: 'Kembali ke Marketplace',
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Exit dialog ──────────────────────────────────────────────────────────────
   Future<bool?> _showExitDialog(BuildContext ctx) => showDialog<bool>(
     context: ctx,
@@ -472,7 +483,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen>
       shape: RoundedRectangleBorder(borderRadius: AppRadius.bLg),
       title: Text('Keluar dari halaman ini?', style: AppText.h3),
       content: Text(
-        'Pembayaran masih diproses. Jika sudah bayar, akses tryout aktif otomatis di "Try Out Saya".',
+        'Jika sudah bayar, tekan "Cek Pembayaran" dulu sebelum keluar.',
         style: AppText.body.copyWith(
           color: AppColors.textSecondary,
           height: 1.5,
@@ -592,8 +603,7 @@ class _InfoCard extends StatelessWidget {
 
 class _InfoRow extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final String value;
+  final String label, value;
   final Color color;
   const _InfoRow(this.icon, this.label, this.value, this.color);
 

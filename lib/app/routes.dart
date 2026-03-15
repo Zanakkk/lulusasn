@@ -22,50 +22,48 @@ import 'dart:html' as html;
 // ROUTE NAMES
 // ============================================================================
 
-
 abstract class AppRoutes {
   AppRoutes._();
 
-  static const splash              = '/';
-  static const login               = '/login';
-  static const register            = '/register';
-  static const forgotPassword      = '/forgot-password';
-  static const goalSetting         = '/goal-setting';
-  static const onboarding          = '/onboarding';
-  static const main                = '/main';
-  static const home                = '/home';
-  static const learn               = '/learn';
-  static const leaderboard         = '/leaderboard';
-  static const profile             = '/profile';
-  static const myTryout            = '/my-tryout';
-  static const purchaseTryout      = '/purchase-tryout';
-  static const tryoutDetail        = '/tryout-detail';
-  static const examList            = '/exam/list';
-  static const examPre             = '/exam/pre';
-  static const examSession         = '/exam/session';
-  static const examAd              = '/exam/ad';
-  static const examResult          = '/exam/result';
-  static const examReview          = '/exam/review';
-  static const learnCategory       = '/learn/category';
-  static const learnReview         = '/learn/review';
-  static const statistics          = '/profile/statistics';
-  static const achievements        = '/profile/achievements';
-  static const settings            = '/profile/settings';
-  static const diamondPurchase     = '/diamond';
-  static const premium             = '/premium';
-  static const payment             = '/payment';
-  static const paymentSuccess      = '/payment/success';
-  static const paymentFailed       = '/payment/failed';
+  static const splash = '/';
+  static const login = '/login';
+  static const register = '/register';
+  static const forgotPassword = '/forgot-password';
+  static const goalSetting = '/goal-setting';
+  static const onboarding = '/onboarding';
+  static const main = '/main';
+  static const home = '/home';
+  static const learn = '/learn';
+  static const leaderboard = '/leaderboard';
+  static const profile = '/profile';
+  static const myTryout = '/my-tryout';
+  static const purchaseTryout = '/purchase-tryout';
+  static const tryoutDetail = '/tryout-detail';
+  static const examList = '/exam/list';
+  static const examPre = '/exam/pre';
+  static const examSession = '/exam/session';
+  static const examAd = '/exam/ad';
+  static const examResult = '/exam/result';
+  static const examReview = '/exam/review';
+  static const learnCategory = '/learn/category';
+  static const learnReview = '/learn/review';
+  static const statistics = '/profile/statistics';
+  static const achievements = '/profile/achievements';
+  static const settings = '/profile/settings';
+  static const diamondPurchase = '/diamond';
+  static const premium = '/premium';
+  static const payment = '/payment';
+  static const paymentFailed = '/payment/failed';
 
   // ✅ Pakai prefix — billLinkId di-append saat push, di-parse saat deep link
   static const paymentStatusPrefix = '/payment/status/';
 
-  static const adminMain           = '/admin-main';
-  static const adminDashboard      = '/admin/dashboard';
-  static const adminCreateTO       = '/admin/create-to';
-  static const adminViewTO         = '/admin/view-to';
+  static const adminMain = '/admin-main';
+  static const adminDashboard = '/admin/dashboard';
+  static const adminCreateTO = '/admin/create-to';
+  static const adminViewTO = '/admin/view-to';
   static const adminVerificationTO = '/admin/verification';
-  static const notFound            = '/404';
+  static const notFound = '/404';
 
   // Helper: buat nama route lengkap dengan billLinkId
   static String paymentStatus(String billLinkId) =>
@@ -82,8 +80,12 @@ class AppRouter {
   // Flip redirect ke: https://app.web.app/#/payment/status/BILL_ID
   // Flutter Web membaca hash untuk menentukan initialRoute
   static String get initialRoute {
-    final hash = html.window.location.hash; // contoh: '#/payment/status/abc123'
-    final path = hash.startsWith('#') ? hash.substring(1) : hash;
+    final href = html.window.location.href; // full URL
+    // cari '#/payment/status/'
+    final idx = href.indexOf('#');
+    if (idx == -1) return AppRoutes.splash;
+    final path = href.substring(idx + 1); // ambil setelah '#'
+    debugPrint('🔍 href: $href → path: $path');
     if (path.startsWith(AppRoutes.paymentStatusPrefix)) return path;
     return AppRoutes.splash;
   }
@@ -102,12 +104,12 @@ class AppRouter {
       return _page(
         s,
         PaymentStatusScreen(
-          billLinkId:   billLinkId,
+          billLinkId: billLinkId,
           // Kalau dari deep link, field ini kosong string —
           // PaymentStatusScreen harus baca dari Firestore sendiri
-          tryoutId:     args['tryoutId']    as String? ?? '',
-          tryoutTitle:  args['tryoutTitle'] as String? ?? '',
-          amount:       args['amount']      as int?    ?? 0,
+          tryoutId: args['tryoutId'] as String? ?? '',
+          tryoutTitle: args['tryoutTitle'] as String? ?? '',
+          amount: args['amount'] as int? ?? 0,
         ),
       );
     }
@@ -168,7 +170,6 @@ class AppRouter {
   static MaterialPageRoute<dynamic> _fallback(RouteSettings s) =>
       MaterialPageRoute(settings: s, builder: (_) => const NotFoundScreen());
 }
-
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});

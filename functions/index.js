@@ -44,7 +44,6 @@ exports.createBill = functions.https.onRequest(async (req, res) => {
     return res.status(401).json({ error: "Token tidak valid." });
   }
 
-  // ✅ Tambah tryoutTitle — dipakai PaymentStatusScreen saat deep link dari Flip
   let { amount, tryoutId, tryoutTitle } = req.body;
   if (typeof amount === "string") amount = parseInt(amount, 10);
   if (!amount || isNaN(amount)) amount = 50000;
@@ -54,13 +53,13 @@ exports.createBill = functions.https.onRequest(async (req, res) => {
   console.log("📝 createBill:", { userId, userEmail, amount, tryoutId, tryoutTitle });
 
   try {
+    // ✅ Step 1: Buat bill TANPA redirect_url dulu (karena linkId belum ada)
     const response = await axios.post(
       `${FLIP_BASE_URL}/pwf/bill`,
       qs.stringify({
         title:               "Akses Try Out",
         amount:              amount,
         type:                "SINGLE",
-        redirect_url:        `${APP_BASE_URL}/#/payment/success`,
         is_address_required: 0,
         sender_name:         userEmail.split("@")[0] || "User",
         sender_email:        userEmail || "user@example.com",
@@ -72,12 +71,13 @@ exports.createBill = functions.https.onRequest(async (req, res) => {
     );
 
     const bill    = response.data;
-    const linkId  = String(bill.link_id);
+    const linkId  = String(bill.link_id);   // ✅ linkId sudah ada di sini
     const rawUrl  = bill.link_url || "";
     const linkUrl = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
 
     console.log("✅ Flip bill created - linkId:", linkId);
 
+    // ✅ Step 2: Patch redirect_url sekarang linkId sudah ada
     try {
       await axios.put(
         `${FLIP_BASE_URL}/pwf/bill/${linkId}`,
@@ -94,12 +94,12 @@ exports.createBill = functions.https.onRequest(async (req, res) => {
       console.warn("⚠️ Patch redirect_url gagal:", patchErr.message);
     }
 
-    // ✅ Tambah tryoutTitle ke Firestore
+    // ✅ Step 3: Simpan ke Firestore
     await db.collection("transactions").doc(linkId).set({
       userId,
       userEmail,
       tryoutId,
-      tryoutTitle,   // ← satu-satunya tambahan dari versi asli
+      tryoutTitle,
       amount,
       status:        "pending",
       paymentMethod: "flip",
@@ -135,11 +135,16 @@ exports.createBill = functions.https.onRequest(async (req, res) => {
 exports.flipCallback = functions.https.onRequest(async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
+  // ✅ Log semua request masuk untuk debugging
+  console.log("📩 flipCallback hit - method:", req.method);
+  console.log("📩 flipCallback body:", JSON.stringify(req.body));
+
   const bodyToken  = req.body?.token;
   const savedToken = FLIP_VALIDATION_TOKEN.value();
 
+  // ✅ Log detail token mismatch (tanpa expose token asli)
   if (!bodyToken || bodyToken !== savedToken) {
-    console.warn("❌ Token tidak valid:", bodyToken);
+    console.warn("❌ Token tidak valid. Received:", bodyToken ? "[ada tapi salah]" : "[kosong]");
     return res.status(403).send("Forbidden");
   }
 
@@ -147,10 +152,15 @@ exports.flipCallback = functions.https.onRequest(async (req, res) => {
     const raw = req.body?.data;
     if (!raw) return res.status(400).send("No data");
 
-    const payload = JSON.parse(raw);
-    console.log("📦 Flip callback payload:", payload);
+    const payload = typeof raw === "string" ? JSON.parse(raw) : raw;
+    console.log("📦 Flip callback payload:", JSON.stringify(payload));
 
     const { bill_link_id, status, amount } = payload;
+    if (!bill_link_id) {
+      console.warn("⚠️ bill_link_id tidak ada di payload");
+      return res.status(200).send("OK");
+    }
+
     const linkId = String(bill_link_id);
     const txRef  = db.collection("transactions").doc(linkId);
     const txDoc  = await txRef.get();
@@ -161,6 +171,7 @@ exports.flipCallback = functions.https.onRequest(async (req, res) => {
     }
 
     const { userId, tryoutId } = txDoc.data();
+    console.log(`ℹ️ Processing status: ${status} for linkId: ${linkId}`);
 
     // ── SUCCESSFUL ───────────────────────────────────────────────────────────
     if (status === "SUCCESSFUL") {
@@ -202,11 +213,9 @@ exports.flipCallback = functions.https.onRequest(async (req, res) => {
         failedAt:      admin.firestore.FieldValue.serverTimestamp(),
         failureReason: status,
       });
-
       console.log(`❌ Pembayaran gagal - linkId: ${linkId}, reason: ${status}`);
     }
 
-    // ── Status lain (PENDING, dll) ────────────────────────────────────────────
     else {
       console.log(`ℹ️ Status webhook diabaikan: ${status} - linkId: ${linkId}`);
     }
@@ -214,7 +223,7 @@ exports.flipCallback = functions.https.onRequest(async (req, res) => {
     return res.status(200).send("OK");
 
   } catch (err) {
-    console.error("flipCallback error:", err.message);
-    return res.status(200).send("OK");
+    console.error("flipCallback error:", err.message, err.stack);
+    return res.status(200).send("OK"); // selalu 200 agar Flip tidak retry terus
   }
 });
