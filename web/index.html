@@ -1,378 +1,869 @@
 <!DOCTYPE html>
 <html lang="id" dir="ltr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=5.0,viewport-fit=cover">
+<title>Luluzzz – Latihan Soal CPNS, LPDP & BUMN</title>
+<meta name="description" content="Platform latihan ujian online CPNS, LPDP, dan BUMN. Soal adaptif, skor otomatis, pembahasan lengkap. Belajar lebih cerdas, lulus lebih cepat.">
+<meta name="keywords" content="CPNS,BUMN,LPDP,SKD,TWK,TIU,TKP,latihan soal,tryout online,luluzzz">
+<meta name="theme-color" content="#0F172A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Luluzzz">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Luluzzz – Latihan Soal CPNS, LPDP & BUMN">
+<meta property="og:description" content="Soal adaptif, skor otomatis, pembahasan lengkap. Lulus lebih cepat.">
+<meta property="og:url" content="https://lulusasn-e15a3.web.app/">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230F172A'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='38' font-family='system-ui'>🎓</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
-    <!-- ══════════════════════════════════════════════
-         SEO — Primary
-    ══════════════════════════════════════════════ -->
-    <title>Luluzzz – Platform Latihan Ujian CPNS, BUMN & Kedinasan</title>
-    <meta name="description" content="Platform latihan ujian online untuk CPNS, BUMN, dan Kedinasan. Soal adaptif, sistem gamifikasi, dan pembahasan lengkap. Belajar lebih cerdas, lulus lebih cepat.">
-    <meta name="keywords" content="CPNS, BUMN, Kedinasan, SKD, TWK, TIU, TKP, latihan soal, ujian online, tryout CPNS 2025, bimbel ASN, luluzzz">
-    <meta name="author" content="Luluzzz">
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-    <meta name="rating" content="general">
-    <meta name="format-detection" content="telephone=no">
-    <link rel="canonical" href="https://luluzzz.id/">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --navy:#0F172A;--navy2:#1E293B;--gold:#D4AF37;--gold2:#F0D060;
+  --white:#FFFFFF;--bg:#F8F9FC;--surface:#FFFFFF;
+  --border:#E2E8F0;--text1:#0F172A;--text2:#64748B;--text3:#B0B8C8;
+  --success:#10B981;--info:#3B82F6;--error:#EF4444;--warning:#F59E0B;
+  --r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:24px;--r-full:999px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+  background:var(--bg);overflow-x:hidden;width:100%;height:100%}
 
-    <!-- ══════════════════════════════════════════════
-         SEO — Open Graph
-    ══════════════════════════════════════════════ -->
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Luluzzz">
-    <meta property="og:title" content="Luluzzz – Platform Latihan Ujian CPNS, BUMN & Kedinasan">
-    <meta property="og:description" content="Soal adaptif, gamifikasi, dan pembahasan lengkap. Belajar lebih cerdas, lulus lebih cepat.">
-    <meta property="og:url" content="https://luluzzz.id/">
-    <meta property="og:image" content="https://luluzzz.id/assets/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Luluzzz – Platform Latihan Ujian Online">
-    <meta property="og:locale" content="id_ID">
+/* ════════════════════════════════════════
+   FLUTTER LAYER — di bawah landing
+════════════════════════════════════════ */
+#app-container{
+  position:fixed;inset:0;z-index:1;
+  opacity:0;visibility:hidden;
+  transition:opacity .6s ease,visibility .6s ease;
+}
+body.flutter-enter #app-container{opacity:1;visibility:visible}
 
-    <!-- ══════════════════════════════════════════════
-         SEO — Twitter Card
-    ══════════════════════════════════════════════ -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:site" content="@luluzzz_id">
-    <meta name="twitter:title" content="Luluzzz – Platform Latihan Ujian CPNS, BUMN & Kedinasan">
-    <meta name="twitter:description" content="Soal adaptif, gamifikasi, dan pembahasan lengkap.">
-    <meta name="twitter:image" content="https://luluzzz.id/assets/og-image.png">
-    <meta name="twitter:image:alt" content="Luluzzz – Platform Latihan Ujian Online">
+/* ════════════════════════════════════════
+   LANDING LAYER — di atas flutter
+════════════════════════════════════════ */
+#lz-landing{
+  position:relative;z-index:10;
+  background:var(--white);
+  min-height:100vh;
+  transition:opacity .5s ease,visibility .5s ease,transform .5s ease;
+}
+body.flutter-enter #lz-landing{
+  opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-12px);
+}
 
-    <!-- ══════════════════════════════════════════════
-         PWA & Mobile
-    ══════════════════════════════════════════════ -->
-    <meta name="theme-color" content="#0F172A">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Luluzzz">
-    <meta name="application-name" content="Luluzzz">
-    <link rel="manifest" href="manifest.json">
+/* ════════════════════════════════════════
+   FLUTTER MINI LOADER — pojok kanan bawah
+════════════════════════════════════════ */
+#flutter-status{
+  position:fixed;bottom:20px;right:20px;z-index:50;
+  display:flex;align-items:center;gap:8px;
+  background:var(--white);border:1px solid var(--border);
+  border-radius:var(--r-full);padding:8px 14px;
+  box-shadow:0 4px 16px rgba(15,23,42,.1);
+  font-size:12px;font-weight:600;color:var(--text2);
+  transition:opacity .3s,transform .3s;
+}
+#flutter-status.hide{opacity:0;transform:translateY(8px);pointer-events:none}
+.fs-dot{width:7px;height:7px;border-radius:50%;background:var(--warning);
+  animation:fs-pulse 1.2s infinite}
+#flutter-status.ready .fs-dot{background:var(--success);animation:none}
+@keyframes fs-pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-    <!-- ══════════════════════════════════════════════
-         Favicons — SVG-first approach (zero extra request)
-    ══════════════════════════════════════════════ -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230F172A'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='38' font-family='system-ui'>🎓</text></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230F172A'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='38' font-family='system-ui'>🎓</text></svg>">
+/* ════════════════════════════════════════
+   NAV
+════════════════════════════════════════ */
+.nav{
+  position:sticky;top:0;z-index:40;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+  padding:0 clamp(16px,4vw,64px);height:64px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.nav-logo-icon{width:36px;height:36px;border-radius:10px;background:var(--navy);
+  display:flex;align-items:center;justify-content:center;font-size:18px}
+.nav-wordmark{font-size:20px;font-weight:800;letter-spacing:-.5px;color:var(--navy)}
+.nav-wordmark em{font-style:normal;background:linear-gradient(90deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;align-items:center;gap:2px}
+.nav-link{padding:8px 13px;border-radius:var(--r-md);font-size:14px;font-weight:600;
+  color:var(--text2);text-decoration:none;transition:all .15s}
+.nav-link:hover{color:var(--navy);background:var(--bg)}
+.nav-right{display:flex;align-items:center;gap:8px}
+.nav-masuk{padding:9px 18px;border-radius:var(--r-md);font-size:14px;font-weight:700;
+  background:transparent;color:var(--navy);border:1.5px solid var(--border);
+  cursor:pointer;text-decoration:none;transition:all .15s}
+.nav-masuk:hover{border-color:var(--navy);background:var(--bg)}
+.nav-cta{padding:9px 20px;border-radius:var(--r-md);font-size:14px;font-weight:700;
+  background:var(--navy);color:var(--white);border:none;cursor:pointer;
+  text-decoration:none;transition:all .15s;display:flex;align-items:center;gap:6px}
+.nav-cta:hover{background:var(--navy2)}
+.nav-cta .nav-ready-dot{display:none;width:7px;height:7px;border-radius:50%;background:#4ade80}
+body.flutter-ready .nav-cta .nav-ready-dot{display:block}
+@media(max-width:640px){.nav-links,.nav-masuk{display:none}}
 
-    <!-- ══════════════════════════════════════════════
-         Performance Hints
-    ══════════════════════════════════════════════ -->
-    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
-    <link rel="dns-prefetch" href="https://www.googleapis.com">
-    <link rel="preload" href="flutter.js" as="script">
-    <link rel="preload" href="main.dart.js" as="script">
+/* ════════════════════════════════════════
+   COUNTDOWN BAR
+════════════════════════════════════════ */
+.cd-bar{
+  background:var(--navy);
+  padding:12px clamp(16px,4vw,48px);
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;
+}
+.cd-left{display:flex;align-items:center;gap:10px}
+.cd-title{font-size:13px;font-weight:700;color:var(--white)}
+.cd-sub{font-size:11px;color:rgba(255,255,255,.45);font-style:italic}
+.cd-timer{display:flex;align-items:center;gap:5px}
+.cd-block{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:var(--r-sm);padding:6px 10px;text-align:center;min-width:46px}
+.cd-num{font-size:20px;font-weight:800;color:var(--white);line-height:1;
+  font-variant-numeric:tabular-nums}
+.cd-lbl{font-size:9px;font-weight:600;color:rgba(255,255,255,.45);
+  letter-spacing:.5px;text-transform:uppercase}
+.cd-sep{font-size:16px;font-weight:700;color:var(--gold)}
 
-    <!-- ══════════════════════════════════════════════
-         Structured Data — JSON-LD
-    ══════════════════════════════════════════════ -->
-    <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "WebApplication",
-            "name": "Luluzzz",
-            "url": "https://luluzzz.id",
-            "description": "Platform latihan ujian online untuk CPNS, BUMN, dan Kedinasan dengan soal adaptif dan sistem gamifikasi.",
-            "applicationCategory": "EducationApplication",
-            "operatingSystem": "Web, Android, iOS",
-            "inLanguage": "id-ID",
-            "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "IDR"
-            },
-            "publisher": {
-                "@type": "Organization",
-                "name": "Luluzzz",
-                "url": "https://luluzzz.id",
-                "logo": "https://luluzzz.id/assets/logo.png"
-            }
-        }
-    </script>
+/* ════════════════════════════════════════
+   HERO
+════════════════════════════════════════ */
+.hero{
+  max-width:1100px;margin:0 auto;
+  padding:clamp(48px,7vw,88px) clamp(16px,4vw,48px) clamp(32px,5vw,64px);
+  display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;
+}
+@media(max-width:768px){.hero{grid-template-columns:1fr;text-align:center;gap:32px}}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;
+  border-radius:var(--r-full);
+  background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);
+  margin-bottom:20px}
+.hero-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);
+  animation:bdot 2s infinite}
+@keyframes bdot{0%,100%{opacity:1}50%{opacity:.4}}
+.hero-badge-text{font-size:12px;font-weight:700;color:#92610b;letter-spacing:.2px}
+.hero-title{font-size:clamp(30px,4.5vw,52px);font-weight:800;line-height:1.1;
+  letter-spacing:-1.5px;color:var(--navy);margin-bottom:18px}
+.hero-title em{font-style:normal;
+  background:linear-gradient(90deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-desc{font-size:16px;line-height:1.75;color:var(--text2);
+  margin-bottom:32px;max-width:460px}
+@media(max-width:768px){.hero-desc{margin-inline:auto}}
+.hero-btns{display:flex;gap:10px;flex-wrap:wrap}
+@media(max-width:768px){.hero-btns{justify-content:center}}
+.btn-enter{padding:14px 28px;border-radius:var(--r-md);font-size:15px;font-weight:700;
+  background:var(--navy);color:var(--white);border:none;cursor:pointer;
+  text-decoration:none;transition:all .2s;
+  display:inline-flex;align-items:center;gap:8px;position:relative;overflow:hidden}
+.btn-enter:hover{background:var(--navy2);transform:translateY(-2px);
+  box-shadow:0 8px 20px rgba(15,23,42,.2)}
+.btn-enter .btn-spin{width:16px;height:16px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.3);border-top-color:var(--white);
+  animation:spin .7s linear infinite;display:none}
+body.flutter-loading .btn-enter .btn-spin{display:block}
+body.flutter-loading .btn-enter .btn-arrow{display:none}
+.btn-try{padding:14px 22px;border-radius:var(--r-md);font-size:15px;font-weight:600;
+  background:transparent;color:var(--navy);border:1.5px solid var(--border);
+  cursor:pointer;text-decoration:none;transition:all .2s;
+  display:inline-flex;align-items:center;gap:6px}
+.btn-try:hover{border-color:var(--navy);background:var(--bg)}
+.hero-social{display:flex;align-items:center;gap:12px;margin-top:24px}
+@media(max-width:768px){.hero-social{justify-content:center}}
+.avatars{display:flex}
+.av{width:30px;height:30px;border-radius:50%;border:2px solid var(--white);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:var(--white);margin-left:-7px}
+.avatars .av:first-child{margin-left:0}
+.hero-social-txt{font-size:13px;color:var(--text2)}
+.hero-social-txt strong{color:var(--navy);font-weight:700}
 
-    <!-- ══════════════════════════════════════════════
-         Critical CSS — inline untuk zero render-block
-         Palette: Navy #0F172A | Gold #D4AF37 | White #FFFFFF
-         Bg: #F8F9FC | Surface: #FFFFFF
-    ══════════════════════════════════════════════ -->
-    <style>
-        *, *::before, *::after {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
+/* Hero visual */
+.hero-visual{position:relative}
+@media(max-width:768px){.hero-visual{display:none}}
+.hv-card{background:var(--white);border:1px solid var(--border);
+  border-radius:var(--r-xl);padding:22px;
+  box-shadow:0 16px 48px rgba(15,23,42,.08)}
+.hv-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.hv-icon{width:42px;height:42px;border-radius:var(--r-md);background:var(--navy);
+  display:flex;align-items:center;justify-content:center;font-size:20px}
+.hv-title{font-size:14px;font-weight:700;color:var(--navy)}
+.hv-sub{font-size:12px;color:var(--text2)}
+.prog-row{margin-bottom:10px}
+.prog-labels{display:flex;justify-content:space-between;margin-bottom:5px}
+.prog-labels span{font-size:12px;font-weight:600;color:var(--text2)}
+.prog-labels strong{font-size:12px;font-weight:700;color:var(--navy)}
+.prog-bar{height:7px;background:var(--bg);border-radius:var(--r-full);overflow:hidden}
+.prog-fill{height:100%;border-radius:var(--r-full)}
+.hv-stats{display:flex;gap:0;margin-top:16px;padding-top:16px;
+  border-top:1px solid var(--border)}
+.hv-stat{flex:1;text-align:center}
+.hv-stat-val{font-size:20px;font-weight:800;color:var(--navy)}
+.hv-stat-lbl{font-size:10px;color:var(--text2);font-weight:600;margin-top:2px}
+.hv-float{position:absolute;background:var(--white);border:1px solid var(--border);
+  border-radius:var(--r-md);padding:10px 14px;
+  box-shadow:0 8px 24px rgba(15,23,42,.1);
+  display:flex;align-items:center;gap:9px}
+.hv-float-icon{width:30px;height:30px;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center;font-size:14px}
+.hv-float-title{font-size:12px;font-weight:700;color:var(--navy)}
+.hv-float-sub{font-size:11px;color:var(--text2)}
 
-        :root {
-          --navy:   #0F172A;
-          --navy2:  #1E293B;
-          --gold:   #D4AF37;
-          --gold2:  #F0D060;
-          --white:  #FFFFFF;
-          --bg:     #F8F9FC;
-          --border: #E2E8F0;
-          --text-secondary: #64748B;
-        }
+/* ════════════════════════════════════════
+   STATS BAR
+════════════════════════════════════════ */
+.stats-bar{background:var(--navy);padding:clamp(20px,3vw,28px) clamp(16px,4vw,48px)}
+.stats-inner{max-width:1100px;margin:0 auto;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px}
+.stat-item{text-align:center;padding:16px 8px;position:relative}
+.stat-item:not(:last-child)::after{content:'';position:absolute;right:0;top:25%;
+  height:50%;width:1px;background:rgba(255,255,255,.08)}
+.stat-val{font-size:clamp(22px,3vw,32px);font-weight:800;
+  background:linear-gradient(90deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-lbl{font-size:12px;color:rgba(255,255,255,.5);font-weight:500;margin-top:3px}
 
-        html, body {
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          background: var(--bg);
-          /* Plus Jakarta Sans via system stack — font load terjadi di Flutter */
-          font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
-          text-rendering: optimizeLegibility;
-        }
+/* ════════════════════════════════════════
+   SECTION COMMONS
+════════════════════════════════════════ */
+.sec{padding:clamp(48px,7vw,80px) clamp(16px,4vw,48px)}
+.sec-inner{max-width:1100px;margin:0 auto}
+.sec-eyebrow{font-size:11px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--gold);
+  display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sec-eyebrow::before{content:'';display:block;width:20px;height:2px;
+  background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:var(--r-full)}
+.sec-title{font-size:clamp(22px,3vw,34px);font-weight:800;letter-spacing:-1px;
+  color:var(--navy);margin-bottom:10px;line-height:1.2}
+.sec-desc{font-size:15px;color:var(--text2);line-height:1.7;max-width:540px}
 
-        /* ── Loading screen ─────────────────────────────── */
-        #lz-loading {
-          position: fixed;
-          inset: 0;
-          background: var(--white);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 32px;
-          z-index: 9999;
-          /* Safe area for notched devices */
-          padding: env(safe-area-inset-top) env(safe-area-inset-right)
-                   env(safe-area-inset-bottom) env(safe-area-inset-left);
-          transition: opacity 0.4s ease, visibility 0.4s ease;
-        }
+/* fade-up */
+.fu{opacity:0;transform:translateY(20px);transition:opacity .5s ease,transform .5s ease}
+.fu.vis{opacity:1;transform:none}
 
-        /* ── Brand mark ─────────────────────────────────── */
-        .lz-brand {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 12px;
-        }
+/* ════════════════════════════════════════
+   TRYOUT
+════════════════════════════════════════ */
+.t-filters{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 18px}
+.t-filter{padding:8px 18px;border-radius:var(--r-full);font-size:13px;font-weight:600;
+  border:1.5px solid var(--border);background:var(--white);color:var(--text2);
+  cursor:pointer;transition:all .15s}
+.t-filter.on,.t-filter:hover{border-color:var(--navy);background:var(--navy);color:var(--white)}
+.t-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.t-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:20px;cursor:pointer;transition:all .2s;text-decoration:none;display:block}
+.t-card:hover{border-color:var(--navy);box-shadow:0 8px 24px rgba(15,23,42,.08);
+  transform:translateY(-2px)}
+.t-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+  border-radius:var(--r-full);font-size:11px;font-weight:700;margin-bottom:12px}
+.b-lpdp{background:rgba(59,130,246,.1);color:#1d4ed8}
+.b-cpns{background:rgba(16,185,129,.1);color:#065f46}
+.b-bumn{background:rgba(245,158,11,.1);color:#92400e}
+.b-free{background:rgba(212,175,55,.12);color:#7a5200;border:1px solid rgba(212,175,55,.35)}
+.t-title{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:8px;line-height:1.4}
+.t-meta{display:flex;gap:10px;margin-bottom:14px}
+.t-meta span{font-size:12px;color:var(--text2)}
+.t-price{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.p-new{font-size:18px;font-weight:800;color:var(--navy)}
+.p-old{font-size:13px;color:var(--text3);text-decoration:line-through}
+.p-disc{padding:2px 8px;border-radius:var(--r-full);font-size:10px;font-weight:700;
+  background:rgba(239,68,68,.1);color:#b91c1c}
+.p-free{font-size:18px;font-weight:800;color:var(--success)}
+.skel{background:linear-gradient(90deg,var(--bg) 25%,#e8ecf4 50%,var(--bg) 75%);
+  background-size:200%;border-radius:var(--r-md);animation:skel 1.4s infinite}
+@keyframes skel{0%{background-position:200%}100%{background-position:-200%}}
 
-        .lz-logo-wrap {
-          width: 64px;
-          height: 64px;
-          border-radius: 18px;
-          background: linear-gradient(135deg, var(--navy), var(--navy2));
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 32px;
-          line-height: 1;
-          box-shadow: 0 8px 24px rgba(15,23,42,0.18);
-        }
 
-        .lz-wordmark {
-          font-size: 28px;
-          font-weight: 800;
-          letter-spacing: -1px;
-          color: var(--navy);
-          line-height: 1;
-        }
 
-        .lz-wordmark span {
-          /* Gold accent on last "z" */
-          background: linear-gradient(90deg, var(--gold), var(--gold2));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
+/* ════════════════════════════════════════
+   TESTIMONIALS
+════════════════════════════════════════ */
+.tg{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));
+  gap:14px;margin-top:28px}
+.tc{background:var(--white);border:1px solid var(--border);
+  border-radius:var(--r-lg);padding:24px}
+.tc-stars{font-size:14px;margin-bottom:12px;letter-spacing:1px}
+.tc-text{font-size:14px;line-height:1.75;color:var(--text2);
+  margin-bottom:16px;font-style:italic}
+.tc-author{display:flex;align-items:center;gap:10px}
+.tc-av{width:38px;height:38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:var(--white);flex-shrink:0}
+.tc-name{font-size:13px;font-weight:700;color:var(--navy)}
+.tc-role{font-size:11px;color:var(--text2);margin-top:1px}
 
-        .lz-tagline {
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--text-secondary);
-          letter-spacing: 0.2px;
-          text-align: center;
-        }
+/* ════════════════════════════════════════
+   FAQ
+════════════════════════════════════════ */
+.faq{margin-top:28px;display:flex;flex-direction:column;gap:8px;max-width:700px}
+.faq-item{background:var(--white);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden}
+.faq-q{width:100%;padding:16px 20px;text-align:left;background:none;border:none;
+  cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.faq-qt{font-size:14px;font-weight:700;color:var(--navy)}
+.faq-ic{font-size:20px;color:var(--text3);transition:transform .25s;line-height:1}
+.faq-item.open .faq-ic{transform:rotate(45deg);color:var(--navy)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.faq-item.open .faq-a{max-height:200px}
+.faq-ap{padding:0 20px 16px;font-size:14px;color:var(--text2);line-height:1.7}
 
-        /* ── Gold accent bar ────────────────────────────── */
-        .lz-gold-bar {
-          width: 48px;
-          height: 3px;
-          border-radius: 999px;
-          background: linear-gradient(90deg, var(--gold), var(--gold2));
-        }
+/* ════════════════════════════════════════
+   CTA BANNER
+════════════════════════════════════════ */
+.cta-wrap{padding:0 clamp(16px,4vw,48px) clamp(48px,6vw,72px)}
+.cta-inner{max-width:1100px;margin:0 auto}
+.cta-box{background:linear-gradient(135deg,var(--navy),var(--navy2));
+  border-radius:var(--r-xl);padding:clamp(36px,5vw,64px) clamp(24px,4vw,56px);
+  text-align:center}
+.cta-eyebrow{font-size:11px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+.cta-title{font-size:clamp(22px,3vw,38px);font-weight:800;color:var(--white);
+  letter-spacing:-1px;margin-bottom:10px}
+.cta-desc{font-size:15px;color:rgba(255,255,255,.55);margin-bottom:28px}
+.cta-btns{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.btn-gold{padding:14px 32px;border-radius:var(--r-md);font-size:15px;font-weight:700;
+  background:linear-gradient(90deg,var(--gold),var(--gold2));color:var(--navy);
+  border:none;cursor:pointer;text-decoration:none;transition:all .2s;
+  display:inline-flex;align-items:center;gap:8px}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(212,175,55,.25)}
+.btn-ghost{padding:14px 24px;border-radius:var(--r-md);font-size:15px;font-weight:600;
+  background:transparent;color:rgba(255,255,255,.65);
+  border:1.5px solid rgba(255,255,255,.18);cursor:pointer;
+  text-decoration:none;transition:all .2s;display:inline-flex;align-items:center}
+.btn-ghost:hover{color:var(--white);border-color:rgba(255,255,255,.35)}
 
-        /* ── Spinner — dual ring ────────────────────────── */
-        .lz-spinner-wrap {
-          position: relative;
-          width: 44px;
-          height: 44px;
-        }
+/* ════════════════════════════════════════
+   FOOTER
+════════════════════════════════════════ */
+footer{background:var(--navy);padding:clamp(36px,5vw,52px) clamp(16px,4vw,48px)}
+.footer-grid{max-width:1100px;margin:0 auto;
+  display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px}
+@media(max-width:768px){.footer-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.footer-grid{grid-template-columns:1fr}}
+.footer-brand{font-size:18px;font-weight:800;color:var(--white);margin-bottom:8px;letter-spacing:-.5px}
+.footer-brand em{font-style:normal;background:linear-gradient(90deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.footer-desc{font-size:13px;color:rgba(255,255,255,.38);line-height:1.7}
+.footer-col-title{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  color:rgba(255,255,255,.28);margin-bottom:12px}
+.footer-link{display:block;font-size:13px;color:rgba(255,255,255,.5);
+  text-decoration:none;margin-bottom:8px;transition:color .15s}
+.footer-link:hover{color:var(--white)}
+.footer-bottom{max-width:1100px;margin:28px auto 0;padding-top:20px;
+  border-top:1px solid rgba(255,255,255,.07);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.footer-copy{font-size:12px;color:rgba(255,255,255,.22)}
 
-        .lz-ring {
-          position: absolute;
-          inset: 0;
-          border-radius: 50%;
-          border: 3px solid transparent;
-        }
-
-        .lz-ring-outer {
-          border-color: rgba(212, 175, 55, 0.25);
-        }
-
-        .lz-ring-inner {
-          border-top-color: var(--navy);
-          border-right-color: transparent;
-          border-bottom-color: transparent;
-          border-left-color: transparent;
-          animation: lz-spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-
-        @keyframes lz-spin {
-          to { transform: rotate(360deg); }
-        }
-
-        /* ── Loading text ───────────────────────────────── */
-        .lz-loading-label {
-          font-size: 12px;
-          font-weight: 600;
-          letter-spacing: 1.5px;
-          color: var(--text-secondary);
-          text-transform: uppercase;
-        }
-
-        /* ── Hide state ─────────────────────────────────── */
-        .flutter-loaded #lz-loading {
-          opacity: 0;
-          visibility: hidden;
-          pointer-events: none;
-        }
-
-        /* ── Fade-in app ────────────────────────────────── */
-        #app-container {
-          width: 100%;
-          height: 100%;
-        }
-
-        /* ── Noscript fallback ──────────────────────────── */
-        .lz-noscript {
-          position: fixed;
-          inset: 0;
-          background: var(--bg);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 16px;
-          padding: 32px;
-          text-align: center;
-          z-index: 99999;
-        }
-
-        .lz-noscript h1 {
-          font-size: 20px;
-          font-weight: 700;
-          color: var(--navy);
-        }
-
-        .lz-noscript p {
-          font-size: 14px;
-          color: var(--text-secondary);
-          max-width: 320px;
-        }
-
-        /* ── Reduced motion ─────────────────────────────── */
-        @media (prefers-reduced-motion: reduce) {
-          .lz-ring-inner { animation-duration: 1.5s; }
-          #lz-loading { transition: none; }
-        }
-    </style>
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:480px){.bundle-grid,.tg{grid-template-columns:1fr}}
+</style>
 </head>
-
 <body>
 
-<!-- No-JS fallback -->
-<noscript>
-    <div class="lz-noscript">
-        <div style="font-size:40px">🎓</div>
-        <h1>JavaScript Diperlukan</h1>
-        <p>Luluzzz membutuhkan JavaScript untuk berjalan. Aktifkan JavaScript di browser kamu dan muat ulang halaman.</p>
-    </div>
-</noscript>
-
-<!-- ── Loading Screen ────────────────────────────── -->
-<div id="lz-loading" role="status" aria-label="Memuat aplikasi Luluzzz" aria-live="polite">
-    <div class="lz-brand">
-        <div class="lz-logo-wrap" aria-hidden="true">🎓</div>
-        <div class="lz-wordmark" aria-hidden="true">Luluz<span>zz</span></div>
-        <div class="lz-gold-bar" aria-hidden="true"></div>
-        <p class="lz-tagline">Platform Latihan Ujian Online</p>
-    </div>
-
-    <div class="lz-spinner-wrap" aria-hidden="true">
-        <div class="lz-ring lz-ring-outer"></div>
-        <div class="lz-ring lz-ring-inner"></div>
-    </div>
-
-    <p class="lz-loading-label" aria-hidden="true">Memuat...</p>
-</div>
-
-<!-- ── Flutter App Container ─────────────────────── -->
+<!-- ══════════════════════════════════════
+     FLUTTER CONTAINER (background, z:1)
+══════════════════════════════════════ -->
 <div id="app-container"></div>
 
-<!-- ── Bootstrap Script ──────────────────────────── -->
+<!-- Flutter mini status pill -->
+<div id="flutter-status">
+  <div class="fs-dot"></div>
+  <span id="fs-text">Memuat app...</span>
+</div>
+
+<!-- ══════════════════════════════════════
+     LANDING PAGE (foreground, z:10)
+══════════════════════════════════════ -->
+<div id="lz-landing">
+
+  <!-- NAV -->
+  <nav class="nav">
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-icon">🎓</div>
+      <div class="nav-wordmark">Luluz<em>zz</em></div>
+    </a>
+    <div class="nav-links">
+      <a href="#tryout" class="nav-link">Tryout</a>
+      <a href="#testimoni" class="nav-link">Testimoni</a>
+      <a href="#faq" class="nav-link">FAQ</a>
+    </div>
+    <div class="nav-right">
+      <a href="#" class="nav-masuk cta-btn">Masuk</a>
+      <a href="#" class="nav-cta cta-btn">
+        <div class="nav-ready-dot"></div>
+        Mulai Gratis →
+      </a>
+    </div>
+  </nav>
+
+  <!-- COUNTDOWN -->
+  <div class="cd-bar">
+    <div class="cd-left">
+      <span style="font-size:18px">⚡</span>
+      <div>
+        <div class="cd-title">PROMO MINGGU INI — Diskon hingga 40%!</div>
+        <div class="cd-sub">Harga normal berlaku setelah promo berakhir</div>
+      </div>
+    </div>
+    <div class="cd-timer">
+      <div class="cd-block"><div class="cd-num" id="cd-d">06</div><div class="cd-lbl">Hari</div></div>
+      <div class="cd-sep">:</div>
+      <div class="cd-block"><div class="cd-num" id="cd-h">11</div><div class="cd-lbl">Jam</div></div>
+      <div class="cd-sep">:</div>
+      <div class="cd-block"><div class="cd-num" id="cd-m">26</div><div class="cd-lbl">Menit</div></div>
+      <div class="cd-sep">:</div>
+      <div class="cd-block"><div class="cd-num" id="cd-s">17</div><div class="cd-lbl">Detik</div></div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <section class="sec" style="padding-bottom:0">
+    <div class="hero">
+      <div>
+        <div class="hero-badge">
+          <div class="hero-badge-dot"></div>
+          <span class="hero-badge-text">Platform #1 Latihan CPNS · LPDP · BUMN</span>
+        </div>
+        <h1 class="hero-title">Latihan Lebih Cerdas,<br><em>Lulus Lebih Cepat</em></h1>
+        <p class="hero-desc">Ribuan soal CPNS, LPDP, dan BUMN dengan pembahasan lengkap, timer real, dan skor otomatis — persis seperti ujian aslinya.</p>
+        <div class="hero-btns">
+          <a href="#" class="btn-enter cta-btn">
+            <div class="btn-spin"></div>
+            <span class="btn-arrow">Mulai Gratis Sekarang →</span>
+          </a>
+          <a href="#tryout" class="btn-try">Lihat Tryout</a>
+        </div>
+        <div class="hero-social">
+          <div class="avatars">
+            <div class="av" style="background:linear-gradient(135deg,#3B82F6,#0F172A)">A</div>
+            <div class="av" style="background:linear-gradient(135deg,#10B981,#065f46)">B</div>
+            <div class="av" style="background:linear-gradient(135deg,#F59E0B,#92400e)">C</div>
+            <div class="av" style="background:linear-gradient(135deg,#EF4444,#7f1d1d)">D</div>
+          </div>
+          <p class="hero-social-txt">Bergabung dengan <strong>1.000+</strong> peserta aktif</p>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hv-card">
+          <div class="hv-head">
+            <div class="hv-icon">📋</div>
+            <div>
+              <div class="hv-title">SKD CPNS 2025 — Sesi 3</div>
+              <div class="hv-sub">110 soal · 100 menit</div>
+            </div>
+          </div>
+          <div class="prog-row">
+            <div class="prog-labels"><span>TWK</span><strong>24/30</strong></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:80%;background:linear-gradient(90deg,var(--navy),var(--info))"></div></div>
+          </div>
+          <div class="prog-row">
+            <div class="prog-labels"><span>TIU</span><strong>28/35</strong></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:80%;background:linear-gradient(90deg,var(--info),var(--success))"></div></div>
+          </div>
+          <div class="prog-row">
+            <div class="prog-labels"><span>TKP</span><strong>38/45</strong></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:84%;background:linear-gradient(90deg,var(--gold),var(--gold2))"></div></div>
+          </div>
+          <div class="hv-stats">
+            <div class="hv-stat"><div class="hv-stat-val">472</div><div class="hv-stat-lbl">Skor</div></div>
+            <div class="hv-stat"><div class="hv-stat-val">89%</div><div class="hv-stat-lbl">Akurasi</div></div>
+            <div class="hv-stat"><div class="hv-stat-val">42m</div><div class="hv-stat-lbl">Waktu</div></div>
+          </div>
+        </div>
+        <div class="hv-float" style="right:-14px;top:24px">
+          <div class="hv-float-icon" style="background:rgba(16,185,129,.1)">✅</div>
+          <div>
+            <div class="hv-float-title">Lulus Passing Grade!</div>
+            <div class="hv-float-sub">TWK 85 · TIU 100 · TKP 156</div>
+          </div>
+        </div>
+        <div class="hv-float" style="left:-14px;bottom:28px">
+          <div class="hv-float-icon" style="background:rgba(239,68,68,.1)">🔥</div>
+          <div>
+            <div class="hv-float-title">1.247 latihan hari ini</div>
+            <div class="hv-float-sub">Live update</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar fu">
+    <div class="stats-inner">
+      <div class="stat-item"><div class="stat-val">1.000+</div><div class="stat-lbl">Peserta Aktif</div></div>
+      <div class="stat-item"><div class="stat-val" id="stat-to">30+</div><div class="stat-lbl">Paket Tryout</div></div>
+      <div class="stat-item"><div class="stat-val">CPNS · LPDP · BUMN</div><div class="stat-lbl">Kategori Ujian</div></div>
+      <div class="stat-item"><div class="stat-val">Selamanya</div><div class="stat-lbl">Akses Sekali Beli</div></div>
+    </div>
+  </div>
+
+  <!-- TRYOUT -->
+  <section class="sec fu" id="tryout">
+    <div class="sec-inner">
+      <div class="sec-eyebrow">Pilihan Tryout</div>
+      <h2 class="sec-title">Tryout Sesuai Ujian Impianmu</h2>
+      <p class="sec-desc">Soal dirancang oleh tim ahli sesuai kisi-kisi resmi BKN, LPDP, dan FHCI.</p>
+      <div class="t-filters">
+        <button class="t-filter on" onclick="filterTo('all',this)">Semua</button>
+        <button class="t-filter" onclick="filterTo('CPNS',this)">CPNS SKD</button>
+        <button class="t-filter" onclick="filterTo('LPDP',this)">LPDP TBS</button>
+        <button class="t-filter" onclick="filterTo('BUMN',this)">BUMN TBS</button>
+      </div>
+      <div class="t-grid" id="t-grid">
+        <div class="skel" style="height:168px"></div>
+        <div class="skel" style="height:168px"></div>
+        <div class="skel" style="height:168px"></div>
+      </div>
+      <div style="text-align:center;margin-top:24px">
+        <a href="#" class="btn-try cta-btn" style="display:inline-flex">Lihat Semua Tryout →</a>
+      </div>
+    </div>
+  </section>
+
+
+
+  <!-- TESTIMONI -->
+  <section class="sec fu" id="testimoni">
+    <div class="sec-inner">
+      <div class="sec-eyebrow">Testimoni</div>
+      <h2 class="sec-title">Kata Mereka yang Sudah Lulus</h2>
+      <p class="sec-desc">Bergabung dengan ratusan peserta yang berhasil meraih impian mereka.</p>
+      <div class="tg">
+        <div class="tc">
+          <div class="tc-stars">⭐⭐⭐⭐⭐</div>
+          <p class="tc-text">"Soalnya persis banget sama ujian aslinya. Timer dan sistemnya bikin saya terlatih manajemen waktu. Akhirnya lulus SKD di percobaan kedua!"</p>
+          <div class="tc-author">
+            <div class="tc-av" style="background:linear-gradient(135deg,#3B82F6,#0F172A)">AR</div>
+            <div><div class="tc-name">Arif Rahman</div><div class="tc-role">Lulus CPNS Kemenkeu 2024</div></div>
+          </div>
+        </div>
+        <div class="tc">
+          <div class="tc-stars">⭐⭐⭐⭐⭐</div>
+          <p class="tc-text">"Platform ini paling mirip ujian LPDP. Soal TBS-nya lengkap dan pembahasannya detail. Nilai saya naik signifikan setelah rutin latihan."</p>
+          <div class="tc-author">
+            <div class="tc-av" style="background:linear-gradient(135deg,#10B981,#065f46)">DN</div>
+            <div><div class="tc-name">Dina Novita</div><div class="tc-role">Awardee LPDP 2024 — TU Delft</div></div>
+          </div>
+        </div>
+        <div class="tc">
+          <div class="tc-stars">⭐⭐⭐⭐⭐</div>
+          <p class="tc-text">"Harganya terjangkau banget, kualitas soalnya nggak kalah sama bimbel mahal. Worth it! Langsung lolos BUMN di batch pertama."</p>
+          <div class="tc-author">
+            <div class="tc-av" style="background:linear-gradient(135deg,#F59E0B,#92400e)">FH</div>
+            <div><div class="tc-name">Fajar Hidayat</div><div class="tc-role">Lulus Rekrutmen BUMN 2024</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="sec fu" id="faq">
+    <div class="sec-inner">
+      <div class="sec-eyebrow">FAQ</div>
+      <h2 class="sec-title">Pertanyaan yang Sering Ditanyakan</h2>
+      <div class="faq">
+        <div class="faq-item">
+          <button class="faq-q" onclick="tFaq(this)">
+            <span class="faq-qt">Bagaimana cara membeli paket soal?</span><span class="faq-ic">+</span>
+          </button>
+          <div class="faq-a"><p class="faq-ap">Daftar atau masuk ke akun, pilih tryout yang diinginkan, lalu bayar via Flip. Akses aktif otomatis setelah pembayaran dikonfirmasi.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" onclick="tFaq(this)">
+            <span class="faq-qt">Berapa lama akses tryout berlaku?</span><span class="faq-ic">+</span>
+          </button>
+          <div class="faq-a"><p class="faq-ap">Semua paket berlaku selamanya. Sekali beli, akses tidak terbatas tanpa biaya tambahan.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" onclick="tFaq(this)">
+            <span class="faq-qt">Apakah ada tryout gratis?</span><span class="faq-ic">+</span>
+          </button>
+          <div class="faq-a"><p class="faq-ap">Ya! Beberapa tryout tersedia gratis dan bisa langsung dicoba tanpa perlu membeli. Tandai dengan label GRATIS di halaman marketplace.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" onclick="tFaq(this)">
+            <span class="faq-qt">Apakah bisa dikerjakan di HP?</span><span class="faq-ic">+</span>
+          </button>
+          <div class="faq-a"><p class="faq-ap">Bisa! Luluzzz tersedia sebagai web app responsif di semua perangkat — HP, tablet, maupun laptop.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" onclick="tFaq(this)">
+            <span class="faq-qt">Bagaimana cara mendapatkan akses gratis via promo?</span><span class="faq-ic">+</span>
+          </button>
+          <div class="faq-a"><p class="faq-ap">Follow Instagram kami dan share ke story untuk mendapatkan akses gratis beberapa tryout pilihan. Atau tunggu event promo mingguan kami.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA BANNER -->
+  <div class="cta-wrap fu">
+    <div class="cta-inner">
+      <div class="cta-box">
+        <div class="cta-eyebrow">Mulai Sekarang</div>
+        <h2 class="cta-title">Siap Lulus Ujian Impianmu?</h2>
+        <p class="cta-desc">Bergabung gratis. Coba tryout pertama tanpa biaya.</p>
+        <div class="cta-btns">
+          <a href="#" class="btn-gold cta-btn">Daftar Gratis — Mulai Sekarang →</a>
+          <a href="#" class="btn-ghost cta-btn">Masuk ke Akun</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand">Luluz<em>zz</em></div>
+        <p class="footer-desc">Platform latihan ujian online untuk CPNS, LPDP, dan BUMN. Belajar lebih cerdas, lulus lebih cepat.</p>
+      </div>
+      <div>
+        <div class="footer-col-title">Platform</div>
+        <a href="#" class="footer-link cta-btn">Tryout CPNS</a>
+        <a href="#" class="footer-link cta-btn">Tryout LPDP</a>
+        <a href="#" class="footer-link cta-btn">Tryout BUMN</a>
+        <a href="#" class="footer-link cta-btn">Tryout Gratis</a>
+      </div>
+      <div>
+        <div class="footer-col-title">Akun</div>
+        <a href="#" class="footer-link cta-btn">Daftar</a>
+        <a href="#" class="footer-link cta-btn">Masuk</a>
+        <a href="#" class="footer-link cta-btn">Tryout Saya</a>
+      </div>
+      <div>
+        <div class="footer-col-title">Kontak</div>
+        <a href="https://instagram.com/luluzzz.id" class="footer-link" target="_blank">Instagram</a>
+        <a href="https://t.me/luluzzz" class="footer-link" target="_blank">Telegram</a>
+        <a href="mailto:hello@luluzzz.id" class="footer-link">Email</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="footer-copy">© 2025 Luluzzz. Hak cipta dilindungi.</span>
+      <span class="footer-copy">Dibuat dengan ❤️ untuk ASN Indonesia</span>
+    </div>
+  </footer>
+
+</div><!-- /#lz-landing -->
+
+<!-- ══════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════ -->
 <script>
-    (function () {
-      'use strict';
+// ─── Firebase config — GANTI dengan config asli kamu ───
+const FB_CONFIG = {
+  apiKey: "AIzaSyCLnSUJPLy1PNa3gWb-7X_5sHzpU34-RdA",
+  authDomain: "lulusasn-e15a3.firebaseapp.com",
+  projectId: "lulusasn-e15a3",
+  storageBucket: "lulusasn-e15a3.firebasestorage.app",
+  messagingSenderId: "975581006036",
+  appId: "1:975581006036:web:aa0e63f164359fb622d341",
+  measurementId: "G-6BXLQ0KFGK"
+};
 
-      // ── Service Worker (PWA + caching) ──────────────
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker
-            .register('/flutter_service_worker.js', { scope: '/' })
-            .catch(function (err) {
-              console.warn('[SW] Registration failed:', err);
-            });
-        });
-      }
+// ─── State ─────────────────────────────────────────────
+let flutterReady = false;
+let allTryouts   = [];
+let activeFilter = 'all';
+let db           = null;
 
-      // ── Flutter Engine Bootstrap ─────────────────────
-      window.addEventListener('load', function () {
-        var loader = window._flutter && window._flutter.loader;
-        if (!loader) {
-          console.error('[Luluzzz] flutter.js not loaded.');
-          return;
-        }
+// ─── Deep link check — skip landing jika payment URL ───
+const isDeepLink = window.location.hash.startsWith('#/payment/status/');
+if (isDeepLink) {
+  // Sembunyikan landing seketika, langsung tunggu Flutter
+  document.getElementById('lz-landing').style.display = 'none';
+}
 
-        loader.loadEntrypoint({
-          serviceWorker: {
-            serviceWorkerVersion: '{{flutter_service_worker_version}}',
-          },
-          onEntrypointLoaded: function (engineInitializer) {
-            engineInitializer
-              .initializeEngine({
-                renderer: 'canvaskit',         // CanvasKit — consistent rendering
-                hostElement: document.getElementById('app-container'),
-              })
-              .then(function (appRunner) {
-                // Hide splash with slight delay so Flutter paints first frame
-                requestAnimationFrame(function () {
-                  document.body.classList.add('flutter-loaded');
-                });
-                return appRunner.runApp();
-              })
-              .catch(function (err) {
-                console.error('[Luluzzz] Engine init failed:', err);
-              });
-          },
-        });
-      });
+// ─── Firebase init ──────────────────────────────────────
+try {
+  firebase.initializeApp(FB_CONFIG);
+  db = firebase.firestore();
+} catch(e) { console.warn('Firebase:', e); }
 
-      // ── Performance mark ─────────────────────────────
-      if (window.performance && window.performance.mark) {
-        window.performance.mark('luluzzz-html-parsed');
-      }
-    })();
+// ─── Countdown ──────────────────────────────────────────
+(function(){
+  const now = new Date();
+  const end = new Date(now);
+  const d   = (7 - now.getDay()) % 7 || 7;
+  end.setDate(now.getDate() + d);
+  end.setHours(23,59,59,0);
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function tick(){
+    const diff = end - Date.now();
+    if(diff <= 0) return;
+    document.getElementById('cd-d').textContent = pad(Math.floor(diff/86400000));
+    document.getElementById('cd-h').textContent = pad(Math.floor(diff%86400000/3600000));
+    document.getElementById('cd-m').textContent = pad(Math.floor(diff%3600000/60000));
+    document.getElementById('cd-s').textContent = pad(Math.floor(diff%60000/1000));
+  }
+  setInterval(tick,1000); tick();
+})();
+
+// ─── Load tryout — query sekali, render grid ───────────
+async function loadAllData(){
+  const grid = document.getElementById('t-grid');
+  try {
+    if(!db) throw 'no db';
+    // Urutkan updatedAt desc = paling sering diupdate / paling populer
+    const snap = await db.collection('tryouts')
+      .where('isActive','==',true)
+      .orderBy('updatedAt','desc')
+      .limit(9)
+      .get();
+    allTryouts = snap.docs.map(d=>({id:d.id,...d.data()}));
+  } catch(e) {
+    console.warn('Firestore:', e);
+    allTryouts = [];
+    grid.innerHTML = '<p style="color:var(--text2);padding:24px;grid-column:1/-1">Gagal memuat tryout. Periksa koneksi dan coba lagi.</p>';
+    return;
+  }
+  // Update stat counter
+  const statEl = document.getElementById('stat-to');
+  if(statEl) statEl.textContent = allTryouts.length ? allTryouts.length + '+' : '–';
+  renderTryouts();
+}
+
+// ─── Filter & render tryout ─────────────────────────────
+function filterTo(cat, btn){
+  activeFilter = cat;
+  document.querySelectorAll('.t-filter').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderTryouts();
+}
+
+function renderTryouts(){
+  const grid = document.getElementById('t-grid');
+  const list = activeFilter === 'all'
+    ? allTryouts
+    : allTryouts.filter(t=>(t.examTypeName||'').toUpperCase().includes(activeFilter));
+
+  if(!list.length){
+    grid.innerHTML = '<p style="color:var(--text2);padding:24px;grid-column:1/-1">Belum ada tryout untuk kategori ini.</p>';
+    return;
+  }
+
+  grid.innerHTML = list.map(t=>{
+    const cat  = (t.examTypeName||'').toUpperCase();
+    const cls  = cat.includes('LPDP')?'b-lpdp':cat.includes('BUMN')?'b-bumn':'b-cpns';
+    const free = !t.price || t.price === 0;
+    const disc = t.originalPrice && t.price && !free
+      ? Math.round((1 - t.price / t.originalPrice) * 100) : 0;
+    const pHtml = free
+      ? `<span class="p-free">GRATIS</span>`
+      : `<span class="p-new">Rp ${(t.price/1000).toFixed(0)}rb</span>
+         ${t.originalPrice ? `<span class="p-old">Rp ${(t.originalPrice/1000).toFixed(0)}rb</span>` : ''}
+         ${disc > 0 ? `<span class="p-disc">HEMAT ${disc}%</span>` : ''}`;
+    return `<a href="#" class="t-card cta-btn">
+      <div class="t-badge ${free?'b-free':cls}">${free?'🎁 GRATIS':'📋'} ${cat}</div>
+      <div class="t-title">${t.title||''}</div>
+      <div class="t-meta">
+        <span>📝 ${t.totalQuestions||0} soal</span>
+        <span>⏱ ${t.totalEstimatedMinutes||0} mnt</span>
+        <span>💰 ${free ? 'Gratis' : 'Rp '+(t.price/1000).toFixed(0)+'rb'}</span>
+      </div>
+      <div class="t-price">${pHtml}</div>
+    </a>`;
+  }).join('');
+
+  grid.querySelectorAll('.cta-btn').forEach(el=>el.addEventListener('click',enterApp));
+}
+
+function _trunc(s,n){ return s&&s.length>n?s.slice(0,n)+'…':(s||''); }
+
+loadAllData();
+
+// ─── FAQ toggle ─────────────────────────────────────────
+function tFaq(btn){
+  const item = btn.closest('.faq-item');
+  const open = item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(i=>i.classList.remove('open'));
+  if(!open) item.classList.add('open');
+}
+
+// ─── Scroll fade-up ─────────────────────────────────────
+new IntersectionObserver(entries=>{
+  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('vis'); });
+},{threshold:0.08}).observe && document.querySelectorAll('.fu').forEach(el=>{
+  new IntersectionObserver(en=>{en.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis')})},{threshold:0.08}).observe(el);
+});
+
+// ─── CTA handler — masuk Flutter ────────────────────────
+function enterApp(e){
+  if(e) e.preventDefault();
+  if(!flutterReady){
+    // Flutter belum siap — tandai loading state di tombol
+    document.body.classList.add('flutter-loading');
+    // Polling sampai Flutter siap
+    const poll = setInterval(()=>{
+      if(flutterReady){ clearInterval(poll); doEnter(); }
+    }, 150);
+    return;
+  }
+  doEnter();
+}
+
+function doEnter(){
+  document.body.classList.remove('flutter-loading');
+  document.body.classList.add('flutter-enter');
+  // Sembunyikan status pill
+  const pill = document.getElementById('flutter-status');
+  pill.classList.add('hide');
+}
+
+document.querySelectorAll('.cta-btn').forEach(el=>{
+  el.addEventListener('click', enterApp);
+});
 </script>
 
-<!-- Flutter bootstrap (defer = non-blocking) -->
+<!-- ── Flutter bootstrap ──────────────────────────────── -->
+<script>
+(function(){
+  // Service worker
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',()=>{
+      navigator.serviceWorker.register('/flutter_service_worker.js',{scope:'/'})
+        .catch(e=>console.warn('[SW]',e));
+    });
+  }
+
+  const pill    = document.getElementById('flutter-status');
+  const pillTxt = document.getElementById('fs-text');
+
+  // Mulai load Flutter di background segera
+  window.addEventListener('load',()=>{
+    const loader = window._flutter && window._flutter.loader;
+    if(!loader){ console.warn('flutter.js not ready'); return; }
+
+    loader.loadEntrypoint({
+      serviceWorker:{ serviceWorkerVersion:'{{flutter_service_worker_version}}' },
+      onEntrypointLoaded(engineInit){
+        pillTxt.textContent = 'Menginisialisasi...';
+        engineInit.initializeEngine({
+          renderer: 'canvaskit',
+          hostElement: document.getElementById('app-container'),
+        }).then(runner=>{
+          pillTxt.textContent = 'App siap!';
+          pill.classList.add('ready');
+          document.body.classList.add('flutter-ready');
+          flutterReady = true;
+          // Auto-hide pill setelah 3 detik
+          setTimeout(()=>pill.classList.add('hide'), 3000);
+          // Kalau deep link, langsung masuk
+          if(isDeepLink) doEnter();
+          return runner.runApp();
+        }).catch(e=>{ console.error('[Flutter]',e); pill.classList.add('hide'); });
+      }
+    });
+  });
+})();
+</script>
 <script src="flutter.js" defer></script>
 
 </body>

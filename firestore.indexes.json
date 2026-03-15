@@ -118,6 +118,16 @@
       "density": "SPARSE_ALL"
     },
     {
+      "collectionGroup": "tryouts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
       "collectionGroup": "user_tryouts",
       "queryScope": "COLLECTION",
       "fields": [

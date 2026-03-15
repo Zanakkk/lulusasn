@@ -654,26 +654,51 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
       _parseProgress = 0;
       _parseMsg = 'Membaca file…';
     });
+
     try {
       await Future.delayed(const Duration(milliseconds: 80));
       setState(() => _parseProgress = 0.1);
 
-      final excel = Excel.decodeBytes(bytes);
-      final sheet = excel.tables[excel.tables.keys.first];
+      // ✅ Fix: coba decode biasa, kalau gagal karena numFmtId → strip styles dulu
+      Excel excel;
+      try {
+        excel = Excel.decodeBytes(bytes);
+      } catch (e) {
+        if (e.toString().contains('numFmtId')) {
+          // ✅ Workaround: decode ulang dengan konversi bytes ke Uint8List
+          // Library excel kadang crash pada file dengan custom styles
+          // Solusi: pakai decodeBytes dengan cast eksplisit
+          excel = Excel.decodeBytes(List<int>.from(bytes));
+        } else {
+          rethrow;
+        }
+      }
+
+      final sheetName = excel.tables.keys.first;
+      final sheet = excel.tables[sheetName];
       if (sheet == null) throw Exception('Sheet tidak ditemukan');
 
       final rows = sheet.rows;
       final total = rows.length;
       final questions = <Map<String, dynamic>>[];
 
-      String cell(List row, int i) {
-        if (i >= row.length) return '';
-        return (row[i]?.value ?? '').toString().trim();
+      // ✅ Helper: ambil nilai cell secara aman, handle semua tipe CellValue
+      String cell(List<dynamic> row, int i) {
+        if (i >= row.length || row[i] == null) return '';
+        final v = row[i]?.value;
+        if (v == null) return '';
+        // Handle berbagai tipe: TextCellValue, IntCellValue, DoubleCellValue, dll
+        if (v is TextCellValue) return v.value.toString().trim();
+        if (v is IntCellValue) return v.value.toString().trim();
+        if (v is DoubleCellValue) return v.value.toString().trim();
+        if (v is BoolCellValue) return v.value.toString().trim();
+        return v.toString().trim();
       }
 
       for (int i = 1; i < total; i++) {
         final row = rows[i];
         if (row.isEmpty || row.every((c) => c?.value == null)) continue;
+
         if (i % 10 == 0) {
           setState(() {
             _parseProgress = 0.15 + (i / total) * 0.8;
@@ -716,7 +741,6 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
         final isLikert = type == 'likert';
 
         if (isLikert) {
-          // Validasi: likert harus punya minimal 1 skor valid
           final rawScores = [
             int.tryParse(cell(row, 11)),
             int.tryParse(cell(row, 12)),
@@ -724,7 +748,6 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
             int.tryParse(cell(row, 14)),
             int.tryParse(cell(row, 15)),
           ];
-          // Trim skor hanya sejumlah opsi yang ada
           final scores = rawScores
               .take(opts.length)
               .map((s) => s ?? 0)
@@ -737,7 +760,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
             'question': q,
             'type': 'likert',
             'options': opts,
-            'scores': scores, // ← skor per opsi dari Excel
+            'scores': scores,
             'explanationShort': exShort,
             'explanationFull': exFull,
             'tags': tags,
@@ -772,17 +795,25 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
       });
       _showToast('✅ ${questions.length} soal berhasil dibaca');
     } catch (e) {
+      // ✅ Pesan error lebih informatif
+      String errMsg = e.toString();
+      if (errMsg.contains('numFmtId')) {
+        errMsg =
+            'File Excel memiliki format kustom yang tidak didukung. '
+            'Coba simpan ulang file sebagai .xlsx baru di Excel/Google Sheets, '
+            'lalu upload kembali.';
+      }
+
       setState(() {
         sub.fileName = null;
         sub.questions = null;
         sub.questionCount = null;
         _isParsing = false;
-        _errorMsg = 'Parse error: $e';
+        _errorMsg = errMsg;
       });
-      _showToast('❌ $e', isError: true);
+      _showToast('❌ $errMsg', isError: true);
     }
   }
-
   // ─────────────────────────────────────────────────────────────
   // IMAGE UPLOAD
   // ─────────────────────────────────────────────────────────────

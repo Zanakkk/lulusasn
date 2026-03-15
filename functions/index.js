@@ -183,7 +183,7 @@ exports.flipCallback = functions.https.onRequest(async (req, res) => {
       await db.collection("user_tryouts").doc(`${userId}_tryout_${tryoutId}`).set({
         userId,
         tryoutId,
-        proofStatus:     "paid",
+        proofStatus:     "approved",
         paymentMethod:   "flip",
         isActive:        true,
         paidAt:          admin.firestore.FieldValue.serverTimestamp(),

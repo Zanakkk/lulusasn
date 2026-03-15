@@ -1,19 +1,30 @@
 // ============================================================================
 // lib/admin/pages/promotion_verification_screen.dart
-// Redesigned using Luluzzz Design System
-// Navy · Gold · White | Plus Jakarta Sans | 8-pt Grid
 // ============================================================================
-
 // ignore_for_file: deprecated_member_use
+
+import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-
 import '../../app/theme.dart';
 
+final _currencyFmt = NumberFormat.currency(symbol: 'Rp ', decimalDigits: 0);
+final _dateFmt = DateFormat('dd MMM yyyy, HH:mm');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Apakah doc ini paid (bukan free/promo)?
+bool _isPaid(Map<String, dynamic> d) => d['paymentMethod'] != null;
+
+/// Apakah doc ini free/promo?
+bool _isFree(Map<String, dynamic> d) => d['paymentMethod'] == null;
+
 // ============================================================================
-// SCREEN 1: TRYOUT LIST
+// SCREEN 1 — TRYOUT LIST
 // ============================================================================
 class PromotionVerificationScreen extends StatelessWidget {
   const PromotionVerificationScreen({super.key});
@@ -24,319 +35,300 @@ class PromotionVerificationScreen extends StatelessWidget {
       backgroundColor: AppColors.bg,
       body: CustomScrollView(
         slivers: [
-          _buildSliverHeader(),
-          _buildStatsRow(),
+          _buildHeader(),
+          _buildStats(),
           _buildSectionLabel('Tryout Aktif'),
           _buildTryoutGrid(context),
-          const SliverToBoxAdapter(child: AppSpacing.vxl),
+          const SliverToBoxAdapter(child: SizedBox(height: 48)),
         ],
       ),
     );
   }
 
-  // ── 1. HEADER ─────────────────────────────────────────────────────────────
-  Widget _buildSliverHeader() {
-    return SliverToBoxAdapter(
-      child: Container(
-        decoration: const BoxDecoration(gradient: AppGradient.navy),
-        padding: const EdgeInsets.fromLTRB(32, 48, 32, 32),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Left: Breadcrumb + Title
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.shield_rounded,
-                        color: AppColors.gold,
-                        size: 14,
-                      ),
-                      AppSpacing.hxs,
-                      Text(
-                        'Admin Panel',
-                        style: AppText.caption.copyWith(color: AppColors.gold),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.white.withOpacity(0.4),
-                          size: 14,
-                        ),
-                      ),
-                      Text(
-                        'Verifikasi Promosi',
-                        style: AppText.caption.copyWith(
-                          color: AppColors.white.withOpacity(0.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                  AppSpacing.vsm,
-                  Text(
-                    'Verifikasi Promosi',
-                    style: AppText.display.copyWith(color: AppColors.white),
-                  ),
-                  AppSpacing.vxs,
-                  Text(
-                    'Kelola dan validasi akses tryout gratis pengguna.',
-                    style: AppText.body.copyWith(
-                      color: AppColors.white.withOpacity(0.55),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            AppSpacing.hlg,
-            // Right: Admin Badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.white.withOpacity(0.07),
-                borderRadius: AppRadius.bMd,
-                border: Border.all(color: AppColors.white.withOpacity(0.12)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      gradient: AppGradient.gold,
-                      borderRadius: AppRadius.bSm,
-                    ),
-                    child: const Icon(
-                      Icons.admin_panel_settings_rounded,
-                      color: AppColors.primary,
-                      size: 18,
-                    ),
-                  ),
-                  AppSpacing.hsm,
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Administrator',
-                        style: AppText.label.copyWith(color: AppColors.white),
-                      ),
-                      Text(
-                        'Super Admin',
-                        style: AppText.caption.copyWith(
-                          color: AppColors.white.withOpacity(0.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── 2. STATS ROW ──────────────────────────────────────────────────────────
-  Widget _buildStatsRow() {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
-        child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('user_tryouts')
-              .snapshots(),
-          builder: (context, snap) {
-            final docs = snap.data?.docs ?? [];
-            final pending = docs
-                .where(
-                  (d) => (d.data() as Map)['proofStatus'] == 'pending_review',
-                )
-                .length;
-            final approved = docs
-                .where((d) => (d.data() as Map)['proofStatus'] == 'approved')
-                .length;
-            final rejected = docs
-                .where((d) => (d.data() as Map)['proofStatus'] == 'rejected')
-                .length;
-
-            return Row(
+  // ── Header ─────────────────────────────────────────────────────────────────
+  Widget _buildHeader() => SliverToBoxAdapter(
+    child: Container(
+      decoration: const BoxDecoration(gradient: AppGradient.navy),
+      padding: const EdgeInsets.fromLTRB(32, 48, 32, 32),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _StatCard(
-                  label: 'Total Pengajuan',
-                  value: docs.length.toString(),
-                  icon: Icons.assignment_ind_rounded,
-                  accent: AppColors.info,
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.shield_rounded,
+                      color: AppColors.gold,
+                      size: 13,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Admin',
+                      style: AppText.caption.copyWith(color: AppColors.gold),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.white.withOpacity(0.35),
+                        size: 13,
+                      ),
+                    ),
+                    Text(
+                      'Manajemen Akses',
+                      style: AppText.caption.copyWith(
+                        color: AppColors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
                 ),
-                AppSpacing.hmd,
-                _StatCard(
-                  label: 'Menunggu Review',
-                  value: pending.toString(),
-                  icon: Icons.pending_actions_rounded,
-                  accent: AppColors.warning,
+                const SizedBox(height: 8),
+                Text(
+                  'Manajemen Akses',
+                  style: AppText.display.copyWith(color: AppColors.white),
                 ),
-                AppSpacing.hmd,
-                _StatCard(
-                  label: 'Disetujui',
-                  value: approved.toString(),
-                  icon: Icons.check_circle_rounded,
-                  accent: AppColors.success,
-                ),
-                AppSpacing.hmd,
-                _StatCard(
-                  label: 'Ditolak',
-                  value: rejected.toString(),
-                  icon: Icons.cancel_rounded,
-                  accent: AppColors.error,
+                const SizedBox(height: 4),
+                Text(
+                  'Kelola akses gratis (promo) & berbayar pengguna per tryout.',
+                  style: AppText.body.copyWith(
+                    color: AppColors.white.withOpacity(0.55),
+                  ),
                 ),
               ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionLabel(String title) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(32, 28, 32, 12),
-        child: Row(
-          children: [
-            Container(
-              width: 4,
-              height: 18,
-              decoration: BoxDecoration(
-                gradient: AppGradient.gold,
-                borderRadius: AppRadius.bFull,
-              ),
             ),
-            AppSpacing.hsm,
-            Text(title, style: AppText.h3),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── 3. TRYOUT GRID ────────────────────────────────────────────────────────
-  Widget _buildTryoutGrid(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('tryouts')
-          .where('isActive', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
-      builder: (context, snap) {
-        if (!snap.hasData) {
-          return const SliverToBoxAdapter(
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final docs = snap.data!.docs;
-        return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(32, 0, 32, 0),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 420,
-              mainAxisExtent: 190,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+          ),
+          const SizedBox(width: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.white.withOpacity(0.07),
+              borderRadius: AppRadius.bMd,
+              border: Border.all(color: AppColors.white.withOpacity(0.12)),
             ),
-            delegate: SliverChildBuilderDelegate((ctx, i) {
-              final d = docs[i];
-              final data = d.data() as Map<String, dynamic>;
-              return _TryoutCard(
-                tryoutId: d.id,
-                title: data['title'] ?? 'Untitled',
-                examTypeName: data['examTypeName'] ?? 'Kategori',
-                isPremium: data['isPremium'] ?? false,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SubmissionListScreen(
-                      tryoutId: d.id,
-                      tryoutTitle: data['title'] ?? 'Untitled',
-                    ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: AppGradient.gold,
+                    borderRadius: AppRadius.bSm,
+                  ),
+                  child: const Icon(
+                    Icons.admin_panel_settings_rounded,
+                    color: AppColors.primary,
+                    size: 18,
                   ),
                 ),
-              );
-            }, childCount: docs.length),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Administrator',
+                      style: AppText.label.copyWith(color: AppColors.white),
+                    ),
+                    Text(
+                      'Super Admin',
+                      style: AppText.caption.copyWith(
+                        color: AppColors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
+        ],
+      ),
+    ),
+  );
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  Widget _buildStats() => SliverToBoxAdapter(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('user_tryouts')
+            .snapshots(),
+        builder: (_, snap) {
+          final docs = snap.data?.docs ?? [];
+          final all = docs
+              .map((d) => d.data() as Map<String, dynamic>)
+              .toList();
+          final paid = all.where(_isPaid).length;
+          final free = all.where(_isFree).length;
+          final pend = all
+              .where((d) => d['proofStatus'] == 'pending_review')
+              .length;
+          final appr = all.where((d) => d['proofStatus'] == 'approved').length;
+
+          return Row(
+            children: [
+              _StatCard(
+                'Total Akses',
+                docs.length.toString(),
+                Icons.people_alt_rounded,
+                AppColors.primary,
+              ),
+              const SizedBox(width: 12),
+              _StatCard(
+                'Berbayar',
+                paid.toString(),
+                Icons.credit_card_rounded,
+                AppColors.success,
+              ),
+              const SizedBox(width: 12),
+              _StatCard(
+                'Gratis/Promo',
+                free.toString(),
+                Icons.card_giftcard_rounded,
+                AppColors.info,
+              ),
+              const SizedBox(width: 12),
+              _StatCard(
+                'Promo Menunggu',
+                pend.toString(),
+                Icons.pending_actions_rounded,
+                AppColors.warning,
+              ),
+              const SizedBox(width: 12),
+              _StatCard(
+                'Promo Disetujui',
+                appr.toString(),
+                Icons.check_circle_rounded,
+                AppColors.gold,
+              ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+
+  Widget _buildSectionLabel(String t) => SliverToBoxAdapter(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(32, 28, 32, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(
+              gradient: AppGradient.gold,
+              borderRadius: AppRadius.bFull,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(t, style: AppText.h3),
+        ],
+      ),
+    ),
+  );
+
+  // ── Grid ───────────────────────────────────────────────────────────────────
+  Widget _buildTryoutGrid(BuildContext context) => StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('tryouts')
+        .where('isActive', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .snapshots(),
+    builder: (_, snap) {
+      if (!snap.hasData)
+        return const SliverToBoxAdapter(
+          child: Center(child: CircularProgressIndicator()),
         );
-      },
-    );
-  }
+      final docs = snap.data!.docs;
+      return SliverPadding(
+        padding: const EdgeInsets.fromLTRB(32, 0, 32, 0),
+        sliver: SliverGrid(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 400,
+            mainAxisExtent: 200,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+          ),
+          delegate: SliverChildBuilderDelegate((ctx, i) {
+            final d = docs[i];
+            final data = d.data() as Map<String, dynamic>;
+            return _TryoutCard(
+              tryoutId: d.id,
+              title: data['title'] ?? 'Untitled',
+              examTypeName: data['examTypeName'] ?? '',
+              price: data['price'] as int? ?? 0,
+              onTap: () => Navigator.push(
+                ctx,
+                MaterialPageRoute(
+                  builder: (_) => SubmissionListScreen(
+                    tryoutId: d.id,
+                    tryoutTitle: data['title'] ?? 'Untitled',
+                  ),
+                ),
+              ),
+            );
+          }, childCount: docs.length),
+        ),
+      );
+    },
+  );
 }
 
-// ── Stat Card ─────────────────────────────────────────────────────────────────
+// ── Stat Card ──────────────────────────────────────────────────────────────────
 class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
+  final String label, value;
   final IconData icon;
   final Color accent;
-
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.accent,
-  });
+  const _StatCard(this.label, this.value, this.icon, this.accent);
 
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: AppRadius.bLg,
-          border: Border.all(color: AppColors.border),
-          boxShadow: AppShadow.sm,
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.softBg(accent),
-                borderRadius: AppRadius.bMd,
-              ),
-              child: Icon(icon, color: accent, size: 22),
-            ),
-            AppSpacing.hmd,
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: AppText.caption),
-                  const SizedBox(height: 2),
-                  Text(value, style: AppText.h1),
-                ],
-              ),
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.bLg,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.sm,
       ),
-    );
-  }
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: AppColors.softBg(accent),
+              borderRadius: AppRadius.bMd,
+            ),
+            child: Icon(icon, color: accent, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: AppText.caption),
+                const SizedBox(height: 2),
+                Text(value, style: AppText.h2),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
-// ── Tryout Card ───────────────────────────────────────────────────────────────
+// ── Tryout Card ────────────────────────────────────────────────────────────────
 class _TryoutCard extends StatelessWidget {
-  final String tryoutId;
-  final String title;
-  final String examTypeName;
-  final bool isPremium;
+  final String tryoutId, title, examTypeName;
+  final int price;
   final VoidCallback onTap;
-
   const _TryoutCard({
     required this.tryoutId,
     required this.title,
     required this.examTypeName,
-    required this.isPremium,
+    required this.price,
     required this.onTap,
   });
 
@@ -347,12 +339,14 @@ class _TryoutCard extends StatelessWidget {
           .collection('user_tryouts')
           .where('tryoutId', isEqualTo: tryoutId)
           .snapshots(),
-      builder: (context, snap) {
+      builder: (_, snap) {
         final docs = snap.data?.docs ?? [];
-        final pending = docs
-            .where((d) => (d.data() as Map)['proofStatus'] == 'pending_review')
+        final all = docs.map((d) => d.data() as Map<String, dynamic>).toList();
+        final pend = all
+            .where((d) => d['proofStatus'] == 'pending_review')
             .length;
-        final hasPending = pending > 0;
+        final paid = all.where(_isPaid).length;
+        final free = all.where(_isFree).length;
 
         return Material(
           color: Colors.transparent,
@@ -360,108 +354,36 @@ class _TryoutCard extends StatelessWidget {
             onTap: onTap,
             borderRadius: AppRadius.bLg,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(22),
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: AppRadius.bLg,
                 border: Border.all(
-                  color: hasPending
-                      ? AppColors.warning.withOpacity(0.5)
+                  color: pend > 0
+                      ? AppColors.warning.withOpacity(0.6)
                       : AppColors.border,
-                  width: hasPending ? 1.5 : 1,
+                  width: pend > 0 ? 1.5 : 1,
                 ),
-                boxShadow: hasPending ? AppShadow.md : AppShadow.sm,
+                boxShadow: pend > 0 ? AppShadow.md : AppShadow.sm,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top row: Category chip + Premium + Pending badge
+                  // Top row
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.softBg(AppColors.primary),
-                          borderRadius: AppRadius.bFull,
-                        ),
-                        child: Text(
-                          examTypeName.toUpperCase(),
-                          style: AppText.label.copyWith(
-                            color: AppColors.primary,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                      if (isPremium) ...[
-                        AppSpacing.hxs,
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: AppGradient.gold,
-                            borderRadius: AppRadius.bFull,
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.stars_rounded,
-                                size: 10,
-                                color: AppColors.primary,
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                'PREMIUM',
-                                style: AppText.label.copyWith(
-                                  color: AppColors.primary,
-                                  fontSize: 9,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                      _Chip(examTypeName.toUpperCase(), AppColors.primary),
+                      const SizedBox(width: 6),
+                      if (price > 0)
+                        _Chip(_currencyFmt.format(price), AppColors.success)
+                      else
+                        _Chip('GRATIS', AppColors.info),
                       const Spacer(),
-                      if (hasPending)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.softBg(AppColors.warning),
-                            borderRadius: AppRadius.bFull,
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.warning,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                '$pending Pending',
-                                style: AppText.label.copyWith(
-                                  color: AppColors.warning,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      if (pend > 0) _Chip('$pend Pending', AppColors.warning),
                     ],
                   ),
-                  AppSpacing.vmd,
-                  // Title
+                  const SizedBox(height: 10),
                   Text(
                     title,
                     style: AppText.h3,
@@ -469,24 +391,21 @@ class _TryoutCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const Spacer(),
-                  // Footer: users count + arrow
+                  // Footer counts
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.people_alt_rounded,
-                            size: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                          AppSpacing.hxs,
-                          Text(
-                            '${docs.length} pengguna',
-                            style: AppText.bodySm,
-                          ),
-                        ],
+                      _CountBadge(
+                        Icons.credit_card_rounded,
+                        '$paid Bayar',
+                        AppColors.success,
                       ),
+                      const SizedBox(width: 8),
+                      _CountBadge(
+                        Icons.card_giftcard_rounded,
+                        '$free Promo',
+                        AppColors.info,
+                      ),
+                      const Spacer(),
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
@@ -511,33 +430,78 @@ class _TryoutCard extends StatelessWidget {
   }
 }
 
+class _Chip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _Chip(this.label, this.color);
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    decoration: BoxDecoration(
+      color: AppColors.softBg(color),
+      borderRadius: AppRadius.bFull,
+    ),
+    child: Text(
+      label,
+      style: AppText.label.copyWith(color: color, fontSize: 10),
+    ),
+  );
+}
+
+class _CountBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const _CountBadge(this.icon, this.label, this.color);
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, size: 12, color: color),
+      const SizedBox(width: 4),
+      Text(
+        label,
+        style: AppText.caption.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ],
+  );
+}
+
 // ============================================================================
-// SCREEN 2: SUBMISSION LIST — SPLIT PANEL
+// SCREEN 2 — SUBMISSION LIST (Split Panel)
 // ============================================================================
 class SubmissionListScreen extends StatefulWidget {
-  final String tryoutId;
-  final String tryoutTitle;
-
+  final String tryoutId, tryoutTitle;
   const SubmissionListScreen({
     super.key,
     required this.tryoutId,
     required this.tryoutTitle,
   });
-
   @override
   State<SubmissionListScreen> createState() => _SubmissionListScreenState();
 }
 
-class _SubmissionListScreenState extends State<SubmissionListScreen> {
-  String _filter = 'pending_review';
-  QueryDocumentSnapshot? _selectedDoc;
+class _SubmissionListScreenState extends State<SubmissionListScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tab = TabController(length: 2, vsync: this);
+  // 0 = Free/Promo, 1 = Paid
+  String _proofFilter = 'all'; // untuk tab Free
+  QueryDocumentSnapshot? _selected;
 
-  static const _filters = [
-    {'val': 'pending_review', 'label': 'Menunggu', 'color': AppColors.warning},
-    {'val': 'approved', 'label': 'Disetujui', 'color': AppColors.success},
-    {'val': 'rejected', 'label': 'Ditolak', 'color': AppColors.error},
-    {'val': 'all', 'label': 'Semua', 'color': AppColors.primary},
+  static const _proofFilters = [
+    {'val': 'all', 'label': 'Semua'},
+    {'val': 'pending_review', 'label': 'Menunggu'},
+    {'val': 'approved', 'label': 'Disetujui'},
+    {'val': 'rejected', 'label': 'Ditolak'},
   ];
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -545,226 +509,326 @@ class _SubmissionListScreenState extends State<SubmissionListScreen> {
       backgroundColor: AppColors.bg,
       body: Row(
         children: [
-          // ── PANEL KIRI ───────────────────────────────────────────────────
+          // ── PANEL KIRI ─────────────────────────────────────────────────────
           SizedBox(
-            width: 400,
+            width: 420,
             child: Container(
               decoration: const BoxDecoration(
                 color: AppColors.surface,
-                border: Border(
-                  right: BorderSide(color: AppColors.border, width: 1),
-                ),
+                border: Border(right: BorderSide(color: AppColors.border)),
                 boxShadow: AppShadow.md,
               ),
               child: Column(
                 children: [
                   _buildLeftHeader(context),
-                  _buildFilterPills(),
-                  Expanded(child: _buildList()),
-                ],
-              ),
-            ),
-          ),
-
-          // ── PANEL KANAN ──────────────────────────────────────────────────
-          Expanded(
-            child: _selectedDoc == null
-                ? _buildEmptyState()
-                : _ReviewPanel(
-                    key: ValueKey(_selectedDoc!.id),
-                    doc: _selectedDoc!,
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Left Header ─────────────────────────────────────────────────────────
-  Widget _buildLeftHeader(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(gradient: AppGradient.navy),
-      padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Back button
-          InkWell(
-            onTap: () => Navigator.pop(context),
-            borderRadius: AppRadius.bSm,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.white.withOpacity(0.08),
-                borderRadius: AppRadius.bSm,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.arrow_back_rounded,
-                    color: AppColors.white,
-                    size: 16,
-                  ),
-                  AppSpacing.hxs,
-                  Text(
-                    'Kembali',
-                    style: AppText.label.copyWith(
-                      color: AppColors.white,
-                      fontSize: 12,
+                  _buildTabs(),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tab,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [_buildFreeTab(), _buildPaidTab()],
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          AppSpacing.vmd,
-          Text(
-            'Daftar Pengajuan',
-            style: AppText.caption.copyWith(color: AppColors.gold),
-          ),
-          AppSpacing.vxs,
-          Text(
-            widget.tryoutTitle,
-            style: AppText.h2.copyWith(color: AppColors.white),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+
+          // ── PANEL KANAN ────────────────────────────────────────────────────
+          Expanded(
+            child: _selected == null ? _buildEmptyState() : _buildDetailPanel(),
           ),
         ],
       ),
     );
   }
 
-  // ── Filter Pills ────────────────────────────────────────────────────────
-  Widget _buildFilterPills() {
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceAlt,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        children: _filters.map((f) {
-          final isActive = _filter == f['val'];
-          final color = f['color'] as Color;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _filter = f['val'] as String),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isActive ? color : Colors.transparent,
-                  borderRadius: AppRadius.bSm,
+  // ── Left Header ────────────────────────────────────────────────────────────
+  Widget _buildLeftHeader(BuildContext ctx) => Container(
+    decoration: const BoxDecoration(gradient: AppGradient.navy),
+    padding: const EdgeInsets.fromLTRB(20, 40, 20, 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => Navigator.pop(ctx),
+          borderRadius: AppRadius.bSm,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.white.withOpacity(0.08),
+              borderRadius: AppRadius.bSm,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.arrow_back_rounded,
+                  color: AppColors.white,
+                  size: 15,
                 ),
-                child: Text(
-                  f['label'] as String,
-                  textAlign: TextAlign.center,
+                const SizedBox(width: 6),
+                Text(
+                  'Kembali',
                   style: AppText.label.copyWith(
-                    color: isActive ? AppColors.white : AppColors.textSecondary,
-                    fontSize: 11,
+                    color: AppColors.white,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Daftar Akses',
+          style: AppText.caption.copyWith(color: AppColors.gold),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          widget.tryoutTitle,
+          style: AppText.h2.copyWith(color: AppColors.white),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    ),
+  );
+
+  // ── Tabs ────────────────────────────────────────────────────────────────────
+  Widget _buildTabs() => Container(
+    decoration: const BoxDecoration(
+      color: AppColors.surfaceAlt,
+      border: Border(bottom: BorderSide(color: AppColors.border)),
+    ),
+    child: TabBar(
+      controller: _tab,
+      onTap: (_) => setState(() => _selected = null),
+      labelColor: AppColors.primary,
+      unselectedLabelColor: AppColors.textSecondary,
+      indicatorColor: AppColors.primary,
+      indicatorWeight: 2,
+      labelStyle: AppText.label,
+      tabs: const [
+        Tab(
+          icon: Icon(Icons.card_giftcard_rounded, size: 16),
+          text: 'Gratis / Promo',
+        ),
+        Tab(icon: Icon(Icons.credit_card_rounded, size: 16), text: 'Berbayar'),
+      ],
+    ),
+  );
+
+  // ── Free Tab ────────────────────────────────────────────────────────────────
+  Widget _buildFreeTab() => Column(
+    children: [
+      Container(
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: _proofFilters.map((f) {
+            final active = _proofFilter == f['val'];
+            return Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _proofFilter = f['val']!;
+                  _selected = null;
+                }),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: active ? AppColors.primary : AppColors.surfaceAlt,
+                    borderRadius: AppRadius.bFull,
+                    border: Border.all(
+                      color: active ? AppColors.primary : AppColors.border,
+                    ),
+                  ),
+                  child: Text(
+                    f['label']!,
+                    style: AppText.label.copyWith(
+                      color: active ? AppColors.white : AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
-    );
-  }
+      Expanded(child: _buildFreeList()),
+    ],
+  );
 
-  // ── List ─────────────────────────────────────────────────────────────────
-  Widget _buildList() {
-    var q = FirebaseFirestore.instance
+  Widget _buildFreeList() {
+    // Query tanpa compound index dulu — filter proofStatus di client side
+    final stream = FirebaseFirestore.instance
         .collection('user_tryouts')
-        .where('tryoutId', isEqualTo: widget.tryoutId);
-    if (_filter != 'all') q = q.where('proofStatus', isEqualTo: _filter);
+        .where('tryoutId', isEqualTo: widget.tryoutId)
+        .orderBy('submittedAt', descending: true)
+        .snapshots();
 
     return StreamBuilder<QuerySnapshot>(
-      stream: q.orderBy('submittedAt', descending: true).snapshots(),
+      stream: stream,
       builder: (_, snap) {
-        if (!snap.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final docs = snap.data!.docs;
-        if (docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.inbox_rounded, size: 48, color: AppColors.textHint),
-                AppSpacing.vsm,
-                Text('Tidak ada data', style: AppText.bodySm),
-              ],
-            ),
+        if (snap.hasError) return _IndexErrorWidget(snap.error.toString());
+        if (!snap.hasData)
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.gold),
           );
+
+        // Filter di client: free = tidak ada paymentMethod
+        var docs = snap.data!.docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          return data['paymentMethod'] == null;
+        }).toList();
+
+        // Filter proofStatus di client
+        if (_proofFilter != 'all') {
+          docs = docs.where((d) {
+            final data = d.data() as Map<String, dynamic>;
+            return data['proofStatus'] == _proofFilter;
+          }).toList();
         }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: docs.length,
-          separatorBuilder: (_, __) => AppSpacing.vsm,
-          itemBuilder: (_, i) {
-            final doc = docs[i];
-            return _UserCard(
-              doc: doc,
-              isSelected: _selectedDoc?.id == doc.id,
-              onTap: () => setState(() => _selectedDoc = doc),
-            );
-          },
-        );
+
+        return _buildListView(docs, isFree: true);
       },
     );
   }
 
-  // ── Empty State ──────────────────────────────────────────────────────────
-  Widget _buildEmptyState() {
-    return Container(
-      color: AppColors.bg,
-      child: Center(
+  // ── Paid Tab ────────────────────────────────────────────────────────────────
+  Widget _buildPaidTab() {
+    final stream = FirebaseFirestore.instance
+        .collection('user_tryouts')
+        .where('tryoutId', isEqualTo: widget.tryoutId)
+        .orderBy('submittedAt', descending: true)
+        .snapshots();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: stream,
+      builder: (_, snap) {
+        if (snap.hasError) return _IndexErrorWidget(snap.error.toString());
+        if (!snap.hasData)
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.gold),
+          );
+
+        // Filter di client: paid = ada paymentMethod
+        final docs = snap.data!.docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          return data['paymentMethod'] != null;
+        }).toList();
+
+        return _buildListView(docs, isFree: false);
+      },
+    );
+  }
+
+  // ── Generic List View ───────────────────────────────────────────────────────
+  Widget _buildList(AsyncSnapshot<QuerySnapshot> snap, {required bool isFree}) {
+    if (snap.hasError) return _IndexErrorWidget(snap.error.toString());
+    if (!snap.hasData)
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.gold),
+      );
+    return _buildListView(snap.data!.docs, isFree: isFree);
+  }
+
+  Widget _buildListView(
+    List<QueryDocumentSnapshot> docs, {
+    required bool isFree,
+  }) {
+    if (docs.isEmpty)
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                boxShadow: AppShadow.md,
-              ),
-              child: Icon(
-                Icons.touch_app_rounded,
-                size: 48,
-                color: AppColors.textHint,
-              ),
-            ),
-            AppSpacing.vlg,
-            Text(
-              'Pilih Pengajuan',
-              style: AppText.h3.copyWith(color: AppColors.textSecondary),
-            ),
-            AppSpacing.vsm,
-            Text(
-              'Pilih item di sisi kiri untuk mereview bukti.',
-              style: AppText.bodySm,
-            ),
+            Icon(Icons.inbox_rounded, size: 44, color: AppColors.textHint),
+            const SizedBox(height: 10),
+            Text('Tidak ada data', style: AppText.bodySm),
           ],
         ),
-      ),
+      );
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(14),
+      itemCount: docs.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, i) {
+        final doc = docs[i];
+        return isFree
+            ? _FreeUserCard(
+                doc: doc,
+                isSelected: _selected?.id == doc.id,
+                onTap: () => setState(() => _selected = doc),
+              )
+            : _PaidUserCard(
+                doc: doc,
+                isSelected: _selected?.id == doc.id,
+                onTap: () => setState(() => _selected = doc),
+              );
+      },
     );
+  }
+
+  // ── Empty State ────────────────────────────────────────────────────────────
+  Widget _buildEmptyState() => Container(
+    color: AppColors.bg,
+    child: Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              shape: BoxShape.circle,
+              boxShadow: AppShadow.md,
+            ),
+            child: const Icon(
+              Icons.touch_app_rounded,
+              size: 44,
+              color: AppColors.textHint,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Pilih Pengguna',
+            style: AppText.h3.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Pilih item di kiri untuk melihat detail.',
+            style: AppText.bodySm,
+          ),
+        ],
+      ),
+    ),
+  );
+
+  // ── Detail Panel (kanan) ───────────────────────────────────────────────────
+  Widget _buildDetailPanel() {
+    final data = _selected!.data() as Map<String, dynamic>;
+    return _isPaid(data)
+        ? _PaidDetailPanel(key: ValueKey(_selected!.id), doc: _selected!)
+        : _FreeReviewPanel(key: ValueKey(_selected!.id), doc: _selected!);
   }
 }
 
 // ============================================================================
-// WIDGET: USER CARD (Panel Kiri)
+// CARD: Free User
 // ============================================================================
-class _UserCard extends StatelessWidget {
+class _FreeUserCard extends StatelessWidget {
   final QueryDocumentSnapshot doc;
   final bool isSelected;
   final VoidCallback onTap;
-
-  const _UserCard({
+  const _FreeUserCard({
     required this.doc,
     required this.isSelected,
     required this.onTap,
@@ -773,143 +837,319 @@ class _UserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = doc.data() as Map<String, dynamic>;
-    final status = data['proofStatus'] ?? 'pending_review';
-
-    final Color statusColor = switch (status) {
+    final status = data['proofStatus'] as String? ?? 'pending_review';
+    final Color sc = switch (status) {
       'approved' => AppColors.success,
       'rejected' => AppColors.error,
       _ => AppColors.warning,
     };
-
-    final String statusLabel = switch (status) {
+    final String sl = switch (status) {
       'approved' => 'Disetujui',
       'rejected' => 'Ditolak',
       _ => 'Menunggu',
     };
+    final sub = (data['submittedAt'] as Timestamp?)?.toDate();
 
-    final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+    return _CardShell(
+      isSelected: isSelected,
+      onTap: onTap,
+      accentColor: sc,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.softBg(sc),
+          borderRadius: AppRadius.bMd,
+        ),
+        child: Icon(
+          Icons.card_giftcard_rounded,
+          color: isSelected ? AppColors.white : sc,
+          size: 18,
+        ),
+      ),
+      title: data['userId'] ?? '-',
+      subtitle: sub != null ? _dateFmt.format(sub) : '-',
+      trailing: _StatusPill(sc, sl),
+    );
+  }
+}
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.bMd,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.softBg(AppColors.primary)
-                : AppColors.surface,
-            borderRadius: AppRadius.bMd,
-            border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.border,
-              width: isSelected ? 1.5 : 1,
+// ============================================================================
+// CARD: Paid User
+// ============================================================================
+class _PaidUserCard extends StatelessWidget {
+  final QueryDocumentSnapshot doc;
+  final bool isSelected;
+  final VoidCallback onTap;
+  const _PaidUserCard({
+    required this.doc,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final data = doc.data() as Map<String, dynamic>;
+    final paid = (data['paidAt'] as Timestamp?)?.toDate();
+    final amount = data['paidAmount'] as int? ?? 0;
+
+    return _CardShell(
+      isSelected: isSelected,
+      onTap: onTap,
+      accentColor: AppColors.success,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary
+              : AppColors.softBg(AppColors.success),
+          borderRadius: AppRadius.bMd,
+        ),
+        child: Icon(
+          Icons.credit_card_rounded,
+          color: isSelected ? AppColors.white : AppColors.success,
+          size: 18,
+        ),
+      ),
+      title: data['userId'] ?? '-',
+      subtitle: paid != null ? _dateFmt.format(paid) : '-',
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _StatusPill(AppColors.success, 'Lunas'),
+          const SizedBox(height: 3),
+          Text(
+            _currencyFmt.format(amount),
+            style: AppText.caption.copyWith(
+              color: AppColors.success,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          child: Row(
-            children: [
-              // Avatar
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : AppColors.surfaceAlt,
-                  borderRadius: AppRadius.bMd,
-                ),
-                child: Icon(
-                  Icons.person_rounded,
-                  color: isSelected ? AppColors.white : AppColors.textSecondary,
-                  size: 20,
-                ),
-              ),
-              AppSpacing.hmd,
-              // Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      data['userId'] ?? '-',
-                      style: AppText.bodyLg.copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    AppSpacing.vxs,
-                    if (submittedAt != null)
-                      Text(
-                        DateFormat('dd MMM yyyy · HH:mm').format(submittedAt),
-                        style: AppText.caption,
-                      ),
-                  ],
-                ),
-              ),
-              AppSpacing.hsm,
-              // Status chip
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.softBg(statusColor),
-                  borderRadius: AppRadius.bFull,
-                ),
-                child: Text(
-                  statusLabel,
-                  style: AppText.label.copyWith(
-                    color: statusColor,
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-            ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Generic card shell ─────────────────────────────────────────────────────────
+class _CardShell extends StatelessWidget {
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Color accentColor;
+  final Widget leading, trailing;
+  final String title, subtitle;
+  const _CardShell({
+    required this.isSelected,
+    required this.onTap,
+    required this.accentColor,
+    required this.leading,
+    required this.trailing,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.bMd,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.softBg(AppColors.primary)
+              : AppColors.surface,
+          borderRadius: AppRadius.bMd,
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: isSelected ? 1.5 : 1,
           ),
         ),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppText.label.copyWith(fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: AppText.caption),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            trailing,
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _StatusPill extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _StatusPill(this.color, this.label);
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: AppColors.softBg(color),
+      borderRadius: AppRadius.bFull,
+    ),
+    child: Text(
+      label,
+      style: AppText.label.copyWith(color: color, fontSize: 10),
+    ),
+  );
+}
+
+// ============================================================================
+// DETAIL PANEL: PAID
+// ============================================================================
+class _PaidDetailPanel extends StatelessWidget {
+  final QueryDocumentSnapshot doc;
+  const _PaidDetailPanel({required this.doc, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final data = doc.data() as Map<String, dynamic>;
+    final paidAt = (data['paidAt'] as Timestamp?)?.toDate();
+    final subAt = (data['submittedAt'] as Timestamp?)?.toDate();
+    final updAt = (data['updatedAt'] as Timestamp?)?.toDate();
+    final amount = data['paidAmount'] as int? ?? 0;
+    final method = data['paymentMethod'] as String? ?? '-';
+    final isActive = data['isActive'] as bool? ?? false;
+    final attempts = data['totalAttempts'] as int? ?? 0;
+
+    return Container(
+      color: AppColors.bg,
+      child: Column(
+        children: [
+          // Toolbar
+          _DetailToolbar(
+            icon: Icons.credit_card_rounded,
+            iconColor: AppColors.success,
+            title: data['userId'] ?? '-',
+            subtitle: 'Akses Berbayar',
+            badge: _StatusPill(AppColors.success, 'LUNAS'),
+          ),
+          // Body
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ringkasan Transaksi', style: AppText.h2),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Detail pembayaran dan status akses pengguna.',
+                    style: AppText.bodySm,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Info grid
+                  _InfoGrid(
+                    items: [
+                      _InfoItem(
+                        Icons.receipt_long_rounded,
+                        'Metode Pembayaran',
+                        method.toUpperCase(),
+                        AppColors.primary,
+                      ),
+                      _InfoItem(
+                        Icons.monetization_on_rounded,
+                        'Jumlah Dibayar',
+                        _currencyFmt.format(amount),
+                        AppColors.success,
+                      ),
+                      _InfoItem(
+                        Icons.calendar_today_rounded,
+                        'Tanggal Bayar',
+                        paidAt != null ? _dateFmt.format(paidAt) : '-',
+                        AppColors.info,
+                      ),
+                      _InfoItem(
+                        Icons.send_rounded,
+                        'Diajukan',
+                        subAt != null ? _dateFmt.format(subAt) : '-',
+                        AppColors.gold,
+                      ),
+                      _InfoItem(
+                        Icons.update_rounded,
+                        'Terakhir Update',
+                        updAt != null ? _dateFmt.format(updAt) : '-',
+                        AppColors.textSecondary,
+                      ),
+                      _InfoItem(
+                        Icons.quiz_rounded,
+                        'Total Percobaan',
+                        attempts.toString(),
+                        AppColors.warning,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Status akses
+                  _AccessStatusCard(isActive: isActive),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 // ============================================================================
-// WIDGET: REVIEW PANEL (Panel Kanan)
+// DETAIL PANEL: FREE / PROMO (Review)
 // ============================================================================
-class _ReviewPanel extends StatefulWidget {
+class _FreeReviewPanel extends StatefulWidget {
   final QueryDocumentSnapshot doc;
-
-  const _ReviewPanel({required this.doc, super.key});
-
+  const _FreeReviewPanel({required this.doc, super.key});
   @override
-  State<_ReviewPanel> createState() => _ReviewPanelState();
+  State<_FreeReviewPanel> createState() => _FreeReviewPanelState();
 }
 
-class _ReviewPanelState extends State<_ReviewPanel> {
-  bool _isProcessing = false;
+class _FreeReviewPanelState extends State<_FreeReviewPanel> {
+  bool _processing = false;
 
   Map<String, dynamic> get data => widget.doc.data() as Map<String, dynamic>;
-  Map<String, dynamic> get proofs => data['promotionProofs'] ?? {};
+  Map<String, dynamic> get proofs =>
+      (data['promotionProofs'] as Map?)?.cast<String, dynamic>() ?? {};
 
-  Future<void> _updateStatus(String newStatus) async {
-    setState(() => _isProcessing = true);
+  Future<void> _setStatus(String s) async {
+    setState(() => _processing = true);
     try {
       await FirebaseFirestore.instance
           .collection('user_tryouts')
           .doc(widget.doc.id)
           .update({
-            'proofStatus': newStatus,
-            'isActive': newStatus == 'approved',
+            'proofStatus': s,
+            'isActive': s == 'approved',
             'updatedAt': FieldValue.serverTimestamp(),
           });
-
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              newStatus == 'approved'
-                  ? '✓ Pengajuan berhasil disetujui'
-                  : '✗ Pengajuan ditolak',
+              s == 'approved' ? '✓ Pengajuan disetujui' : '✗ Pengajuan ditolak',
             ),
-            backgroundColor: newStatus == 'approved'
+            backgroundColor: s == 'approved'
                 ? AppColors.success
                 : AppColors.error,
             behavior: SnackBarBehavior.floating,
@@ -917,141 +1157,104 @@ class _ReviewPanelState extends State<_ReviewPanel> {
             margin: const EdgeInsets.all(16),
           ),
         );
-      }
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) setState(() => _processing = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final status = data['proofStatus'] ?? 'pending_review';
-    final isApproved = status == 'approved';
+    final status = data['proofStatus'] as String? ?? 'pending_review';
     final isPending = status == 'pending_review';
-    final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+    final isApproved = status == 'approved';
+    final subAt = (data['submittedAt'] as Timestamp?)?.toDate();
+    final updAt = (data['updatedAt'] as Timestamp?)?.toDate();
 
-    final Color statusColor = switch (status) {
+    final Color sc = switch (status) {
       'approved' => AppColors.success,
       'rejected' => AppColors.error,
       _ => AppColors.warning,
+    };
+    final String sl = switch (status) {
+      'approved' => 'DISETUJUI',
+      'rejected' => 'DITOLAK',
+      _ => 'MENUNGGU',
     };
 
     return Container(
       color: AppColors.bg,
       child: Column(
         children: [
-          // ── Top Toolbar ───────────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              border: Border(bottom: BorderSide(color: AppColors.border)),
-            ),
-            child: Row(
-              children: [
-                // User info
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceAlt,
-                    borderRadius: AppRadius.bMd,
-                  ),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                AppSpacing.hmd,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(data['userId'] ?? '-', style: AppText.h3),
-                      if (submittedAt != null) ...[
-                        AppSpacing.vxs,
-                        Text(
-                          'Diajukan: ${DateFormat('dd MMM yyyy, HH:mm').format(submittedAt)}',
-                          style: AppText.caption,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                // Status Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.softBg(statusColor),
-                    borderRadius: AppRadius.bFull,
-                    border: Border.all(color: statusColor.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      AppSpacing.hxs,
-                      Text(switch (status) {
-                        'approved' => 'Disetujui',
-                        'rejected' => 'Ditolak',
-                        _ => 'Menunggu Review',
-                      }, style: AppText.label.copyWith(color: statusColor)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          _DetailToolbar(
+            icon: Icons.card_giftcard_rounded,
+            iconColor: sc,
+            title: data['userId'] ?? '-',
+            subtitle: 'Akses Gratis / Promo',
+            badge: _StatusPill(sc, sl),
           ),
 
-          // ── Proof Images ─────────────────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Meta info
+                  _InfoGrid(
+                    items: [
+                      _InfoItem(
+                        Icons.send_rounded,
+                        'Diajukan',
+                        subAt != null ? _dateFmt.format(subAt) : '-',
+                        AppColors.info,
+                      ),
+                      if (updAt != null)
+                        _InfoItem(
+                          Icons.update_rounded,
+                          'Diperbarui',
+                          _dateFmt.format(updAt),
+                          AppColors.gold,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Proof images
                   Text('Bukti Promosi', style: AppText.h2),
-                  AppSpacing.vsm,
+                  const SizedBox(height: 4),
                   Text(
                     'Periksa setiap bukti sebelum memberikan keputusan.',
                     style: AppText.bodySm,
                   ),
-                  AppSpacing.vlg,
+                  const SizedBox(height: 20),
+
                   _ProofRow(
-                    label: 'Bukti Follow',
-                    icon: Icons.person_add_rounded,
-                    url: proofs['followProof'],
-                    color: const Color(0xFFE4405F),
+                    'Bukti Follow',
+                    Icons.person_add_rounded,
+                    proofs['followProof'] as String?,
+                    const Color(0xFFE4405F),
                   ),
-                  AppSpacing.vlg,
+                  const SizedBox(height: 24),
                   _ProofRow(
-                    label: 'Bukti Story',
-                    icon: Icons.slideshow_rounded,
-                    url: proofs['storyProof'],
-                    color: const Color(0xFFAC45E6),
+                    'Bukti Story',
+                    Icons.slideshow_rounded,
+                    proofs['storyProof'] as String?,
+                    const Color(0xFFAC45E6),
                   ),
-                  AppSpacing.vlg,
+                  const SizedBox(height: 24),
                   _ProofRow(
-                    label: 'Bukti Tag',
-                    icon: Icons.label_rounded,
-                    url: proofs['tagProof'],
-                    color: AppColors.info,
+                    'Bukti Tag',
+                    Icons.label_rounded,
+                    proofs['tagProof'] as String?,
+                    AppColors.info,
                   ),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
           ),
 
-          // ── Action Bar ───────────────────────────────────────────────────
+          // Action bar
           Container(
             padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
@@ -1061,45 +1264,43 @@ class _ReviewPanelState extends State<_ReviewPanel> {
             ),
             child: Column(
               children: [
-                if (_isProcessing)
+                if (_processing)
                   const Padding(
-                    padding: EdgeInsets.only(bottom: 16),
+                    padding: EdgeInsets.only(bottom: 14),
                     child: LinearProgressIndicator(color: AppColors.primary),
                   ),
                 if (isPending)
                   Row(
                     children: [
                       Expanded(
-                        child: _ActionButton(
-                          label: 'Tolak',
-                          icon: Icons.close_rounded,
-                          color: AppColors.error,
-                          isOutlined: true,
-                          onPressed: () => _updateStatus('rejected'),
+                        child: _ActionBtn(
+                          'Tolak',
+                          Icons.close_rounded,
+                          AppColors.error,
+                          outlined: true,
+                          onTap: () => _setStatus('rejected'),
                         ),
                       ),
-                      AppSpacing.hmd,
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: _ActionButton(
-                          label: 'Setujui',
-                          icon: Icons.check_rounded,
-                          color: AppColors.success,
-                          isOutlined: false,
-                          onPressed: () => _updateStatus('approved'),
+                        child: _ActionBtn(
+                          'Setujui',
+                          Icons.check_rounded,
+                          AppColors.success,
+                          outlined: false,
+                          onTap: () => _setStatus('approved'),
                         ),
                       ),
                     ],
                   )
                 else
-                  _ActionButton(
-                    label: isApproved ? 'Cabut Akses' : 'Aktifkan Kembali',
-                    icon: isApproved
-                        ? Icons.block_rounded
-                        : Icons.refresh_rounded,
-                    color: isApproved ? AppColors.error : AppColors.success,
-                    isOutlined: isApproved,
-                    onPressed: () =>
-                        _updateStatus(isApproved ? 'rejected' : 'approved'),
+                  _ActionBtn(
+                    isApproved ? 'Cabut Akses' : 'Aktifkan Kembali',
+                    isApproved ? Icons.block_rounded : Icons.refresh_rounded,
+                    isApproved ? AppColors.error : AppColors.success,
+                    outlined: isApproved,
+                    onTap: () =>
+                        _setStatus(isApproved ? 'rejected' : 'approved'),
                   ),
               ],
             ),
@@ -1110,167 +1311,432 @@ class _ReviewPanelState extends State<_ReviewPanel> {
   }
 }
 
-// ── Proof Row ─────────────────────────────────────────────────────────────────
+// ============================================================================
+// SHARED DETAIL WIDGETS
+// ============================================================================
+
+class _DetailToolbar extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title, subtitle;
+  final Widget badge;
+  const _DetailToolbar({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+  });
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+    decoration: const BoxDecoration(
+      color: AppColors.surface,
+      border: Border(bottom: BorderSide(color: AppColors.border)),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppColors.softBg(iconColor),
+            borderRadius: AppRadius.bMd,
+          ),
+          child: Icon(icon, color: iconColor, size: 22),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: AppText.h3,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(subtitle, style: AppText.caption),
+            ],
+          ),
+        ),
+        badge,
+      ],
+    ),
+  );
+}
+
+class _InfoItem {
+  final IconData icon;
+  final String label, value;
+  final Color color;
+  const _InfoItem(this.icon, this.label, this.value, this.color);
+}
+
+class _InfoGrid extends StatelessWidget {
+  final List<_InfoItem> items;
+  const _InfoGrid({required this.items});
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 12,
+    runSpacing: 12,
+    children: items
+        .map(
+          (item) => SizedBox(
+            width: 260,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: AppRadius.bMd,
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppColors.softBg(item.color),
+                      borderRadius: AppRadius.bSm,
+                    ),
+                    child: Icon(item.icon, color: item.color, size: 14),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.label, style: AppText.caption),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.value,
+                          style: AppText.label.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        )
+        .toList(),
+  );
+}
+
+class _AccessStatusCard extends StatelessWidget {
+  final bool isActive;
+  const _AccessStatusCard({required this.isActive});
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? AppColors.success : AppColors.error;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.softBg(color),
+        borderRadius: AppRadius.bLg,
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isActive ? Icons.lock_open_rounded : Icons.lock_rounded,
+            color: color,
+            size: 28,
+          ),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isActive ? 'Akses Aktif' : 'Akses Tidak Aktif',
+                style: AppText.h3.copyWith(color: color),
+              ),
+              Text(
+                isActive
+                    ? 'Pengguna dapat mengerjakan tryout ini.'
+                    : 'Pengguna tidak dapat mengakses tryout ini.',
+                style: AppText.bodySm,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ProofRow extends StatelessWidget {
   final String label;
   final IconData icon;
   final String? url;
   final Color color;
+  const _ProofRow(this.label, this.icon, this.url, this.color);
 
-  const _ProofRow({
-    required this.label,
-    required this.icon,
-    required this.url,
-    required this.color,
-  });
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.softBg(color),
+              borderRadius: AppRadius.bSm,
+            ),
+            child: Icon(icon, color: color, size: 14),
+          ),
+          const SizedBox(width: 8),
+          Text(label, style: AppText.label),
+        ],
+      ),
+      const SizedBox(height: 10),
+      Container(
+        height: 400,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceAlt,
+          borderRadius: AppRadius.bLg,
+          border: Border.all(color: AppColors.border),
+        ),
+        child: url == null || url!.isEmpty
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.image_not_supported_rounded,
+                    size: 36,
+                    color: AppColors.textHint,
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Gambar tidak tersedia', style: AppText.bodySm),
+                ],
+              )
+            : ClipRRect(
+                borderRadius: AppRadius.bLg,
+                child: InteractiveViewer(
+                  minScale: 1.0,
+                  maxScale: 5.0,
+                  child: Image.network(
+                    url!,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (_, child, p) => p == null
+                        ? child
+                        : Center(
+                            child: CircularProgressIndicator(
+                              value: p.expectedTotalBytes != null
+                                  ? p.cumulativeBytesLoaded /
+                                        p.expectedTotalBytes!
+                                  : null,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                    errorBuilder: (_, __, ___) => Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.broken_image_rounded,
+                          size: 36,
+                          color: AppColors.textHint,
+                        ),
+                        const SizedBox(height: 8),
+                        Text('Gagal memuat gambar', style: AppText.bodySm),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    ],
+  );
+}
+
+// ============================================================================
+// ERROR WIDGET — tampilkan link index Firestore agar bisa diklik
+// ============================================================================
+class _IndexErrorWidget extends StatelessWidget {
+  final String error;
+  const _IndexErrorWidget(this.error);
+
+  // Ekstrak URL index dari pesan error Firestore
+  String? _extractUrl(String err) {
+    final match = RegExp(
+      r'https://console\.firebase\.google\.com\S+',
+    ).firstMatch(err);
+    return match?.group(0);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label row
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.softBg(color),
-                borderRadius: AppRadius.bSm,
-              ),
-              child: Icon(icon, color: color, size: 14),
-            ),
-            AppSpacing.hsm,
-            Text(
-              label,
-              style: AppText.label.copyWith(color: AppColors.textPrimary),
-            ),
-          ],
-        ),
-        AppSpacing.vsm,
-        // Image Container
-        Container(
-          height: 420,
-          width: double.infinity,
+    final url = _extractUrl(error);
+    final isIndex = url != null || error.contains('index');
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 480),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: AppColors.surfaceAlt,
+            color: AppColors.softBg(AppColors.error),
             borderRadius: AppRadius.bLg,
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: AppColors.error.withOpacity(0.3)),
           ),
-          child: url == null || url!.isEmpty
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.image_not_supported_rounded,
-                      size: 40,
-                      color: AppColors.textHint,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.error,
+                      borderRadius: AppRadius.bMd,
                     ),
-                    AppSpacing.vsm,
-                    Text('Gambar tidak tersedia', style: AppText.bodySm),
-                  ],
+                    child: const Icon(
+                      Icons.error_outline_rounded,
+                      color: AppColors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isIndex
+                          ? 'Index Firestore Diperlukan'
+                          : 'Terjadi Kesalahan',
+                      style: AppText.h3.copyWith(color: AppColors.error),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isIndex
+                    ? 'Query ini membutuhkan composite index di Firestore. '
+                          'Tekan tombol di bawah untuk membuat index secara otomatis.'
+                    : error,
+                style: AppText.bodySm,
+              ),
+              if (url != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: AppRadius.bMd,
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: SelectableText(
+                    url,
+                    style: AppText.caption.copyWith(
+                      color: AppColors.info,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              if (url != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => html.window.open(url, '_blank'),
+                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                    label: const Text('Buat Index Sekarang'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.bMd,
+                      ),
+                    ),
+                  ),
                 )
-              : ClipRRect(
-                  borderRadius: AppRadius.bLg,
-                  child: InteractiveViewer(
-                    minScale: 1.0,
-                    maxScale: 5.0,
-                    child: Image.network(
-                      url!,
-                      fit: BoxFit.contain,
-                      loadingBuilder: (_, child, progress) {
-                        if (progress == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            value: progress.expectedTotalBytes != null
-                                ? progress.cumulativeBytesLoaded /
-                                      progress.expectedTotalBytes!
-                                : null,
-                            color: AppColors.primary,
-                          ),
-                        );
-                      },
-                      errorBuilder: (_, __, ___) => Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.broken_image_rounded,
-                            size: 40,
-                            color: AppColors.textHint,
-                          ),
-                          AppSpacing.vsm,
-                          Text('Gagal memuat gambar', style: AppText.bodySm),
-                        ],
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.copy_rounded, size: 16),
+                    label: const Text('Salin Pesan Error'),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AppColors.error.withOpacity(0.5)),
+                      foregroundColor: AppColors.error,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.bMd,
                       ),
                     ),
                   ),
                 ),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }
 
-// ── Action Button ─────────────────────────────────────────────────────────────
-class _ActionButton extends StatelessWidget {
+class _ActionBtn extends StatelessWidget {
   final String label;
   final IconData icon;
   final Color color;
-  final bool isOutlined;
-  final VoidCallback onPressed;
-
-  const _ActionButton({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.isOutlined,
-    required this.onPressed,
+  final bool outlined;
+  final VoidCallback onTap;
+  const _ActionBtn(
+    this.label,
+    this.icon,
+    this.color, {
+    required this.outlined,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final content = Row(
+    final child = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: 18, color: isOutlined ? color : AppColors.white),
-        AppSpacing.hsm,
+        Icon(icon, size: 17, color: outlined ? color : AppColors.white),
+        const SizedBox(width: 8),
         Text(
           label,
           style: AppText.btnMd.copyWith(
-            color: isOutlined ? color : AppColors.white,
+            color: outlined ? color : AppColors.white,
           ),
         ),
       ],
     );
-
-    if (isOutlined) {
-      return SizedBox(
-        height: 50,
-        width: double.infinity,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: color, width: 1.5),
-            shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
-          ),
-          child: content,
-        ),
-      );
-    }
-
     return SizedBox(
       height: 50,
       width: double.infinity,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: AppColors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
-        ),
-        child: content,
-      ),
+      child: outlined
+          ? OutlinedButton(
+              onPressed: onTap,
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: color, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+              ),
+              child: child,
+            )
+          : ElevatedButton(
+              onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: AppColors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+              ),
+              child: child,
+            ),
     );
   }
 }

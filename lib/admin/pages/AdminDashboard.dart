@@ -241,15 +241,13 @@ class _DashboardService {
       final tid = data['tryoutId'] as String? ?? '';
       if (tid.isNotEmpty) sessionsByTO[tid] = (sessionsByTO[tid] ?? 0) + 1;
 
-      // accessType: 'paid' | 'free'
-      final accessType = data['accessType'] as String? ?? 'free';
       // paymentStatus: 'paid' | 'pending' — hanya untuk jalur paid
       final paymentStatus = data['paymentStatus'] as String? ?? '';
       // proofStatus: 'pending' | 'approved' | 'rejected' — hanya untuk jalur free
       final proofStatus = data['proofStatus'] as String? ?? '';
 
       // ── Verifikasi: hanya jalur free ─────────────────────────────────
-      if (accessType == 'free' && proofStatus.isNotEmpty) {
+      if (proofStatus.isNotEmpty) {
         switch (proofStatus) {
           case 'pending':
             pendingV++;
@@ -273,7 +271,7 @@ class _DashboardService {
       }
 
       // ── Revenue: hanya jalur paid yang sudah terkonfirmasi ────────────
-      if (accessType == 'paid' && paymentStatus == 'paid') {
+      if (paymentStatus == 'approved') {
         final tData = tryoutMap[tid];
         if (tData != null) {
           final price = (tData['price'] as num? ?? 0).toInt();
