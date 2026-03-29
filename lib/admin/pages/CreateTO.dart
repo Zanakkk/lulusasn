@@ -5,16 +5,13 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:excel/excel.dart' hide Border, BorderStyle, TextSpan;
 import 'dart:html' as html;
+import 'dart:convert';
 
 import '../../app/theme.dart';
 import 'manage_categories_screen.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MODELS
-// ─────────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
-// REVISI 1: MODEL — Tambah ScoringConfig ke SubTest
-// Ganti class SubTest yang lama dengan ini
+// MODELS
 // ═══════════════════════════════════════════════════════════════════════════
 
 class ScoringConfig {
@@ -48,11 +45,11 @@ class SubTest {
   String category;
   String difficulty;
   int estimatedMinutes;
-  String type; // 'objective' | 'likert'
+  String type;
   String? fileName;
   int? questionCount;
   List<Map<String, dynamic>>? questions;
-  ScoringConfig scoringConfig; // ← BARU
+  ScoringConfig scoringConfig;
 
   SubTest({
     required this.id,
@@ -75,7 +72,8 @@ class ProcessingStatus {
   const ProcessingStatus({required this.message, this.isError = false});
 }
 
-// ── Template Model ────────────────────────────────────────────────────────────
+// ── Template models ────────────────────────────────────────────────────────
+
 class _TryoutTemplate {
   final String id;
   final String name;
@@ -122,7 +120,6 @@ class _TemplateSubTest {
   });
 }
 
-// ── Built-in Templates ────────────────────────────────────────────────────────
 final _builtinTemplates = [
   _TryoutTemplate(
     id: 'cpns_skd',
@@ -132,14 +129,13 @@ final _builtinTemplates = [
     color: AppColors.info,
     tryoutTitle: 'CPNS 2026 – Paket Simulasi 1',
     tryoutDesc:
-        'Paket simulasi pertama CPNS 2026 dengan 110 soal lengkap 30 soal TWK, 35 soal TIU, dan 45 soal TKP. Dirancang sesuai standar SKD BKN dengan timer, skoring otomatis, dan pembahasan detail.',
+        'Paket simulasi pertama CPNS 2026 dengan 110 soal lengkap: 30 soal TWK, 35 soal TIU, dan 45 soal TKP.',
     price: 25000,
     isActive: true,
     subtests: [
       _TemplateSubTest(
         name: 'TIU – CPNS',
-        description:
-            'Uji kemampuan penalaran verbal, numerik, dan logika dengan 35 soal standar BKN. Mencakup sinonim, antonim, analogi, deret angka, aritmatika, dan logika analitis — dirancang untuk mengukur kecepatan dan ketepatan berpikir.',
+        description: 'Uji kemampuan penalaran verbal, numerik, dan logika.',
         category: 'TIU',
         type: 'objective',
         difficulty: 'medium',
@@ -152,8 +148,7 @@ final _builtinTemplates = [
       ),
       _TemplateSubTest(
         name: 'TWK – CPNS',
-        description:
-            'Uji pemahaman kebangsaan dan kenegaraan Anda melalui 30 soal yang mencakup Pancasila, UUD 1945, sejarah nasional, sistem ketatanegaraan, dan wawasan nusantara sesuai kisi-kisi resmi SKD BKN.',
+        description: 'Uji pemahaman kebangsaan dan kenegaraan.',
         category: 'TWK',
         type: 'objective',
         difficulty: 'medium',
@@ -166,8 +161,7 @@ final _builtinTemplates = [
       ),
       _TemplateSubTest(
         name: 'TKP – CPNS',
-        description:
-            'Uji karakter dan perilaku kerja Anda sebagai calon ASN melalui 45 soal situasional. Tidak ada jawaban benar atau salah — setiap pilihan memiliki bobot nilai 1–5 yang mencerminkan tingkat profesionalisme, integritas, dan pelayanan publik Anda.',
+        description: 'Uji karakter dan perilaku kerja sebagai calon ASN.',
         category: 'TKP',
         type: 'likert',
         difficulty: 'medium',
@@ -187,15 +181,13 @@ final _builtinTemplates = [
     icon: Icons.school_rounded,
     color: const Color(0xFFD4AF37),
     tryoutTitle: 'LPDP TBS – Tes Beasiswa',
-    tryoutDesc:
-        'Simulasi Tes Beasiswa LPDP dengan 60 soal TBS mencakup penalaran verbal, kuantitatif, dan pemecahan masalah. Total waktu 90 menit dirancang sesuai standar seleksi LPDP.',
+    tryoutDesc: 'Simulasi Tes Beasiswa LPDP dengan 60 soal TBS.',
     price: 0,
     isActive: true,
     subtests: [
       _TemplateSubTest(
         name: 'Penalaran Verbal',
-        description:
-            'Uji kemampuan memahami teks, sinonim/antonim, analogi, dan penarikan kesimpulan logis dari bacaan melalui 23 soal terstruktur.',
+        description: 'Memahami teks, sinonim/antonim, analogi.',
         category: 'Verbal',
         type: 'objective',
         difficulty: 'hard',
@@ -208,8 +200,7 @@ final _builtinTemplates = [
       ),
       _TemplateSubTest(
         name: 'Penalaran Kuantitatif',
-        description:
-            'Uji kemampuan berhitung, logika numerik, dan analisis data dasar melalui 25 soal yang mengukur kecepatan dan akurasi penalaran angka.',
+        description: 'Berhitung, logika numerik, analisis data.',
         category: 'Numerik',
         type: 'objective',
         difficulty: 'hard',
@@ -222,8 +213,7 @@ final _builtinTemplates = [
       ),
       _TemplateSubTest(
         name: 'Pemecahan Masalah',
-        description:
-            'Uji kemampuan menyelesaikan situasi kompleks menggunakan logika dan strategi analitis melalui 12 soal penalaran logis dan analitis.',
+        description: 'Logika dan strategi analitis.',
         category: 'Penalaran',
         type: 'objective',
         difficulty: 'hard',
@@ -231,58 +221,6 @@ final _builtinTemplates = [
         scoringConfig: ScoringConfig(
           correctScore: 1,
           wrongScore: 0,
-          emptyScore: 0,
-        ),
-      ),
-    ],
-  ),
-  _TryoutTemplate(
-    id: 'bumn_tbs',
-    name: 'BUMN TBS',
-    description: 'Rekrutmen BUMN: Verbal, Numerik, Kepribadian',
-    icon: Icons.business_rounded,
-    color: AppColors.success,
-    tryoutTitle: 'BUMN TBS – Rekrutmen Bersama',
-    tryoutDesc: 'Simulasi Tes Bersama BUMN sesuai standar FHCI.',
-    price: 0,
-    isActive: true,
-    subtests: [
-      _TemplateSubTest(
-        name: 'Verbal',
-        description: 'Sinonim, antonim, analogi',
-        category: 'Verbal',
-        type: 'objective',
-        difficulty: 'medium',
-        estimatedMinutes: 30,
-        scoringConfig: ScoringConfig(
-          correctScore: 1,
-          wrongScore: -0.25,
-          emptyScore: 0,
-        ),
-      ),
-      _TemplateSubTest(
-        name: 'Numerik',
-        description: 'Aritmatika, deret, interpretasi data',
-        category: 'Numerik',
-        type: 'objective',
-        difficulty: 'medium',
-        estimatedMinutes: 30,
-        scoringConfig: ScoringConfig(
-          correctScore: 1,
-          wrongScore: -0.25,
-          emptyScore: 0,
-        ),
-      ),
-      _TemplateSubTest(
-        name: 'Kepribadian',
-        description: 'Big Five Personality, situasional',
-        category: 'Kepribadian',
-        type: 'likert',
-        difficulty: 'easy',
-        estimatedMinutes: 25,
-        scoringConfig: ScoringConfig(
-          correctScore: 5,
-          wrongScore: 1,
           emptyScore: 0,
         ),
       ),
@@ -302,9 +240,9 @@ final _builtinTemplates = [
   ),
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
 // SCREEN
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
 
 class CreateTryoutScreen extends StatefulWidget {
   const CreateTryoutScreen({super.key});
@@ -313,35 +251,28 @@ class CreateTryoutScreen extends StatefulWidget {
   State<CreateTryoutScreen> createState() => _CreateTryoutScreenState();
 }
 
-class _CreateTryoutScreenState extends State<CreateTryoutScreen>
-    with SingleTickerProviderStateMixin {
-  // ── Form ──────────────────────────────────────────────────────
+class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _priceCtrl = TextEditingController(text: '0');
 
-  // ── Tryout meta ───────────────────────────────────────────────
   bool _isActive = true;
   bool _isFlexible = true;
   DateTime? _startDate;
   DateTime? _endDate;
 
-  // ── Exam types ────────────────────────────────────────────────
   List<ExamType> _examTypes = [];
   String? _selectedExamTypeId;
   bool _loadingExamTypes = true;
 
-  // ── Sub-tests ─────────────────────────────────────────────────
   final List<SubTest> _subTests = [];
   int _activeTab = 0;
 
-  // Per-subtest controllers (keyed by subtest index)
   final Map<int, TextEditingController> _nameCtrl = {};
   final Map<int, TextEditingController> _descCtrl2 = {};
   final Map<int, TextEditingController> _timeCtrl = {};
 
-  // ── State flags ───────────────────────────────────────────────
   bool _isSaving = false;
   bool _isParsing = false;
   double _parseProgress = 0;
@@ -350,9 +281,12 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
 
   final ValueNotifier<ProcessingStatus?> _toast = ValueNotifier(null);
 
-  // ── Step UI ───────────────────────────────────────────────────
-  int _currentStep = 0; // 0=Info, 1=ExamType, 2=Schedule, 3=Subtests
-  bool _templateChosen = false; // false = tampilkan picker template
+  int _currentStep = 0;
+  bool _templateChosen = false;
+
+  // ── Editor state ────────────────────────────────────
+  // index soal yang sedang di-edit (null = tidak ada)
+  int? _editingQuestionIndex;
 
   @override
   void initState() {
@@ -365,33 +299,27 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _priceCtrl.dispose();
-    for (final c in _nameCtrl.values) {
-      c.dispose();
-    }
-    for (final c in _descCtrl2.values) {
-      c.dispose();
-    }
-    for (final c in _timeCtrl.values) {
-      c.dispose();
-    }
+    for (final c in _nameCtrl.values) c.dispose();
+    for (final c in _descCtrl2.values) c.dispose();
+    for (final c in _timeCtrl.values) c.dispose();
     _toast.dispose();
     super.dispose();
   }
 
   // ─────────────────────────────────────────────────────────────
+  // ✅ FIX 1 — Cell helper: buang \r penyebab _x000D_
+  // ─────────────────────────────────────────────────────────────
+  String _cleanStr(String raw) =>
+      raw.replaceAll('\r\n', '\n').replaceAll('\r', '').trim();
+
+  // ─────────────────────────────────────────────────────────────
   // DATA
   // ─────────────────────────────────────────────────────────────
+
   void _applyTemplate(_TryoutTemplate tpl) {
-    // Reset controllers lama
-    for (final c in _nameCtrl.values) {
-      c.dispose();
-    }
-    for (final c in _descCtrl2.values) {
-      c.dispose();
-    }
-    for (final c in _timeCtrl.values) {
-      c.dispose();
-    }
+    for (final c in _nameCtrl.values) c.dispose();
+    for (final c in _descCtrl2.values) c.dispose();
+    for (final c in _timeCtrl.values) c.dispose();
     _nameCtrl.clear();
     _descCtrl2.clear();
     _timeCtrl.clear();
@@ -399,8 +327,8 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
     _titleCtrl.text = tpl.tryoutTitle;
     _descCtrl.text = tpl.tryoutDesc;
     _priceCtrl.text = tpl.price.toString();
-
     _subTests.clear();
+
     if (tpl.subtests.isEmpty) {
       _subTests.add(
         SubTest(id: DateTime.now().millisecondsSinceEpoch.toString()),
@@ -437,6 +365,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
       _activeTab = 0;
       _currentStep = 0;
       _errorMsg = null;
+      _editingQuestionIndex = null;
     });
   }
 
@@ -468,10 +397,6 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
 
   List<String> get _availableCategories => _selectedExamType?.categories ?? [];
 
-  // ─────────────────────────────────────────────────────────────
-  // SUBTEST MANAGEMENT
-  // ─────────────────────────────────────────────────────────────
-
   void _addSubTest() {
     final idx = _subTests.length;
     _subTests.add(
@@ -480,7 +405,10 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
     _nameCtrl[idx] = TextEditingController();
     _descCtrl2[idx] = TextEditingController();
     _timeCtrl[idx] = TextEditingController(text: '30');
-    setState(() => _activeTab = idx);
+    setState(() {
+      _activeTab = idx;
+      _editingQuestionIndex = null;
+    });
   }
 
   void _removeSubTest(int idx) {
@@ -494,12 +422,9 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
     setState(() {
       _subTests.removeAt(idx);
       if (_activeTab >= _subTests.length) _activeTab = _subTests.length - 1;
+      _editingQuestionIndex = null;
     });
   }
-
-  // ─────────────────────────────────────────────────────────────
-  // TOAST
-  // ─────────────────────────────────────────────────────────────
 
   void _showToast(String msg, {bool isError = false}) {
     _toast.value = ProcessingStatus(message: msg, isError: isError);
@@ -513,7 +438,6 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
   // ─────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
-    // Sync controller values → model
     for (int i = 0; i < _subTests.length; i++) {
       _subTests[i].name = _nameCtrl[i]?.text.trim() ?? '';
       _subTests[i].description = _descCtrl2[i]?.text.trim() ?? '';
@@ -532,7 +456,9 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
         return;
       }
       if (s.questions == null || s.questions!.isEmpty) {
-        setState(() => _errorMsg = 'Upload file Excel untuk setiap subtes.');
+        setState(
+          () => _errorMsg = 'Upload file Excel/CSV untuk setiap subtes.',
+        );
         return;
       }
     }
@@ -556,7 +482,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
             'type': _subTests[i].type,
             'questionCount': _subTests[i].questionCount ?? 0,
             'isActive': true,
-            'scoringConfig': _subTests[i].scoringConfig.toMap(), // ← BARU
+            'scoringConfig': _subTests[i].scoringConfig.toMap(),
             'questions': _subTests[i].questions ?? [],
           },
       ];
@@ -596,15 +522,9 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
   }
 
   void _reset() {
-    for (final c in _nameCtrl.values) {
-      c.dispose();
-    }
-    for (final c in _descCtrl2.values) {
-      c.dispose();
-    }
-    for (final c in _timeCtrl.values) {
-      c.dispose();
-    }
+    for (final c in _nameCtrl.values) c.dispose();
+    for (final c in _descCtrl2.values) c.dispose();
+    for (final c in _timeCtrl.values) c.dispose();
     _nameCtrl.clear();
     _descCtrl2.clear();
     _timeCtrl.clear();
@@ -622,12 +542,13 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
       _errorMsg = null;
       _currentStep = 0;
       _activeTab = 0;
+      _editingQuestionIndex = null;
     });
     _addSubTest();
   }
 
   // ─────────────────────────────────────────────────────────────
-  // EXCEL PARSE
+  // ✅ FIX 2 — File picker: support xlsx, xls, csv
   // ─────────────────────────────────────────────────────────────
 
   Future<void> _pickFile(SubTest sub) async {
@@ -636,38 +557,47 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
     try {
       final res = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['xlsx', 'xls'],
+        allowedExtensions: ['xlsx', 'xls', 'csv'],
         withData: true,
       );
       if (!mounted || res == null || res.files.single.bytes == null) return;
-      setState(() => sub.fileName = res.files.single.name);
-      await _parseExcel(sub, res.files.single.bytes!);
+      final f = res.files.single;
+      setState(() => sub.fileName = f.name);
+
+      final name = f.name.toLowerCase();
+      if (name.endsWith('.csv')) {
+        await _parseCsv(sub, f.bytes!);
+      } else {
+        await _parseExcel(sub, f.bytes!);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _errorMsg = 'Gagal memilih file: $e');
     }
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // ✅ FIX 3 — Excel parser: fix _x000D_ + numFmtId + empty rows
+  // ─────────────────────────────────────────────────────────────
+
   Future<void> _parseExcel(SubTest sub, List<int> bytes) async {
     setState(() {
       _isParsing = true;
       _parseProgress = 0;
-      _parseMsg = 'Membaca file…';
+      _parseMsg = 'Membaca file Excel…';
     });
 
     try {
       await Future.delayed(const Duration(milliseconds: 80));
       setState(() => _parseProgress = 0.1);
 
-      // ✅ Fix: coba decode biasa, kalau gagal karena numFmtId → strip styles dulu
       Excel excel;
       try {
         excel = Excel.decodeBytes(bytes);
       } catch (e) {
-        if (e.toString().contains('numFmtId')) {
-          // ✅ Workaround: decode ulang dengan konversi bytes ke Uint8List
-          // Library excel kadang crash pada file dengan custom styles
-          // Solusi: pakai decodeBytes dengan cast eksplisit
+        // ✅ Fix numFmtId crash
+        if (e.toString().contains('numFmtId') ||
+            e.toString().contains('FormatException')) {
           excel = Excel.decodeBytes(List<int>.from(bytes));
         } else {
           rethrow;
@@ -679,79 +609,136 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
       if (sheet == null) throw Exception('Sheet tidak ditemukan');
 
       final rows = sheet.rows;
-      final total = rows.length;
-      final questions = <Map<String, dynamic>>[];
+      final questions = await _rowsToQuestions(rows, rows.length);
 
-      // ✅ Helper: ambil nilai cell secara aman, handle semua tipe CellValue
-      String cell(List<dynamic> row, int i) {
-        if (i >= row.length || row[i] == null) return '';
-        final v = row[i]?.value;
-        if (v == null) return '';
-        // Handle berbagai tipe: TextCellValue, IntCellValue, DoubleCellValue, dll
-        if (v is TextCellValue) return v.value.toString().trim();
-        if (v is IntCellValue) return v.value.toString().trim();
-        if (v is DoubleCellValue) return v.value.toString().trim();
-        if (v is BoolCellValue) return v.value.toString().trim();
-        return v.toString().trim();
+      if (questions.isEmpty) throw Exception('Tidak ada soal valid di file');
+
+      setState(() {
+        sub.questions = questions;
+        sub.questionCount = questions.length;
+        _isParsing = false;
+        _parseProgress = 0;
+        _editingQuestionIndex = null;
+      });
+      _showToast('✅ ${questions.length} soal berhasil dibaca dari Excel');
+    } catch (e) {
+      String errMsg = e.toString();
+      if (errMsg.contains('numFmtId')) {
+        errMsg =
+            'Format Excel tidak didukung. Simpan ulang file sebagai .xlsx baru, lalu upload kembali.';
       }
+      setState(() {
+        sub.fileName = null;
+        sub.questions = null;
+        sub.questionCount = null;
+        _isParsing = false;
+        _errorMsg = errMsg;
+      });
+      _showToast('❌ $errMsg', isError: true);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // ✅ FITUR BARU — CSV parser
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> _parseCsv(SubTest sub, List<int> bytes) async {
+    setState(() {
+      _isParsing = true;
+      _parseProgress = 0;
+      _parseMsg = 'Membaca file CSV…';
+    });
+
+    try {
+      await Future.delayed(const Duration(milliseconds: 80));
+      setState(() => _parseProgress = 0.1);
+
+      // Decode bytes → string (UTF-8, fallback Latin-1)
+      String content;
+      try {
+        content = utf8.decode(bytes);
+      } catch (_) {
+        content = latin1.decode(bytes);
+      }
+
+      // ✅ Fix _x000D_: normalise line endings sebelum parse
+      content = content
+          .replaceAll('_x000D_', '')
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n');
+
+      setState(() => _parseProgress = 0.2);
+
+      // Parse CSV dengan support quoted fields (termasuk newline dalam field)
+      final rows = _parseCsvContent(content);
+
+      if (rows.length < 2) throw Exception('CSV kosong atau hanya header');
+
+      setState(() => _parseProgress = 0.3);
+
+      // rows[0] = header, rows[1..] = data
+      // Konversi ke format yang sama dengan _rowsToQuestions
+      // tapi pakai List<String> bukan List<Data?>
+      final questions = <Map<String, dynamic>>[];
+      final total = rows.length;
 
       for (int i = 1; i < total; i++) {
         final row = rows[i];
-        if (row.isEmpty || row.every((c) => c?.value == null)) continue;
+        if (row.every((c) => c.trim().isEmpty)) continue;
 
-        if (i % 10 == 0) {
+        if (i % 20 == 0) {
           setState(() {
-            _parseProgress = 0.15 + (i / total) * 0.8;
+            _parseProgress = 0.3 + (i / total) * 0.65;
             _parseMsg = 'Proses baris $i / ${total - 1}';
           });
           await Future.delayed(Duration.zero);
         }
 
-        final pkg = cell(row, 0);
-        final cat = cell(row, 1);
-        final diff = cell(row, 2);
-        final q = cell(row, 3);
-        final type = cell(row, 4);
+        // Helper ambil kolom aman
+        String col(int idx) {
+          if (idx >= row.length) return '';
+          return _cleanStr(row[idx]);
+        }
+
+        final q = col(3);
         if (q.isEmpty) continue;
 
+        final pkg = col(0);
+        final cat = col(1);
+        final diff = col(2);
+        final type = col(4);
+
         final opts = [
-          cell(row, 5),
-          cell(row, 6),
-          cell(row, 7),
-          cell(row, 8),
-          cell(row, 9),
+          col(5),
+          col(6),
+          col(7),
+          col(8),
+          col(9),
         ].where((o) => o.isNotEmpty).toList();
 
         final optImgs = [
-          cell(row, 20),
-          cell(row, 21),
-          cell(row, 22),
-          cell(row, 23),
-          cell(row, 24),
+          col(20),
+          col(21),
+          col(22),
+          col(23),
+          col(24),
         ].map((e) => e.isNotEmpty ? e : null).toList();
 
-        final qImg = cell(row, 19);
-        final exShort = cell(row, 16);
-        final exFull = cell(row, 17);
-        final tags = cell(
-          row,
+        final qImg = col(19);
+        final exShort = col(16);
+        final exFull = col(17);
+        final tags = col(
           18,
         ).split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
 
-        final isLikert = type == 'likert';
-
-        if (isLikert) {
-          final rawScores = [
-            int.tryParse(cell(row, 11)),
-            int.tryParse(cell(row, 12)),
-            int.tryParse(cell(row, 13)),
-            int.tryParse(cell(row, 14)),
-            int.tryParse(cell(row, 15)),
-          ];
-          final scores = rawScores
-              .take(opts.length)
-              .map((s) => s ?? 0)
-              .toList();
+        if (type == 'likert') {
+          final scores = [
+            col(11),
+            col(12),
+            col(13),
+            col(14),
+            col(15),
+          ].take(opts.length).map((s) => int.tryParse(s) ?? 0).toList();
 
           questions.add({
             'package': pkg,
@@ -775,7 +762,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
             'question': q,
             'type': 'objective',
             'options': opts,
-            'correctIndex': int.tryParse(cell(row, 10)) ?? 0,
+            'correctIndex': int.tryParse(col(10)) ?? 0,
             'explanationShort': exShort,
             'explanationFull': exFull,
             'tags': tags,
@@ -785,42 +772,240 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
         }
       }
 
-      if (questions.isEmpty) throw Exception('Tidak ada soal valid di file');
+      if (questions.isEmpty)
+        throw Exception('Tidak ada soal valid di file CSV');
 
       setState(() {
         sub.questions = questions;
         sub.questionCount = questions.length;
         _isParsing = false;
         _parseProgress = 0;
+        _editingQuestionIndex = null;
       });
-      _showToast('✅ ${questions.length} soal berhasil dibaca');
+      _showToast('✅ ${questions.length} soal berhasil dibaca dari CSV');
     } catch (e) {
-      // ✅ Pesan error lebih informatif
-      String errMsg = e.toString();
-      if (errMsg.contains('numFmtId')) {
-        errMsg =
-            'File Excel memiliki format kustom yang tidak didukung. '
-            'Coba simpan ulang file sebagai .xlsx baru di Excel/Google Sheets, '
-            'lalu upload kembali.';
-      }
-
       setState(() {
         sub.fileName = null;
         sub.questions = null;
         sub.questionCount = null;
         _isParsing = false;
-        _errorMsg = errMsg;
+        _errorMsg = e.toString();
       });
-      _showToast('❌ $errMsg', isError: true);
+      _showToast('❌ ${e.toString()}', isError: true);
     }
   }
+
+  /// RFC 4180-compliant CSV parser (support quoted fields dengan koma & newline)
+  List<List<String>> _parseCsvContent(String content) {
+    final rows = <List<String>>[];
+    final lines = content.split('\n');
+    List<String>? currentRow;
+    String? inQuoteBuffer;
+
+    for (final line in lines) {
+      if (inQuoteBuffer != null) {
+        // lanjutan field yang dikutip (ada newline di dalam field)
+        inQuoteBuffer = '$inQuoteBuffer\n$line';
+        // hitung jumlah tanda kutip
+        final quoteCount = '"'.allMatches(inQuoteBuffer!).length;
+        if (quoteCount % 2 == 0) {
+          // kutip sudah tertutup → selesaikan field
+          final cleaned = inQuoteBuffer!
+              .replaceAll(RegExp(r'^"|"$'), '')
+              .replaceAll('""', '"');
+          currentRow!.add(cleaned);
+          inQuoteBuffer = null;
+          rows.add(currentRow!);
+          currentRow = null;
+        }
+        continue;
+      }
+
+      currentRow = <String>[];
+      final fields = _splitCsvLine(line);
+      for (int fi = 0; fi < fields.length; fi++) {
+        final f = fields[fi];
+        if (f.startsWith('"') &&
+            !f.endsWith('"') &&
+            '"'.allMatches(f).length % 2 != 0) {
+          // field dikutip belum tertutup (ada newline di dalam)
+          inQuoteBuffer = f;
+          // sisa fields masuk ke buffer bersama
+          if (fi + 1 < fields.length) {
+            inQuoteBuffer =
+                '$inQuoteBuffer,${fields.sublist(fi + 1).join(",")}';
+          }
+          break;
+        }
+        currentRow.add(_unquoteCsvField(f));
+      }
+      if (inQuoteBuffer == null && currentRow.isNotEmpty) {
+        rows.add(currentRow);
+        currentRow = null;
+      }
+    }
+
+    return rows;
+  }
+
+  List<String> _splitCsvLine(String line) {
+    final fields = <String>[];
+    var i = 0;
+    final buf = StringBuffer();
+    var inQ = false;
+    while (i < line.length) {
+      final ch = line[i];
+      if (ch == '"') {
+        if (inQ && i + 1 < line.length && line[i + 1] == '"') {
+          buf.write('"');
+          i += 2;
+          continue;
+        }
+        inQ = !inQ;
+      } else if (ch == ',' && !inQ) {
+        fields.add(buf.toString());
+        buf.clear();
+      } else {
+        buf.write(ch);
+      }
+      i++;
+    }
+    fields.add(buf.toString());
+    return fields;
+  }
+
+  String _unquoteCsvField(String f) {
+    f = f.trim();
+    if (f.startsWith('"') && f.endsWith('"') && f.length >= 2) {
+      f = f.substring(1, f.length - 1).replaceAll('""', '"');
+    }
+    return _cleanStr(f);
+  }
+
+  // Shared row→questions logic untuk Excel
+  Future<List<Map<String, dynamic>>> _rowsToQuestions(
+    List<List<dynamic>> rows,
+    int total,
+  ) async {
+    final questions = <Map<String, dynamic>>[];
+
+    // ✅ Fix _x000D_: pakai _cleanStr di semua cell
+    String cell(List<dynamic> row, int i) {
+      if (i >= row.length || row[i] == null) return '';
+      final v = row[i]?.value;
+      if (v == null) return '';
+      String raw;
+      if (v is TextCellValue)
+        raw = v.value.toString();
+      else if (v is IntCellValue)
+        raw = v.value.toString();
+      else if (v is DoubleCellValue)
+        raw = v.value.toString();
+      else if (v is BoolCellValue)
+        raw = v.value.toString();
+      else
+        raw = v.toString();
+      return _cleanStr(raw); // ← FIX _x000D_
+    }
+
+    for (int i = 1; i < total; i++) {
+      final row = rows[i];
+      if (row.isEmpty || row.every((c) => c?.value == null)) continue;
+
+      if (i % 10 == 0) {
+        setState(() {
+          _parseProgress = 0.15 + (i / total) * 0.8;
+          _parseMsg = 'Proses baris $i / ${total - 1}';
+        });
+        await Future.delayed(Duration.zero);
+      }
+
+      final q = cell(row, 3);
+      if (q.isEmpty) continue;
+
+      final pkg = cell(row, 0);
+      final cat = cell(row, 1);
+      final diff = cell(row, 2);
+      final type = cell(row, 4);
+
+      final opts = [
+        cell(row, 5),
+        cell(row, 6),
+        cell(row, 7),
+        cell(row, 8),
+        cell(row, 9),
+      ].where((o) => o.isNotEmpty).toList();
+
+      final optImgs = [
+        cell(row, 20),
+        cell(row, 21),
+        cell(row, 22),
+        cell(row, 23),
+        cell(row, 24),
+      ].map((e) => e.isNotEmpty ? e : null).toList();
+
+      final qImg = cell(row, 19);
+      final exShort = cell(row, 16);
+      final exFull = cell(row, 17);
+      final tags = cell(
+        row,
+        18,
+      ).split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+
+      if (type == 'likert') {
+        final scores = [
+          cell(row, 11),
+          cell(row, 12),
+          cell(row, 13),
+          cell(row, 14),
+          cell(row, 15),
+        ].take(opts.length).map((s) => int.tryParse(s) ?? 0).toList();
+
+        questions.add({
+          'package': pkg,
+          'category': cat,
+          'difficulty': diff.isEmpty ? 'medium' : diff,
+          'question': q,
+          'type': 'likert',
+          'options': opts,
+          'scores': scores,
+          'explanationShort': exShort,
+          'explanationFull': exFull,
+          'tags': tags,
+          'questionImage': qImg.isNotEmpty ? qImg : null,
+          'optionImages': optImgs,
+        });
+      } else {
+        questions.add({
+          'package': pkg,
+          'category': cat,
+          'difficulty': diff.isEmpty ? 'medium' : diff,
+          'question': q,
+          'type': 'objective',
+          'options': opts,
+          'correctIndex': int.tryParse(cell(row, 10)) ?? 0,
+          'explanationShort': exShort,
+          'explanationFull': exFull,
+          'tags': tags,
+          'questionImage': qImg.isNotEmpty ? qImg : null,
+          'optionImages': optImgs,
+        });
+      }
+    }
+
+    return questions;
+  }
+
   // ─────────────────────────────────────────────────────────────
   // IMAGE UPLOAD
   // ─────────────────────────────────────────────────────────────
 
-  Future<void> _uploadImage(Map<String, dynamic> question) async {
-    final res = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (res == null) return;
+  Future<String?> _uploadImageFile() async {
+    final res = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (res == null) return null;
     _showToast('Mengunggah gambar…');
     try {
       final f = res.files.first;
@@ -829,127 +1014,140 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
       );
       final snap = await ref.putData(f.bytes!);
       final url = await snap.ref.getDownloadURL();
-      setState(() => question['questionImage'] = url);
       _showToast('✅ Gambar berhasil diunggah');
+      return url;
     } catch (e) {
       _showToast('❌ Upload gagal: $e', isError: true);
+      return null;
     }
   }
 
   // ─────────────────────────────────────────────────────────────
-  // TEMPLATE DOWNLOAD
+  // TEMPLATE DOWNLOAD — xlsx & csv
   // ─────────────────────────────────────────────────────────────
 
-  void _downloadTemplate(bool isLikert) {
-    final excel = Excel.createExcel();
-    final sheet = excel['questions'];
-    sheet.appendRow(
-      [
-        'Package',
-        'Category',
-        'Difficulty',
-        'Question',
-        'Type',
-        'Option A',
-        'Option B',
-        'Option C',
-        'Option D',
-        'Option E',
-        'Correct Index',
-        'Score A',
-        'Score B',
-        'Score C',
-        'Score D',
-        'Score E',
-        'Explanation Short',
-        'Explanation Full',
-        'Tags',
-        'Question Image URL',
-        'Opt A Img',
-        'Opt B Img',
-        'Opt C Img',
-        'Opt D Img',
-        'Opt E Img',
-      ].map(TextCellValue.new).toList(),
-    );
+  void _downloadTemplate(bool isLikert, {bool asCsv = false}) {
+    final headers = [
+      'Package',
+      'Category',
+      'Difficulty',
+      'Question',
+      'Type',
+      'Option A',
+      'Option B',
+      'Option C',
+      'Option D',
+      'Option E',
+      'Correct Index',
+      'Score A',
+      'Score B',
+      'Score C',
+      'Score D',
+      'Score E',
+      'Explanation Short',
+      'Explanation Full',
+      'Tags',
+      'Question Image URL',
+      'Opt A Img',
+      'Opt B Img',
+      'Opt C Img',
+      'Opt D Img',
+      'Opt E Img',
+    ];
 
-    if (!isLikert) {
-      sheet.appendRow(
-        [
-          'CPNS 2025',
-          'TWK',
-          'medium',
-          'Sila pertama Pancasila adalah…',
-          'objective',
-          'Kemanusiaan',
-          'Ketuhanan Yang Maha Esa',
-          'Persatuan',
-          'Kerakyatan',
-          'Keadilan',
-          '1',
-          '',
-          '',
-          '',
-          '',
-          '',
-          'Ketuhanan YME',
-          'Sila 1 berbunyi Ketuhanan Yang Maha Esa.',
-          'pancasila',
-          '',
-          '',
-          '',
-          '',
-          '',
-          '',
-        ].map(TextCellValue.new).toList(),
+    final example = isLikert
+        ? [
+            'CPNS 2025',
+            'TKP',
+            'medium',
+            'Rekan kerja melakukan kesalahan, Anda…',
+            'likert',
+            'Menegur keras',
+            'Membiarkan',
+            'Lapor atasan langsung',
+            'Bicara empat mata',
+            'Bantu perbaiki',
+            '',
+            '1',
+            '2',
+            '3',
+            '5',
+            '4',
+            'Komunikasi efektif',
+            'Pilih D karena empati dan profesional.',
+            'tkp,komunikasi',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+          ]
+        : [
+            'CPNS 2025',
+            'TWK',
+            'medium',
+            'Sila pertama Pancasila adalah…',
+            'objective',
+            'Kemanusiaan',
+            'Ketuhanan Yang Maha Esa',
+            'Persatuan',
+            'Kerakyatan',
+            'Keadilan',
+            '1',
+            '',
+            '',
+            '',
+            '',
+            '',
+            'Ketuhanan YME',
+            'Sila 1 berbunyi Ketuhanan Yang Maha Esa.',
+            'pancasila',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+          ];
+
+    final baseName = isLikert ? 'template_tkp' : 'template_twk_tiu';
+
+    if (asCsv) {
+      // ── Export as CSV ──────────────────────────────────────
+      final sb = StringBuffer();
+      sb.writeln(headers.map(_csvEscape).join(','));
+      sb.writeln(example.map(_csvEscape).join(','));
+      final bytes = utf8.encode(sb.toString());
+      final url = html.Url.createObjectUrlFromBlob(
+        html.Blob([bytes], 'text/csv'),
       );
+      html.AnchorElement(href: url)
+        ..setAttribute('download', '$baseName.csv')
+        ..click();
+      html.Url.revokeObjectUrl(url);
     } else {
-      sheet.appendRow(
-        [
-          'CPNS 2025',
-          'TKP',
-          'medium',
-          'Rekan kerja melakukan kesalahan, Anda…',
-          'likert',
-          'Menegur keras',
-          'Membiarkan',
-          'Lapor atasan langsung',
-          'Bicara empat mata',
-          'Bantu perbaiki',
-          '',
-          '1',
-          '2',
-          '3',
-          '5',
-          '4',
-          'Komunikasi efektif',
-          'Pilih D karena empati dan profesional.',
-          'tkp,komunikasi',
-          '',
-          '',
-          '',
-          '',
-          '',
-          '',
-        ].map(TextCellValue.new).toList(),
-      );
+      // ── Export as XLSX ─────────────────────────────────────
+      final excel = Excel.createExcel();
+      final sheet = excel['questions'];
+      sheet.appendRow(headers.map(TextCellValue.new).toList());
+      sheet.appendRow(example.map(TextCellValue.new).toList());
+      final bytes = excel.encode()!;
+      final url = html.Url.createObjectUrlFromBlob(html.Blob([bytes]));
+      html.AnchorElement(href: url)
+        ..setAttribute('download', '$baseName.xlsx')
+        ..click();
+      html.Url.revokeObjectUrl(url);
     }
-
-    final bytes = excel.encode()!;
-    final url = html.Url.createObjectUrlFromBlob(html.Blob([bytes]));
-    html.AnchorElement(href: url)
-      ..setAttribute(
-        'download',
-        isLikert ? 'template_tkp.xlsx' : 'template_twk_tiu.xlsx',
-      )
-      ..click();
-    html.Url.revokeObjectUrl(url);
     _showToast('✅ Template diunduh');
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // DATE PICKER
-  // ─────────────────────────────────────────────────────────────
+  String _csvEscape(String v) {
+    if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+      return '"${v.replaceAll('"', '""')}"';
+    }
+    return v;
+  }
 
   Future<void> _pickDate(bool isStart) async {
     final d = await showDatePicker(
@@ -985,7 +1183,10 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
               children: [
                 _StepSidebar(
                   current: _currentStep,
-                  onTap: (i) => setState(() => _currentStep = i),
+                  onTap: (i) => setState(() {
+                    _currentStep = i;
+                    _editingQuestionIndex = null;
+                  }),
                 ),
                 Expanded(
                   child: Form(
@@ -1025,7 +1226,6 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
                 ),
               ],
             ),
-          // ── Floating toast ─────────────────────────────────────
           ValueListenableBuilder<ProcessingStatus?>(
             valueListenable: _toast,
             builder: (_, status, __) {
@@ -1042,7 +1242,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // PAGE HEADER
+  // PAGE HEADER — tambah tombol download CSV
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildPageHeader() {
@@ -1078,7 +1278,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Isi informasi, pilih kategori, dan unggah soal Excel',
+                  'Isi informasi, pilih kategori, dan unggah soal Excel/CSV',
                   style: AppText.bodySm.copyWith(
                     color: AppColors.white.withOpacity(0.75),
                   ),
@@ -1094,40 +1294,36 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
             onTap: () => setState(() => _templateChosen = false),
           ),
           const SizedBox(width: AppSpacing.sm),
-          // Template download pills
-          _TemplateBtn(
+          // Download dropdown: xlsx / csv
+          _DownloadTemplateMenu(
             label: 'TWK/TIU',
-            icon: Icons.download_rounded,
-            onTap: () => _downloadTemplate(false),
+            onXlsx: () => _downloadTemplate(false),
+            onCsv: () => _downloadTemplate(false, asCsv: true),
           ),
           const SizedBox(width: AppSpacing.sm),
-          _TemplateBtn(
+          _DownloadTemplateMenu(
             label: 'TKP',
-            icon: Icons.download_rounded,
             color: AppColors.gold,
             textColor: AppColors.primary,
-            onTap: () => _downloadTemplate(true),
+            onXlsx: () => _downloadTemplate(true),
+            onCsv: () => _downloadTemplate(true, asCsv: true),
           ),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // STEPS
-  // ─────────────────────────────────────────────────────────────
+  Widget _buildStep(int step) => switch (step) {
+    0 => _buildStepInfo(),
+    1 => _buildStepExamType(),
+    2 => _buildStepSchedule(),
+    3 => _buildStepSubtests(),
+    _ => const SizedBox.shrink(),
+  };
 
-  Widget _buildStep(int step) {
-    return switch (step) {
-      0 => _buildStepInfo(),
-      1 => _buildStepExamType(),
-      2 => _buildStepSchedule(),
-      3 => _buildStepSubtests(),
-      _ => const SizedBox.shrink(),
-    };
-  }
-
-  // ── Step 0: Info ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // STEP 0 – Info
+  // ─────────────────────────────────────────────────────────────
 
   Widget _buildStepInfo() {
     return _Card(
@@ -1191,7 +1387,9 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
     );
   }
 
-  // ── Step 1: Exam Type ────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // STEP 1 – Exam Type
+  // ─────────────────────────────────────────────────────────────
 
   Widget _buildStepExamType() {
     return _Card(
@@ -1221,18 +1419,19 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Grid pilihan tipe ujian
                 Wrap(
                   spacing: AppSpacing.sm,
                   runSpacing: AppSpacing.sm,
-                  children: _examTypes.map((e) {
-                    final isSelected = e.id == _selectedExamTypeId;
-                    return _ExamTypeChip(
-                      examType: e,
-                      isSelected: isSelected,
-                      onTap: () => setState(() => _selectedExamTypeId = e.id),
-                    );
-                  }).toList(),
+                  children: _examTypes
+                      .map(
+                        (e) => _ExamTypeChip(
+                          examType: e,
+                          isSelected: e.id == _selectedExamTypeId,
+                          onTap: () =>
+                              setState(() => _selectedExamTypeId = e.id),
+                        ),
+                      )
+                      .toList(),
                 ),
                 if (_selectedExamType != null) ...[
                   const SizedBox(height: AppSpacing.md),
@@ -1264,40 +1463,15 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
                       ],
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ManageCategoriesScreen(),
-                          ),
-                        );
-                        if (mounted) _loadExamTypes();
-                      },
-                      icon: const Icon(Icons.settings_rounded, size: 16),
-                      label: const Text('Kelola Kategori'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textSecondary,
-                        side: const BorderSide(color: AppColors.border),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.sm,
-                        ),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
-                  ),
                 ],
               ],
             ),
     );
   }
 
-  // ── Step 2: Schedule ─────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // STEP 2 – Schedule
+  // ─────────────────────────────────────────────────────────────
 
   Widget _buildStepSchedule() {
     return _Card(
@@ -1343,13 +1517,14 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
     );
   }
 
-  // ── Step 3: Subtests ─────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // STEP 3 – Subtests
+  // ─────────────────────────────────────────────────────────────
 
   Widget _buildStepSubtests() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Subtest tab bar + add button
         Row(
           children: [
             Expanded(
@@ -1359,13 +1534,15 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
                   scrollDirection: Axis.horizontal,
                   itemCount: _subTests.length,
                   itemBuilder: (_, i) {
-                    final active = i == _activeTab;
                     final name = _nameCtrl[i]?.text.trim() ?? '';
                     return _SubTestTab(
                       label: name.isEmpty ? 'Subtes ${i + 1}' : name,
-                      isActive: active,
+                      isActive: i == _activeTab,
                       canDelete: _subTests.length > 1,
-                      onTap: () => setState(() => _activeTab = i),
+                      onTap: () => setState(() {
+                        _activeTab = i;
+                        _editingQuestionIndex = null;
+                      }),
                       onDelete: () => _removeSubTest(i),
                     );
                   },
@@ -1377,7 +1554,6 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        // Active subtest form
         if (_subTests.isNotEmpty && _activeTab < _subTests.length)
           _buildSubTestForm(_subTests[_activeTab], _activeTab),
       ],
@@ -1393,6 +1569,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
 
     return Column(
       children: [
+        // ── Detail subtes ──
         _Card(
           icon: Icons.tune_rounded,
           title: 'Detail Subtes',
@@ -1436,7 +1613,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
               const SizedBox(height: AppSpacing.md),
               _Field(
                 label: 'Deskripsi Subtes (opsional)',
-                hint: 'Jelaskan fokus materi subtes ini…',
+                hint: 'Jelaskan fokus materi…',
                 controller: _descCtrl2[i]!,
                 maxLines: 2,
                 onChanged: (v) => sub.description = v,
@@ -1495,7 +1672,7 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
         ),
         const SizedBox(height: AppSpacing.md),
 
-        // Upload area
+        // ── Scoring config ──
         _Card(
           icon: Icons.calculate_rounded,
           title: 'Konfigurasi Penilaian',
@@ -1507,12 +1684,24 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
         ),
         const SizedBox(height: AppSpacing.md),
 
+        // ── Upload section ──
         _Card(
           icon: Icons.upload_file_rounded,
-          title: 'Upload Soal Excel',
+          title: 'Upload Soal (Excel / CSV)',
           accentColor: AppColors.info,
           child: _buildUploadSection(sub),
         ),
+
+        // ── ✅ FITUR BARU: Question editor inline ──
+        if (sub.questions != null && sub.questions!.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          _Card(
+            icon: Icons.edit_note_rounded,
+            title: 'Editor Soal (${sub.questions!.length} soal)',
+            accentColor: AppColors.primary,
+            child: _buildQuestionEditor(sub),
+          ),
+        ],
       ],
     );
   }
@@ -1521,14 +1710,11 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
     if (_isParsing && _subTests[_activeTab] == sub) {
       return _ParseProgress(progress: _parseProgress, message: _parseMsg);
     }
-
     if (sub.fileName == null) {
       return _UploadDropZone(onTap: () => _pickFile(sub));
     }
-
     return Column(
       children: [
-        // File info bar
         Container(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
@@ -1568,6 +1754,15 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
                   ],
                 ),
               ),
+              TextButton.icon(
+                onPressed: () => _pickFile(sub),
+                icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+                label: const Text('Ganti'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.info,
+                  textStyle: AppText.btnSm,
+                ),
+              ),
               IconButton(
                 icon: const Icon(
                   Icons.close_rounded,
@@ -1579,25 +1774,237 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
                   sub.fileName = null;
                   sub.questions = null;
                   sub.questionCount = null;
+                  _editingQuestionIndex = null;
                 }),
               ),
             ],
           ),
         ),
-        // Question preview
-        if (sub.questions != null && sub.questions!.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.md),
-          _QuestionsPreview(
-            questions: sub.questions!,
-            onUploadImage: _uploadImage,
-          ),
-        ],
       ],
     );
   }
 
   // ─────────────────────────────────────────────────────────────
-  // FOOTER
+  // ✅ FITUR BARU — Question Editor
+  // ─────────────────────────────────────────────────────────────
+
+  Widget _buildQuestionEditor(SubTest sub) {
+    final questions = sub.questions!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Toolbar ──────────────────────────────────────────
+        Row(
+          children: [
+            Text(
+              'Klik soal untuk mengedit. Perubahan langsung tersimpan saat upload.',
+              style: AppText.caption,
+            ),
+            const Spacer(),
+            FilledButton.icon(
+              onPressed: () {
+                final isLikert = sub.type == 'likert';
+                setState(() {
+                  questions.add({
+                    'package': '',
+                    'category': sub.category,
+                    'difficulty': sub.difficulty,
+                    'question': '',
+                    'type': isLikert ? 'likert' : 'objective',
+                    'options': ['', '', '', '', ''],
+                    if (isLikert)
+                      'scores': [1, 2, 3, 4, 5]
+                    else
+                      'correctIndex': 0,
+                    'explanationShort': '',
+                    'explanationFull': '',
+                    'tags': <String>[],
+                    'questionImage': null,
+                    'optionImages': [null, null, null, null, null],
+                  });
+                  sub.questionCount = questions.length;
+                  _editingQuestionIndex = questions.length - 1;
+                });
+              },
+              icon: const Icon(Icons.add_rounded, size: 14),
+              label: const Text('Tambah Soal'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: 8,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: AppText.btnSm,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+
+        // ── List soal ─────────────────────────────────────────
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: questions.length,
+          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+          itemBuilder: (_, i) {
+            final q = questions[i];
+            final isEditing = _editingQuestionIndex == i;
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                color: isEditing
+                    ? AppColors.softBg(AppColors.primary)
+                    : AppColors.surfaceAlt,
+                borderRadius: AppRadius.bMd,
+                border: Border.all(
+                  color: isEditing ? AppColors.primary : AppColors.border,
+                  width: isEditing ? 2 : 1,
+                ),
+              ),
+              child: Column(
+                children: [
+                  // ── Row header soal ──────────────────────────
+                  InkWell(
+                    onTap: () => setState(
+                      () => _editingQuestionIndex = isEditing ? null : i,
+                    ),
+                    borderRadius: isEditing
+                        ? const BorderRadius.only(
+                            topLeft: Radius.circular(AppRadius.md),
+                            topRight: Radius.circular(AppRadius.md),
+                          )
+                        : AppRadius.bMd,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      child: Row(
+                        children: [
+                          // Nomor
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: isEditing
+                                  ? AppColors.primary
+                                  : AppColors.surface,
+                              borderRadius: AppRadius.bSm,
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${i + 1}',
+                                style: AppText.label.copyWith(
+                                  color: isEditing
+                                      ? AppColors.white
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          // Preview teks soal
+                          Expanded(
+                            child: Text(
+                              (q['question'] as String?)?.isEmpty ?? true
+                                  ? '(soal kosong — klik untuk mengisi)'
+                                  : q['question'],
+                              style: AppText.bodySm.copyWith(
+                                color:
+                                    (q['question'] as String?)?.isEmpty ?? true
+                                    ? AppColors.textHint
+                                    : AppColors.textPrimary,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          // Pills
+                          _Pill(
+                            label: q['type'] == 'likert' ? 'Likert' : 'Obj',
+                            color: q['type'] == 'likert'
+                                ? AppColors.warning
+                                : AppColors.success,
+                          ),
+                          const SizedBox(width: 4),
+                          // Tombol hapus
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                questions.removeAt(i);
+                                sub.questionCount = questions.length;
+                                if (_editingQuestionIndex == i)
+                                  _editingQuestionIndex = null;
+                                else if (_editingQuestionIndex != null &&
+                                    _editingQuestionIndex! > i) {
+                                  _editingQuestionIndex =
+                                      _editingQuestionIndex! - 1;
+                                }
+                              });
+                            },
+                            borderRadius: AppRadius.bFull,
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.delete_rounded,
+                                size: 16,
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            isEditing
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            size: 20,
+                            color: AppColors.textSecondary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ── Form edit (expanded) ──────────────────────
+                  if (isEditing)
+                    _QuestionEditForm(
+                      question: q,
+                      questionNumber: i + 1,
+                      onChanged: () => setState(() {}),
+                      onUploadImage: (field) async {
+                        final url = await _uploadImageFile();
+                        if (url != null) setState(() => q[field] = url);
+                      },
+                      onUploadOptionImage: (optIdx) async {
+                        final url = await _uploadImageFile();
+                        if (url != null) {
+                          setState(() {
+                            final imgs = List<dynamic>.from(
+                              q['optionImages'] as List? ?? [],
+                            );
+                            while (imgs.length <= optIdx) imgs.add(null);
+                            imgs[optIdx] = url;
+                            q['optionImages'] = imgs;
+                          });
+                        }
+                      },
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // ERROR + FOOTER
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildError() {
@@ -1632,20 +2039,18 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
     return Row(
       children: [
         if (_currentStep > 0)
-          IntrinsicWidth(
-            child: OutlinedButton.icon(
-              onPressed: () => setState(() => _currentStep--),
-              icon: const Icon(Icons.arrow_back_rounded, size: 16),
-              label: const Text('Kembali'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textSecondary,
-                side: const BorderSide(color: AppColors.border),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: 14,
-                ),
+          OutlinedButton.icon(
+            onPressed: () => setState(() => _currentStep--),
+            icon: const Icon(Icons.arrow_back_rounded, size: 16),
+            label: const Text('Kembali'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              side: const BorderSide(color: AppColors.border),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 14,
               ),
             ),
           ),
@@ -1660,11 +2065,10 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
           onPressed: _isSaving
               ? null
               : () {
-                  if (isLast) {
+                  if (isLast)
                     _save();
-                  } else {
+                  else
                     setState(() => _currentStep++);
-                  }
                 },
           icon: _isSaving
               ? const SizedBox(
@@ -1704,15 +2108,664 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen>
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// REUSABLE WIDGETS
+// ✅ WIDGET BARU — _QuestionEditForm
+// Form lengkap edit satu soal (objective & likert)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── Step Sidebar ────────────────────────────────────────────────────────────
+class _QuestionEditForm extends StatefulWidget {
+  final Map<String, dynamic> question;
+  final int questionNumber;
+  final VoidCallback onChanged;
+  final Future<void> Function(String field) onUploadImage;
+  final Future<void> Function(int optIdx) onUploadOptionImage;
+
+  const _QuestionEditForm({
+    required this.question,
+    required this.questionNumber,
+    required this.onChanged,
+    required this.onUploadImage,
+    required this.onUploadOptionImage,
+  });
+
+  @override
+  State<_QuestionEditForm> createState() => _QuestionEditFormState();
+}
+
+class _QuestionEditFormState extends State<_QuestionEditForm> {
+  late final TextEditingController _qCtrl;
+  late final TextEditingController _exShortCtrl;
+  late final TextEditingController _exFullCtrl;
+  late final TextEditingController _tagsCtrl;
+  late final TextEditingController _pkgCtrl;
+  late final List<TextEditingController> _optCtrl;
+  late final List<TextEditingController> _scoreCtrl; // untuk likert
+
+  @override
+  void initState() {
+    super.initState();
+    final q = widget.question;
+    _qCtrl = TextEditingController(text: q['question'] as String? ?? '');
+    _exShortCtrl = TextEditingController(
+      text: q['explanationShort'] as String? ?? '',
+    );
+    _exFullCtrl = TextEditingController(
+      text: q['explanationFull'] as String? ?? '',
+    );
+    _tagsCtrl = TextEditingController(
+      text: ((q['tags'] as List?)?.cast<String>() ?? []).join(', '),
+    );
+    _pkgCtrl = TextEditingController(text: q['package'] as String? ?? '');
+
+    final opts =
+        (q['options'] as List?)?.cast<String>() ?? ['', '', '', '', ''];
+    _optCtrl = List.generate(
+      5,
+      (i) => TextEditingController(text: i < opts.length ? opts[i] : ''),
+    );
+
+    final scores = (q['scores'] as List?)?.cast<int>() ?? [1, 2, 3, 4, 5];
+    _scoreCtrl = List.generate(
+      5,
+      (i) => TextEditingController(
+        text: i < scores.length ? scores[i].toString() : '0',
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _qCtrl.dispose();
+    _exShortCtrl.dispose();
+    _exFullCtrl.dispose();
+    _tagsCtrl.dispose();
+    _pkgCtrl.dispose();
+    for (final c in _optCtrl) c.dispose();
+    for (final c in _scoreCtrl) c.dispose();
+    super.dispose();
+  }
+
+  // ✅ Fix: nilai dari Firestore/Excel bisa berupa int atau string tak dikenal
+  // → selalu fallback ke nilai valid agar DropdownButton tidak crash
+  String _safeDifficulty(dynamic raw) {
+    const valid = ['easy', 'medium', 'hard'];
+    final s = raw?.toString() ?? '';
+    return valid.contains(s) ? s : 'medium';
+  }
+
+  String _safeType(dynamic raw) {
+    const valid = ['objective', 'likert'];
+    final s = raw?.toString() ?? '';
+    return valid.contains(s) ? s : 'objective';
+  }
+
+  void _sync() {
+    final q = widget.question;
+    q['question'] = _qCtrl.text.trim();
+    q['explanationShort'] = _exShortCtrl.text.trim();
+    q['explanationFull'] = _exFullCtrl.text.trim();
+    q['package'] = _pkgCtrl.text.trim();
+    q['tags'] = _tagsCtrl.text
+        .split(',')
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+
+    final opts = _optCtrl.map((c) => c.text.trim()).toList();
+    q['options'] = opts;
+
+    if (q['type'] == 'likert') {
+      q['scores'] = _scoreCtrl.map((c) => int.tryParse(c.text) ?? 0).toList();
+    }
+    widget.onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = widget.question;
+    final isLikert = q['type'] == 'likert';
+    final qImg = q['questionImage'] as String?;
+    final optImgs =
+        (q['optionImages'] as List?)?.cast<dynamic>() ?? List.filled(5, null);
+    final correctIdx = q['correctIndex'] as int? ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Baris atas: Package + Difficulty + Type ──────────
+          // ✅ Fix: pakai Wrap agar tidak overflow, dropdown punya ukuran cukup
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              SizedBox(
+                width: 180,
+                child: _MiniField(
+                  label: 'Package',
+                  ctrl: _pkgCtrl,
+                  onChanged: (_) => _sync(),
+                ),
+              ),
+              SizedBox(
+                width: 130,
+                child: _MiniDropdown<String>(
+                  label: 'Kesulitan',
+                  value: _safeDifficulty(q['difficulty']),
+                  items: const ['easy', 'medium', 'hard'],
+                  itemLabel: (v) => switch (v) {
+                    'easy' => 'Mudah',
+                    'medium' => 'Menengah',
+                    _ => 'Sulit',
+                  },
+                  onChanged: (v) {
+                    q['difficulty'] = v!;
+                    _sync();
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 130,
+                child: _MiniDropdown<String>(
+                  label: 'Tipe',
+                  value: _safeType(q['type']),
+                  items: const ['objective', 'likert'],
+                  itemLabel: (v) => v == 'objective' ? 'Objektif' : 'Likert',
+                  onChanged: (v) {
+                    q['type'] = v!;
+                    _sync();
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // ── Teks soal ──────────────────────────────────────────
+          _MiniField(
+            label: 'Teks Soal *',
+            ctrl: _qCtrl,
+            maxLines: 4,
+            onChanged: (_) => _sync(),
+            hint: 'Tulis teks soal di sini…',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // ── Gambar soal ────────────────────────────────────────
+          _ImageFieldRow(
+            label: 'Gambar Soal',
+            url: qImg,
+            onUpload: () => widget.onUploadImage('questionImage'),
+            onRemove: () {
+              setState(() => q['questionImage'] = null);
+              _sync();
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // ── Opsi jawaban ───────────────────────────────────────
+          Text('Opsi Jawaban', style: AppText.label),
+          const SizedBox(height: AppSpacing.xs),
+          ...List.generate(5, (i) {
+            final optImg = i < optImgs.length ? optImgs[i] as String? : null;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: _OptionEditRow(
+                index: i,
+                ctrl: _optCtrl[i],
+                scoreCtrl: _scoreCtrl[i],
+                isLikert: isLikert,
+                isCorrect: !isLikert && correctIdx == i,
+                imageUrl: optImg,
+                onChanged: (_) => _sync(),
+                onSetCorrect: isLikert
+                    ? null
+                    : () {
+                        setState(() => q['correctIndex'] = i);
+                        _sync();
+                      },
+                onUploadImage: () => widget.onUploadOptionImage(i),
+                onRemoveImage: () {
+                  setState(() {
+                    final imgs = List<dynamic>.from(
+                      q['optionImages'] as List? ?? List.filled(5, null),
+                    );
+                    while (imgs.length <= i) imgs.add(null);
+                    imgs[i] = null;
+                    q['optionImages'] = imgs;
+                  });
+                  _sync();
+                },
+              ),
+            );
+          }),
+          const SizedBox(height: AppSpacing.md),
+
+          // ── Penjelasan ─────────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: _MiniField(
+                  label: 'Penjelasan Singkat',
+                  ctrl: _exShortCtrl,
+                  maxLines: 2,
+                  onChanged: (_) => _sync(),
+                  hint: 'Ringkasan pembahasan…',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _MiniField(
+                  label: 'Penjelasan Lengkap',
+                  ctrl: _exFullCtrl,
+                  maxLines: 2,
+                  onChanged: (_) => _sync(),
+                  hint: 'Pembahasan detail…',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // ── Tags ───────────────────────────────────────────────
+          _MiniField(
+            label: 'Tags (pisah koma)',
+            ctrl: _tagsCtrl,
+            onChanged: (_) => _sync(),
+            hint: 'pancasila, uud1945',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ✅ WIDGET BARU — _OptionEditRow
+// Satu baris opsi: huruf + text + score/correct + gambar opsi
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _OptionEditRow extends StatelessWidget {
+  final int index;
+  final TextEditingController ctrl;
+  final TextEditingController scoreCtrl;
+  final bool isLikert;
+  final bool isCorrect;
+  final String? imageUrl;
+  final ValueChanged<String> onChanged;
+  final VoidCallback? onSetCorrect;
+  final VoidCallback onUploadImage;
+  final VoidCallback onRemoveImage;
+
+  const _OptionEditRow({
+    required this.index,
+    required this.ctrl,
+    required this.scoreCtrl,
+    required this.isLikert,
+    required this.isCorrect,
+    required this.imageUrl,
+    required this.onChanged,
+    required this.onSetCorrect,
+    required this.onUploadImage,
+    required this.onRemoveImage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final letter = String.fromCharCode(65 + index);
+    final Color dotColor = isCorrect ? AppColors.success : AppColors.border;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Huruf / tombol jawaban benar ───────────────────────
+        GestureDetector(
+          onTap: onSetCorrect,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: 32,
+            height: 32,
+            margin: const EdgeInsets.only(top: 6),
+            decoration: BoxDecoration(
+              color: isCorrect ? AppColors.success : AppColors.surfaceAlt,
+              borderRadius: AppRadius.bSm,
+              border: Border.all(color: dotColor),
+            ),
+            child: Center(
+              child: Text(
+                letter,
+                style: AppText.label.copyWith(
+                  color: isCorrect ? AppColors.white : AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+
+        // ── Teks opsi ──────────────────────────────────────────
+        Expanded(
+          flex: 4,
+          child: TextFormField(
+            controller: ctrl,
+            onChanged: onChanged,
+            style: AppText.bodySm,
+            maxLines: 2,
+            decoration: InputDecoration(
+              hintText: 'Opsi $letter…',
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.sm,
+              ),
+            ),
+          ),
+        ),
+
+        // ── Skor (Likert) ──────────────────────────────────────
+        if (isLikert) ...[
+          const SizedBox(width: AppSpacing.sm),
+          SizedBox(
+            width: 56,
+            child: TextFormField(
+              controller: scoreCtrl,
+              onChanged: onChanged,
+              keyboardType: TextInputType.number,
+              style: AppText.bodySm.copyWith(
+                color: AppColors.warning,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                hintText: '0',
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: AppSpacing.sm,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: AppRadius.bMd,
+                  borderSide: BorderSide(
+                    color: AppColors.warning.withOpacity(0.4),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: AppRadius.bMd,
+                  borderSide: const BorderSide(color: AppColors.warning),
+                ),
+              ),
+            ),
+          ),
+        ],
+
+        // ── Gambar opsi ────────────────────────────────────────
+        const SizedBox(width: AppSpacing.sm),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (imageUrl != null && imageUrl!.isNotEmpty) ...[
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: AppRadius.bSm,
+                    child: Image.network(
+                      imageUrl!,
+                      width: 48,
+                      height: 40,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.broken_image_rounded,
+                        size: 32,
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: InkWell(
+                      onTap: onRemoveImage,
+                      child: CircleAvatar(
+                        radius: 8,
+                        backgroundColor: AppColors.error,
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 10,
+                          color: AppColors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ] else
+              InkWell(
+                onTap: onUploadImage,
+                borderRadius: AppRadius.bSm,
+                child: Container(
+                  width: 48,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceAlt,
+                    borderRadius: AppRadius.bSm,
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Icon(
+                    Icons.add_photo_alternate_rounded,
+                    size: 18,
+                    color: AppColors.textHint,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ✅ WIDGET BARU — _ImageFieldRow
+// Upload/hapus gambar soal dengan preview
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ImageFieldRow extends StatelessWidget {
+  final String label;
+  final String? url;
+  final VoidCallback onUpload;
+  final VoidCallback onRemove;
+
+  const _ImageFieldRow({
+    required this.label,
+    required this.url,
+    required this.onUpload,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(label, style: AppText.label),
+        const SizedBox(width: AppSpacing.sm),
+        if (url != null && url!.isNotEmpty) ...[
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: AppRadius.bSm,
+                child: Image.network(
+                  url!,
+                  height: 56,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) =>
+                      const Text('❌ Gagal', style: TextStyle(fontSize: 11)),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                child: InkWell(
+                  onTap: onRemove,
+                  child: CircleAvatar(
+                    radius: 9,
+                    backgroundColor: AppColors.error,
+                    child: const Icon(
+                      Icons.close_rounded,
+                      size: 11,
+                      color: AppColors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          TextButton.icon(
+            onPressed: onUpload,
+            icon: const Icon(Icons.swap_horiz_rounded, size: 14),
+            label: const Text('Ganti'),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.info,
+              textStyle: AppText.btnSm,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ] else
+          OutlinedButton.icon(
+            onPressed: onUpload,
+            icon: const Icon(Icons.add_a_photo_rounded, size: 14),
+            label: const Text('Upload Gambar'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              side: const BorderSide(color: AppColors.border),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              textStyle: AppText.btnSm,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _MiniField — TextField compact untuk form editor
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MiniField extends StatelessWidget {
+  final String label;
+  final TextEditingController ctrl;
+  final int maxLines;
+  final ValueChanged<String>? onChanged;
+  final String? hint;
+
+  const _MiniField({
+    required this.label,
+    required this.ctrl,
+    this.maxLines = 1,
+    this.onChanged,
+    this.hint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppText.caption.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 2),
+        // ✅ Fix: SizedBox.expand diganti dengan constraint eksplisit
+        // isDense dihapus — penyebab assertion input_decorator:959
+        TextFormField(
+          controller: ctrl,
+          maxLines: maxLines,
+          onChanged: onChanged,
+          style: AppText.bodySm,
+          decoration: InputDecoration(
+            hintText: hint,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 10,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _MiniDropdown
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MiniDropdown<T> extends StatelessWidget {
+  final String label;
+  final T value;
+  final List<T> items;
+  final String Function(T) itemLabel;
+  final ValueChanged<T?> onChanged;
+
+  const _MiniDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.itemLabel,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final safeVal = items.contains(value)
+        ? value
+        : (items.isNotEmpty ? items.first : null);
+    return IntrinsicWidth(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: AppText.caption.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 2),
+          DropdownButtonFormField<T>(
+            value: safeVal,
+            items: items
+                .map(
+                  (i) => DropdownMenuItem(
+                    value: i,
+                    child: Text(itemLabel(i), style: AppText.bodySm),
+                  ),
+                )
+                .toList(),
+            onChanged: onChanged,
+            icon: const Icon(Icons.expand_more_rounded, size: 16),
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXISTING REUSABLE WIDGETS (tidak berubah)
+// ═══════════════════════════════════════════════════════════════════════════
 
 class _StepSidebar extends StatelessWidget {
   final int current;
   final ValueChanged<int> onTap;
-
   const _StepSidebar({required this.current, required this.onTap});
 
   static const _steps = [
@@ -1824,14 +2877,11 @@ class _StepSidebar extends StatelessWidget {
   }
 }
 
-// ── Card Section ─────────────────────────────────────────────────────────────
-
 class _Card extends StatelessWidget {
   final IconData icon;
   final String title;
   final Color accentColor;
   final Widget child;
-
   const _Card({
     required this.icon,
     required this.title,
@@ -1884,8 +2934,6 @@ class _Card extends StatelessWidget {
   }
 }
 
-// ── Field ─────────────────────────────────────────────────────────────────────
-
 class _Field extends StatelessWidget {
   final String label;
   final String hint;
@@ -1930,8 +2978,6 @@ class _Field extends StatelessWidget {
     );
   }
 }
-
-// ── Dropdown Field ────────────────────────────────────────────────────────────
 
 class _DropdownField<T> extends StatelessWidget {
   final String label;
@@ -2003,8 +3049,6 @@ class _DropdownField<T> extends StatelessWidget {
   }
 }
 
-// ── Switch Tile ───────────────────────────────────────────────────────────────
-
 class _SwitchTile extends StatelessWidget {
   final String label;
   final String subtitle;
@@ -2066,8 +3110,6 @@ class _SwitchTile extends StatelessWidget {
   }
 }
 
-// ── Date Field ────────────────────────────────────────────────────────────────
-
 class _DateField extends StatelessWidget {
   final String label;
   final DateTime? date;
@@ -2083,7 +3125,7 @@ class _DateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasDate = date != null;
+    final has = date != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2098,12 +3140,12 @@ class _DateField extends StatelessWidget {
               vertical: 14,
             ),
             decoration: BoxDecoration(
-              color: hasDate
+              color: has
                   ? AppColors.softBg(AppColors.primary)
                   : AppColors.surfaceAlt,
               borderRadius: AppRadius.bMd,
               border: Border.all(
-                color: hasDate
+                color: has
                     ? AppColors.primary.withOpacity(0.4)
                     : AppColors.border,
               ),
@@ -2113,15 +3155,15 @@ class _DateField extends StatelessWidget {
                 Icon(
                   icon,
                   size: 18,
-                  color: hasDate ? AppColors.primary : AppColors.textHint,
+                  color: has ? AppColors.primary : AppColors.textHint,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  hasDate
+                  has
                       ? '${date!.day}/${date!.month}/${date!.year}'
                       : 'Pilih tanggal',
                   style: AppText.bodyLg.copyWith(
-                    color: hasDate ? AppColors.textPrimary : AppColors.textHint,
+                    color: has ? AppColors.textPrimary : AppColors.textHint,
                   ),
                 ),
               ],
@@ -2132,8 +3174,6 @@ class _DateField extends StatelessWidget {
     );
   }
 }
-
-// ── Exam Type Chip ────────────────────────────────────────────────────────────
 
 class _ExamTypeChip extends StatelessWidget {
   final ExamType examType;
@@ -2190,8 +3230,6 @@ class _ExamTypeChip extends StatelessWidget {
     );
   }
 }
-
-// ── SubTest Tab ───────────────────────────────────────────────────────────────
 
 class _SubTestTab extends StatelessWidget {
   final String label;
@@ -2265,8 +3303,6 @@ class _SubTestTab extends StatelessWidget {
   }
 }
 
-// ── Add SubTest Button ────────────────────────────────────────────────────────
-
 class _AddSubTestBtn extends StatelessWidget {
   final VoidCallback onTap;
   const _AddSubTestBtn({required this.onTap});
@@ -2291,8 +3327,6 @@ class _AddSubTestBtn extends StatelessWidget {
     );
   }
 }
-
-// ── Upload Drop Zone ─────────────────────────────────────────────────────────
 
 class _UploadDropZone extends StatefulWidget {
   final VoidCallback onTap;
@@ -2337,7 +3371,7 @@ class _UploadDropZoneState extends State<_UploadDropZone> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Klik atau seret file Excel ke sini',
+                'Klik atau seret file ke sini',
                 style: AppText.bodyLg.copyWith(
                   color: _hovering
                       ? AppColors.primary
@@ -2345,7 +3379,7 @@ class _UploadDropZoneState extends State<_UploadDropZone> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text('Format: .xlsx  ·  .xls', style: AppText.caption),
+              Text('Format: .xlsx  ·  .xls  ·  .csv', style: AppText.caption),
             ],
           ),
         ),
@@ -2354,12 +3388,9 @@ class _UploadDropZoneState extends State<_UploadDropZone> {
   }
 }
 
-// ── Parse Progress ────────────────────────────────────────────────────────────
-
 class _ParseProgress extends StatelessWidget {
   final double progress;
   final String message;
-
   const _ParseProgress({required this.progress, required this.message});
 
   @override
@@ -2412,261 +3443,6 @@ class _ParseProgress extends StatelessWidget {
   }
 }
 
-// ── Questions Preview ────────────────────────────────────────────────────────
-
-class _QuestionsPreview extends StatelessWidget {
-  final List<Map<String, dynamic>> questions;
-  final Future<void> Function(Map<String, dynamic>) onUploadImage;
-
-  const _QuestionsPreview({
-    required this.questions,
-    required this.onUploadImage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: AppRadius.bMd,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          leading: const Icon(
-            Icons.preview_rounded,
-            color: AppColors.info,
-            size: 20,
-          ),
-          title: Text('Preview Soal', style: AppText.label),
-          subtitle: Text('${questions.length} soal', style: AppText.caption),
-          tilePadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          childrenPadding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            0,
-            AppSpacing.md,
-            AppSpacing.md,
-          ),
-          children: [
-            const Divider(height: 1),
-            const SizedBox(height: AppSpacing.sm),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: questions.length,
-              separatorBuilder: (_, __) => const Divider(height: AppSpacing.lg),
-              itemBuilder: (_, i) => _QuestionItem(
-                question: questions[i],
-                number: i + 1,
-                onUploadImage: onUploadImage,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Question Item ────────────────────────────────────────────────────────────
-
-class _QuestionItem extends StatelessWidget {
-  final Map<String, dynamic> question;
-  final int number;
-  final Future<void> Function(Map<String, dynamic>) onUploadImage;
-
-  const _QuestionItem({
-    required this.question,
-    required this.number,
-    required this.onUploadImage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isObj = question['type'] == 'objective';
-    final opts = (question['options'] as List?)?.cast<String>() ?? [];
-    final correctIdx = question['correctIndex'] as int? ?? -1;
-    final scores = (question['scores'] as List?)?.cast<int>() ?? [];
-    final qImg = question['questionImage'] as String?;
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceAlt,
-        borderRadius: AppRadius.bMd,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: AppRadius.bSm,
-                ),
-                child: Center(
-                  child: Text(
-                    '$number',
-                    style: AppText.label.copyWith(color: AppColors.white),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              _Pill(label: question['category'] ?? '', color: AppColors.info),
-              const SizedBox(width: 4),
-              _Pill(
-                label: isObj ? 'Objektif' : 'Likert',
-                color: isObj ? AppColors.success : AppColors.warning,
-              ),
-              if (question['difficulty'] != null) ...[
-                const SizedBox(width: 4),
-                _Pill(
-                  label: question['difficulty'],
-                  color: AppColors.textSecondary,
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(question['question'] ?? '', style: AppText.body),
-          // Question image
-          if (qImg != null && qImg.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: AppRadius.bMd,
-                  child: Image.network(
-                    qImg,
-                    height: 140,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) =>
-                        const Text('❌ Gambar gagal dimuat'),
-                  ),
-                ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: InkWell(
-                    onTap: () {
-                      // Using a Builder trick here since we're in a stateless widget
-                      // The parent manages state via onUploadImage
-                    },
-                    child: CircleAvatar(
-                      radius: 14,
-                      backgroundColor: AppColors.error,
-                      child: const Icon(
-                        Icons.delete_rounded,
-                        size: 14,
-                        color: AppColors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ] else ...[
-            const SizedBox(height: AppSpacing.sm),
-            OutlinedButton.icon(
-              onPressed: () => onUploadImage(question),
-              icon: const Icon(Icons.add_a_photo_rounded, size: 16),
-              label: const Text('Tambah Gambar'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textSecondary,
-                side: const BorderSide(color: AppColors.border),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.xs,
-                ),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                textStyle: AppText.btnSm.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-          ],
-          // Options
-          if (opts.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.sm),
-            ...List.generate(opts.length, (i) {
-              final isCorrect = isObj && correctIdx == i;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: isCorrect
-                            ? AppColors.success
-                            : AppColors.surface,
-                        borderRadius: AppRadius.bSm,
-                        border: Border.all(
-                          color: isCorrect
-                              ? AppColors.success
-                              : AppColors.border,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          String.fromCharCode(65 + i),
-                          style: AppText.caption.copyWith(
-                            color: isCorrect
-                                ? AppColors.white
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        opts[i],
-                        style: AppText.bodySm.copyWith(
-                          color: isCorrect
-                              ? AppColors.success
-                              : AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    if (!isObj && i < scores.length)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.softBg(AppColors.info),
-                          borderRadius: AppRadius.bSm,
-                        ),
-                        child: Text(
-                          '${scores[i]}',
-                          style: AppText.caption.copyWith(
-                            color: AppColors.info,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ── Pill ──────────────────────────────────────────────────────────────────────
-
 class _Pill extends StatelessWidget {
   final String label;
   final Color color;
@@ -2690,8 +3466,6 @@ class _Pill extends StatelessWidget {
     );
   }
 }
-
-// ── Template Button ───────────────────────────────────────────────────────────
 
 class _TemplateBtn extends StatelessWidget {
   final String label;
@@ -2736,7 +3510,88 @@ class _TemplateBtn extends StatelessWidget {
   }
 }
 
-// ── Floating Toast ────────────────────────────────────────────────────────────
+// ✅ WIDGET BARU — _DownloadTemplateMenu
+// Tombol dengan dropdown pilih format XLSX atau CSV
+
+class _DownloadTemplateMenu extends StatelessWidget {
+  final String label;
+  final VoidCallback onXlsx;
+  final VoidCallback onCsv;
+  final Color color;
+  final Color textColor;
+
+  const _DownloadTemplateMenu({
+    required this.label,
+    required this.onXlsx,
+    required this.onCsv,
+    this.color = AppColors.white,
+    this.textColor = AppColors.primary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      onSelected: (v) {
+        if (v == 'xlsx')
+          onXlsx();
+        else
+          onCsv();
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'xlsx',
+          child: Row(
+            children: [
+              const Icon(
+                Icons.table_chart_rounded,
+                size: 16,
+                color: AppColors.success,
+              ),
+              const SizedBox(width: 8),
+              Text('Download .xlsx', style: AppText.bodySm),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'csv',
+          child: Row(
+            children: [
+              const Icon(
+                Icons.grid_on_rounded,
+                size: 16,
+                color: AppColors.info,
+              ),
+              const SizedBox(width: 8),
+              Text('Download .csv', style: AppText.bodySm),
+            ],
+          ),
+        ),
+      ],
+      tooltip: 'Download Template $label',
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: AppRadius.bMd,
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.download_rounded, size: 16, color: color),
+            const SizedBox(width: 6),
+            Text(label, style: AppText.btnSm.copyWith(color: color)),
+            const SizedBox(width: 4),
+            Icon(Icons.arrow_drop_down_rounded, size: 16, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _FloatingToast extends StatelessWidget {
   final ProcessingStatus status;
@@ -2811,8 +3666,6 @@ class _FloatingToast extends StatelessWidget {
   }
 }
 
-// ── Loading Placeholder ───────────────────────────────────────────────────────
-
 class _LoadingPlaceholder extends StatelessWidget {
   final String message;
   const _LoadingPlaceholder({required this.message});
@@ -2831,8 +3684,6 @@ class _LoadingPlaceholder extends StatelessWidget {
     );
   }
 }
-
-// ── Empty State ───────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
   final IconData icon;
@@ -2862,15 +3713,9 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// REVISI 4: Widget BARU — _ScoringConfigPanel
-// Taruh di bagian bawah file, setelah widget _EmptyState
-// ═══════════════════════════════════════════════════════════════════════════
-
 class _ScoringConfigPanel extends StatefulWidget {
   final SubTest sub;
   final VoidCallback onChanged;
-
   const _ScoringConfigPanel({required this.sub, required this.onChanged});
 
   @override
@@ -2910,11 +3755,9 @@ class _ScoringConfigPanelState extends State<_ScoringConfigPanel> {
   @override
   Widget build(BuildContext context) {
     final isLikert = widget.sub.type == 'likert';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Info banner sesuai tipe ──────────────────────────────
         AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(AppSpacing.sm),
@@ -2940,9 +3783,8 @@ class _ScoringConfigPanelState extends State<_ScoringConfigPanel> {
               Expanded(
                 child: Text(
                   isLikert
-                      ? 'Mode Likert: skor per opsi diambil dari kolom Score A–E di file Excel. '
-                            'Tidak ada jawaban benar/salah, setiap opsi memiliki bobot masing-masing.'
-                      : 'Mode Objektif: tentukan poin untuk jawaban benar, salah, dan kosong di bawah.',
+                      ? 'Mode Likert: skor per opsi diambil dari kolom Score A–E di file. Tidak ada jawaban benar/salah.'
+                      : 'Mode Objektif: tentukan poin untuk jawaban benar, salah, dan kosong.',
                   style: AppText.caption.copyWith(
                     color: isLikert ? AppColors.info : AppColors.success,
                   ),
@@ -2951,16 +3793,14 @@ class _ScoringConfigPanelState extends State<_ScoringConfigPanel> {
             ],
           ),
         ),
-
-        // ── Scoring fields (hanya untuk objective) ───────────────
         if (!isLikert) ...[
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(
                 child: _ScoreField(
-                  label: '✅ Jawaban Benar',
-                  hint: 'misal: 1',
+                  label: '✅ Benar',
+                  hint: '1',
                   controller: _correctCtrl,
                   color: AppColors.success,
                   onChanged: (_) => _sync(),
@@ -2969,8 +3809,8 @@ class _ScoringConfigPanelState extends State<_ScoringConfigPanel> {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _ScoreField(
-                  label: '❌ Jawaban Salah',
-                  hint: 'misal: -0.33',
+                  label: '❌ Salah',
+                  hint: '-0.33',
                   controller: _wrongCtrl,
                   color: AppColors.error,
                   onChanged: (_) => _sync(),
@@ -2979,8 +3819,8 @@ class _ScoringConfigPanelState extends State<_ScoringConfigPanel> {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _ScoreField(
-                  label: '⬜ Tidak Dijawab',
-                  hint: 'misal: 0',
+                  label: '⬜ Kosong',
+                  hint: '0',
                   controller: _emptyCtrl,
                   color: AppColors.textSecondary,
                   onChanged: (_) => _sync(),
@@ -2989,11 +3829,8 @@ class _ScoringConfigPanelState extends State<_ScoringConfigPanel> {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          // Preview formula
           _ScoringPreviewBar(config: widget.sub.scoringConfig),
         ],
-
-        // ── Likert: preview bobot skor dari soal ─────────────────
         if (isLikert && widget.sub.questions != null) ...[
           const SizedBox(height: AppSpacing.md),
           _LikertScoresSummary(questions: widget.sub.questions!),
@@ -3002,11 +3839,6 @@ class _ScoringConfigPanelState extends State<_ScoringConfigPanel> {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WIDGET BARU — _ScoreField
-// Input field khusus untuk nilai scoring (mendukung desimal & negatif)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _ScoreField extends StatelessWidget {
   final String label;
@@ -3053,8 +3885,8 @@ class _ScoreField extends StatelessWidget {
             ),
           ),
           validator: (v) {
-            if (v?.trim().isEmpty ?? true) return 'Wajib diisi';
-            if (double.tryParse(v!) == null) return 'Harus angka';
+            if (v?.trim().isEmpty ?? true) return 'Wajib';
+            if (double.tryParse(v!) == null) return 'Angka';
             return null;
           },
         ),
@@ -3063,21 +3895,12 @@ class _ScoreField extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// WIDGET BARU — _ScoringPreviewBar
-// Menampilkan simulasi formula penilaian secara visual
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _ScoringPreviewBar extends StatelessWidget {
   final ScoringConfig config;
-
   const _ScoringPreviewBar({required this.config});
 
   @override
   Widget build(BuildContext context) {
-    final formula =
-        'Nilai = (Benar × ${config.correctScore}) + (Salah × ${config.wrongScore}) + (Kosong × ${config.emptyScore})';
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -3099,7 +3922,7 @@ class _ScoringPreviewBar extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              formula,
+              'Nilai = (Benar × ${config.correctScore}) + (Salah × ${config.wrongScore}) + (Kosong × ${config.emptyScore})',
               style: AppText.caption.copyWith(
                 fontFamily: 'monospace',
                 color: AppColors.textSecondary,
@@ -3112,9 +3935,124 @@ class _ScoringPreviewBar extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TEMPLATE PICKER
-// ─────────────────────────────────────────────────────────────────────────────
+class _LikertScoresSummary extends StatelessWidget {
+  final List<Map<String, dynamic>> questions;
+  const _LikertScoresSummary({required this.questions});
+
+  @override
+  Widget build(BuildContext context) {
+    final Map<int, int> freq = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+    int total = 0;
+    for (final q in questions) {
+      for (final s in (q['scores'] as List?)?.cast<int>() ?? []) {
+        if (freq.containsKey(s)) freq[s] = freq[s]! + 1;
+        total++;
+      }
+    }
+    final maxScore = questions.fold<double>(0, (acc, q) {
+      final sc = (q['scores'] as List?)?.cast<int>() ?? [];
+      return acc + (sc.isEmpty ? 0 : sc.reduce((a, b) => a > b ? a : b));
+    });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Distribusi Bobot Opsi (${questions.length} soal)',
+          style: AppText.label,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        ...freq.entries.map((e) {
+          final pct = total == 0 ? 0.0 : e.value / total;
+          final col = _col(e.key);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: AppColors.softBg(col),
+                    borderRadius: AppRadius.bSm,
+                    border: Border.all(color: col.withOpacity(0.4)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${e.key}',
+                      style: AppText.caption.copyWith(
+                        color: col,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: AppRadius.bFull,
+                    child: LinearProgressIndicator(
+                      value: pct,
+                      minHeight: 10,
+                      backgroundColor: AppColors.surfaceAlt,
+                      valueColor: AlwaysStoppedAnimation(col),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                SizedBox(
+                  width: 36,
+                  child: Text(
+                    '${e.value}x',
+                    style: AppText.caption,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: AppSpacing.sm),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.softBg(AppColors.gold),
+            borderRadius: AppRadius.bMd,
+            border: Border.all(color: AppColors.gold.withOpacity(0.4)),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.emoji_events_rounded,
+                size: 16,
+                color: AppColors.gold,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'Total skor maksimum: $maxScore',
+                style: AppText.caption.copyWith(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _col(int s) => switch (s) {
+    5 => AppColors.success,
+    4 => const Color(0xFF4CAF50),
+    3 => AppColors.warning,
+    2 => const Color(0xFFFF7043),
+    _ => AppColors.error,
+  };
+}
 
 class _TemplatePicker extends StatefulWidget {
   final ValueChanged<_TryoutTemplate> onSelect;
@@ -3139,7 +4077,6 @@ class _TemplatePickerState extends State<_TemplatePicker> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Header ──
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   decoration: BoxDecoration(
@@ -3181,10 +4118,7 @@ class _TemplatePickerState extends State<_TemplatePicker> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: AppSpacing.xl),
-
-                // ── Grid template ──
                 Wrap(
                   spacing: AppSpacing.md,
                   runSpacing: AppSpacing.md,
@@ -3222,7 +4156,6 @@ class _TemplatePickerState extends State<_TemplatePicker> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Icon
                               Container(
                                 width: 48,
                                 height: 48,
@@ -3242,8 +4175,6 @@ class _TemplatePickerState extends State<_TemplatePicker> {
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.md),
-
-                              // Name
                               Text(
                                 tpl.name,
                                 style: AppText.h3.copyWith(
@@ -3254,94 +4185,82 @@ class _TemplatePickerState extends State<_TemplatePicker> {
                               ),
                               const SizedBox(height: 4),
                               Text(tpl.description, style: AppText.bodySm),
-
-                              // Subtest chips
                               if (!isBlank && tpl.subtests.isNotEmpty) ...[
                                 const SizedBox(height: AppSpacing.md),
                                 Wrap(
                                   spacing: 4,
                                   runSpacing: 4,
-                                  children: tpl.subtests.map((s) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.softBg(tpl.color),
-                                        borderRadius: AppRadius.bFull,
-                                        border: Border.all(
-                                          color: tpl.color.withOpacity(0.3),
+                                  children: tpl.subtests
+                                      .map(
+                                        (s) => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.softBg(tpl.color),
+                                            borderRadius: AppRadius.bFull,
+                                            border: Border.all(
+                                              color: tpl.color.withOpacity(0.3),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            s.name.split('–').first.trim(),
+                                            style: AppText.caption.copyWith(
+                                              color: tpl.color,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      child: Text(
-                                        s.name.split('–').first.trim(),
-                                        style: AppText.caption.copyWith(
-                                          color: tpl.color,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
+                                      )
+                                      .toList(),
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
                                 Text(
-                                  '${tpl.subtests.length} subtes  ·  '
-                                  '${tpl.subtests.fold(0, (s, t) => s + t.estimatedMinutes)} menit',
+                                  '${tpl.subtests.length} subtes  ·  ${tpl.subtests.fold(0, (s, t) => s + t.estimatedMinutes)} menit',
                                   style: AppText.caption.copyWith(
                                     color: AppColors.textSecondary,
                                   ),
                                 ),
                               ],
-
                               const SizedBox(height: AppSpacing.md),
-
-                              // CTA
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: hover
+                                      ? tpl.color
+                                      : AppColors.surfaceAlt,
+                                  borderRadius: AppRadius.bMd,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      isBlank
+                                          ? Icons.add_rounded
+                                          : Icons.flash_on_rounded,
+                                      size: 14,
+                                      color: hover
+                                          ? AppColors.white
+                                          : AppColors.textSecondary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      isBlank
+                                          ? 'Mulai Kosong'
+                                          : 'Gunakan Template',
+                                      style: AppText.btnSm.copyWith(
                                         color: hover
-                                            ? tpl.color
-                                            : AppColors.surfaceAlt,
-                                        borderRadius: AppRadius.bMd,
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            isBlank
-                                                ? Icons.add_rounded
-                                                : Icons.flash_on_rounded,
-                                            size: 14,
-                                            color: hover
-                                                ? AppColors.white
-                                                : AppColors.textSecondary,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            isBlank
-                                                ? 'Mulai Kosong'
-                                                : 'Gunakan Template',
-                                            style: AppText.btnSm.copyWith(
-                                              color: hover
-                                                  ? AppColors.white
-                                                  : AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ],
+                                            ? AppColors.white
+                                            : AppColors.textSecondary,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -3350,11 +4269,10 @@ class _TemplatePickerState extends State<_TemplatePicker> {
                     );
                   }).toList(),
                 ),
-
                 const SizedBox(height: AppSpacing.lg),
                 Center(
                   child: Text(
-                    'Template hanya mengisi form — soal Excel tetap harus diupload secara manual.',
+                    'Template hanya mengisi form — soal Excel/CSV tetap harus diupload secara manual.',
                     style: AppText.caption,
                     textAlign: TextAlign.center,
                   ),
@@ -3366,136 +4284,4 @@ class _TemplatePickerState extends State<_TemplatePicker> {
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WIDGET BARU — _LikertScoresSummary
-// Menampilkan ringkasan distribusi skor opsi dari soal-soal Likert
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _LikertScoresSummary extends StatelessWidget {
-  final List<Map<String, dynamic>> questions;
-
-  const _LikertScoresSummary({required this.questions});
-
-  @override
-  Widget build(BuildContext context) {
-    // Hitung frekuensi setiap skor (1–5) di seluruh soal
-    final Map<int, int> freq = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
-    int totalOpts = 0;
-
-    for (final q in questions) {
-      final scores = (q['scores'] as List?)?.cast<int>() ?? [];
-      for (final s in scores) {
-        if (freq.containsKey(s)) freq[s] = freq[s]! + 1;
-        totalOpts++;
-      }
-    }
-
-    final maxScore = questions.fold<double>(0, (acc, q) {
-      final scores = (q['scores'] as List?)?.cast<int>() ?? [];
-      return acc +
-          (scores.isEmpty ? 0 : scores.reduce((a, b) => a > b ? a : b));
-    });
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Distribusi Bobot Opsi (${questions.length} soal)',
-          style: AppText.label,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        // Bar chart distribusi skor
-        ...freq.entries.map((e) {
-          final pct = totalOpts == 0 ? 0.0 : e.value / totalOpts;
-          final color = _scoreColor(e.key);
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-            child: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: AppColors.softBg(color),
-                    borderRadius: AppRadius.bSm,
-                    border: Border.all(color: color.withOpacity(0.4)),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${e.key}',
-                      style: AppText.caption.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: AppRadius.bFull,
-                    child: LinearProgressIndicator(
-                      value: pct,
-                      minHeight: 10,
-                      backgroundColor: AppColors.surfaceAlt,
-                      valueColor: AlwaysStoppedAnimation(color),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                SizedBox(
-                  width: 36,
-                  child: Text(
-                    '${e.value}x',
-                    style: AppText.caption,
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-        const SizedBox(height: AppSpacing.sm),
-        // Total skor maksimum
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.softBg(AppColors.gold),
-            borderRadius: AppRadius.bMd,
-            border: Border.all(color: AppColors.gold.withOpacity(0.4)),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.emoji_events_rounded,
-                size: 16,
-                color: AppColors.gold,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                'Total skor maksimum (jika semua opsi terbaik): $maxScore',
-                style: AppText.caption.copyWith(
-                  color: AppColors.gold,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Color _scoreColor(int score) => switch (score) {
-    5 => AppColors.success,
-    4 => const Color(0xFF4CAF50),
-    3 => AppColors.warning,
-    2 => const Color(0xFFFF7043),
-    _ => AppColors.error,
-  };
 }
