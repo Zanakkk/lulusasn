@@ -1,11 +1,11 @@
 {
-  "name": "LulusASN - Platform Latihan Ujian",
-  "short_name": "LulusASN",
+  "name": "Luluzzz - Latihan Soal CPNS, LPDP & BUMN",
+  "short_name": "Luluzzz",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#58CC02",
-  "theme_color": "#58CC02",
-  "description": "Platform latihan ujian CPNS, BUMN, Kedinasan dengan sistem gamifikasi seperti Duolingo",
+  "background_color": "#0F172A",
+  "theme_color": "#0F172A",
+  "description": "Platform latihan ujian online CPNS, LPDP, dan BUMN. Soal adaptif, skor otomatis, pembahasan lengkap.",
   "orientation": "portrait-primary",
   "prefer_related_applications": false,
   "categories": ["education", "productivity"],
@@ -35,27 +35,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "screenshots/home.png",
-      "sizes": "540x720",
-      "type": "image/png"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Latihan Soal",
-      "short_name": "Latihan",
-      "description": "Mulai latihan soal",
-      "url": "/latihan",
-      "icons": [
-        {
-          "src": "icons/shortcut-latihan.png",
-          "sizes": "96x96"
-        }
-      ]
     }
   ]
 }

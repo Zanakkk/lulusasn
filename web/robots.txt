@@ -1,16 +1,11 @@
-# robots.txt for LulusASN
-# https://lulusasn-e15a3.web.app
+# robots.txt for Luluzzz
+# https://luluzzz.id
 
 User-agent: *
 Allow: /
 
-# Disallow admin/internal pages
 Disallow: /admin/
 Disallow: /api/
 Disallow: /_/
 
-# Sitemaps
-Sitemap: https://lulusasn-e15a3.web.app/sitemap.xml
-
-# Crawl-delay (optional, adjust if needed)
-Crawl-delay: 0
+Sitemap: https://luluzzz.id/sitemap.xml
