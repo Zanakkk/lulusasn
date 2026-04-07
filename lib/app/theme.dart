@@ -130,20 +130,41 @@ class AppConfig {
 // ─────────────────────────────────────────────────────────────────────────────
 // VALIDATORS  (hanya email & password — yang benar-benar dipakai)
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VALIDATORS  — ganti bagian ini di theme.dart
+// ─────────────────────────────────────────────────────────────────────────────
 class Validators {
   Validators._();
 
   static String? email(String? v) {
-    if (v == null || v.isEmpty) return 'Email wajib diisi';
+    if (v == null || v.trim().isEmpty) return 'Email wajib diisi.';
     final ok = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-    return ok.hasMatch(v) ? null : 'Format email tidak valid';
+    if (!ok.hasMatch(v.trim())) {
+      return 'Format email tidak valid.\nContoh: nama@email.com';
+    }
+    return null;
   }
 
   static String? password(String? v) {
-    if (v == null || v.isEmpty) return 'Password wajib diisi';
-    if (v.length < AppConfig.minPasswordLength) {
-      return 'Password minimal ${AppConfig.minPasswordLength} karakter';
+    if (v == null || v.isEmpty) return 'Password wajib diisi.';
+    final errors = <String>[];
+    if (v.length < 8) errors.add('• Minimal 8 karakter');
+    if (!RegExp(r'[A-Z]').hasMatch(v))
+      errors.add('• Minimal 1 huruf besar (A–Z)');
+    if (!RegExp(r'[a-z]').hasMatch(v))
+      errors.add('• Minimal 1 huruf kecil (a–z)');
+    if (!RegExp(r'[0-9]').hasMatch(v)) errors.add('• Minimal 1 angka (0–9)');
+    if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>_\-]').hasMatch(v)) {
+      errors.add('• Minimal 1 karakter khusus (!@#\$% dll.)');
     }
+    if (errors.isEmpty) return null;
+    return 'Password belum memenuhi syarat:\n${errors.join('\n')}';
+  }
+
+  static String? passwordLogin(String? v) {
+    if (v == null || v.isEmpty) return 'Password wajib diisi.';
+    if (v.length < 6) return 'Password minimal 6 karakter.';
     return null;
   }
 }

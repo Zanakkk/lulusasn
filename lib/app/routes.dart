@@ -171,6 +171,10 @@ class AppRouter {
       MaterialPageRoute(settings: s, builder: (_) => const NotFoundScreen());
 }
 
+// ============================================================================
+// AUTH GATE — hanya untuk auto-login saat app dibuka ulang
+// Tidak dipakai sebagai home. Dipakai di splash/initial check saja.
+// ============================================================================
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -179,31 +183,34 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                color: Color(0xFF58CC02),
+                color: AppColors.gold,
               ),
             ),
           );
         }
 
-        // Not logged in
-        if (!snapshot.hasData) {
+        // Tidak ada user, atau user belum verifikasi email → ke LoginScreen
+        final user = snapshot.data;
+        if (user == null || !user.emailVerified) {
+          // Kalau ada user tapi belum verified, pastikan sign out
+          if (user != null && !user.emailVerified) {
+            FirebaseAuth.instance.signOut();
+          }
           return const LoginScreen();
         }
 
-        // ✅ User logged in - cek apakah admin
+        // ✅ User verified → cek Firestore untuk role
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance
               .collection('users')
-              .doc(snapshot.data!.uid)
+              .doc(user.uid)
               .get(),
           builder: (context, userDoc) {
-            // Loading user data
             if (userDoc.connectionState == ConnectionState.waiting) {
               return const Scaffold(
                 body: Center(
@@ -215,21 +222,16 @@ class AuthGate extends StatelessWidget {
               );
             }
 
-            // Error atau user doc tidak ada
             if (!userDoc.hasData || !userDoc.data!.exists) {
-              return const LoginScreen();
+              return const GoalSettingScreen();
             }
 
-            // Cek field adminTrue
             final userData = userDoc.data!.data() as Map<String, dynamic>;
             final isAdmin = userData['admin'] ?? false;
 
-            // Arahkan sesuai role
-            if (isAdmin) {
-              return const AdminMainNavigationScreen();
-            } else {
-              return const MainNavigationScreen();
-            }
+            return isAdmin
+                ? const AdminMainNavigationScreen()
+                : const MainNavigationScreen();
           },
         );
       },

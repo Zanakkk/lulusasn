@@ -1,16 +1,21 @@
-// lib/features/auth/screens/login_screen.dart
+// lib/users/auth/screens/login_screen.dart
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
 import '../../../app/theme.dart';
 import '../service/user_service.dart';
+import 'email_sent_screen.dart';
 
+// ============================================================================
+// LOGIN SCREEN
+// ============================================================================
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -22,10 +27,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _loading = false;
   bool _isLogin = true;
-  bool _obscure = true;
-  bool _emailSent = false;
-  bool _showResendBtn = false;
-  String? _error;
+  bool _obscurePassword = true;
+  bool _showEmailSent = false;
+  bool _showResendButton = false;
+
+  String? _errorMessage;
+  String? _successMessage;
+
+  // Simpan email yang baru saja daftar untuk EmailSentScreen
+  String _registeredEmail = '';
 
   @override
   void dispose() {
@@ -34,821 +44,901 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // ── auth logic (unchanged) ─────────────────────────────────────────
+  // ── Main Auth Handler ──────────────────────────────────────────────────
   Future<void> _handleAuth() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
+
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+      _successMessage = null;
+      _showResendButton = false;
+    });
+
     try {
       final email = _emailCtrl.text.trim();
       final password = _passwordCtrl.text;
 
       if (_isLogin) {
-        final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-
-        if (!cred.user!.emailVerified) {
-          await FirebaseAuth.instance.signOut();
-          setState(() {
-            _error =
-                'Email Anda belum diverifikasi.\n'
-                'Cek inbox atau folder Spam, lalu klik link verifikasi yang kami kirim saat pendaftaran.';
-            _showResendBtn = true;
-          });
-          return;
-        }
-
-        final uid = cred.user!.uid;
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .get();
-
-        if (!mounted) return;
-        if (!userDoc.exists) {
-          Navigator.pushReplacementNamed(context, AppRoutes.goalSetting);
-          return;
-        }
-
-        await UserService.instance.updateLastLogin(uid);
-        final isAdmin = userDoc.data()?['admin'] ?? false;
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(
-          context,
-          isAdmin ? AppRoutes.adminMain : AppRoutes.main,
-        );
+        await _handleLogin(email, password);
       } else {
-        final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-        await cred.user!.sendEmailVerification();
-        setState(() => _emailSent = true);
+        await _handleRegister(email, password);
       }
     } on FirebaseAuthException catch (e) {
-      _setError(switch (e.code) {
-        'user-not-found' => 'Email tidak terdaftar',
-        'wrong-password' => 'Password salah',
-        'email-already-in-use' => 'Email sudah terdaftar',
-        'weak-password' => 'Password terlalu lemah (min 6 karakter)',
-        'invalid-email' => 'Format email tidak valid',
-        _ => 'Error: ${e.message}',
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = AuthErrorMessage.get(e.code);
+        _loading = false;
       });
     } catch (e) {
-      _setError('Terjadi kesalahan: $e');
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Terjadi kesalahan tak terduga. Periksa koneksi internet Anda.';
+        _loading = false;
+      });
     }
   }
 
-  void _setError(String msg) {
-    if (mounted) setState(() => _error = msg);
-  }
+  // ── Login Logic ────────────────────────────────────────────────────────
+  Future<void> _handleLogin(String email, String password) async {
+    final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
 
-  Future<void> _resendVerification() async {
-    try {
-      await FirebaseAuth.instance.currentUser?.sendEmailVerification();
-      if (mounted) _showSnack('Email verifikasi dikirim ulang!', success: true);
-    } catch (e) {
-      if (mounted) _showSnack('Gagal: ${e.toString()}');
+    if (!mounted) return;
+
+    if (!cred.user!.emailVerified) {
+      await FirebaseAuth.instance.signOut();
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Email belum diverifikasi. Silakan cek inbox Anda dan klik link '
+            'verifikasi yang telah kami kirim. Cek juga folder Spam/Junk.';
+        _showResendButton = true;
+        _loading = false;
+      });
+      return;
     }
+
+    await _navigateAfterLogin(cred.user!.uid);
   }
 
-  void _showSnack(String msg, {bool success = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          msg,
-          style: AppText.body.copyWith(color: AppColors.white),
-        ),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
-      ),
+  // ── Register Logic ─────────────────────────────────────────────────────
+  Future<void> _handleRegister(String email, String password) async {
+    final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    // Kirim email verifikasi
+    await cred.user!.sendEmailVerification();
+
+    // Sign out — user wajib verifikasi dulu sebelum bisa masuk
+    await FirebaseAuth.instance.signOut();
+
+    if (!mounted) return;
+
+    // ✅ Set state SEKALI, atomik — tidak ada loading=false terpisah
+    setState(() {
+      _registeredEmail = email;
+      _showEmailSent = true;
+      _loading = false;
+    });
+  }
+
+  // ── Back to Login dari EmailSentScreen ────────────────────────────────
+  void _handleBackToLogin() {
+    setState(() {
+      _showEmailSent = false;
+      _isLogin = true;
+      _emailCtrl.clear();
+      _passwordCtrl.clear();
+      _errorMessage = null;
+      _successMessage = null;
+      _showResendButton = false;
+      _registeredEmail = '';
+    });
+  }
+
+  // ── Navigation After Login ────────────────────────────────────────────
+  Future<void> _navigateAfterLogin(String uid) async {
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+
+    if (!mounted) return;
+
+    if (!userDoc.exists) {
+      Navigator.pushReplacementNamed(context, AppRoutes.goalSetting);
+      return;
+    }
+
+    await UserService.instance.updateLastLogin(uid);
+
+    if (!mounted) return;
+
+    final isAdmin = userDoc.data()?['admin'] ?? false;
+    Navigator.pushReplacementNamed(
+      context,
+      isAdmin ? AppRoutes.adminMain : AppRoutes.main,
     );
   }
 
-  // ── build ──────────────────────────────────────────────────────────
+  // ── Resend Verification Email ─────────────────────────────────────────
+  Future<void> _resendVerification() async {
+    try {
+      final email = _registeredEmail.isNotEmpty
+          ? _registeredEmail
+          : _emailCtrl.text.trim();
+      final password = _passwordCtrl.text;
+
+      if (email.isEmpty || password.isEmpty) {
+        if (!mounted) return;
+        setState(
+          () => _errorMessage =
+              'Isi email dan password terlebih dahulu untuk kirim ulang.',
+        );
+        return;
+      }
+
+      // Login sementara untuk kirim ulang
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      await cred.user?.sendEmailVerification();
+      await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+      setState(() {
+        _successMessage = 'Email verifikasi berhasil dikirim ulang!';
+        _showResendButton = false;
+        _errorMessage = null;
+      });
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = AuthErrorMessage.get(e.code));
+    } catch (e) {
+      if (!mounted) return;
+      setState(
+        () =>
+            _errorMessage = 'Gagal mengirim email verifikasi. Coba lagi nanti.',
+      );
+    }
+  }
+
+  // ── Forgot Password ───────────────────────────────────────────────────
+  void _showForgotPasswordDialog() {
+    final ctrl = TextEditingController(text: _emailCtrl.text.trim());
+    showDialog(
+      context: context,
+      builder: (ctx) => _ForgotPasswordDialog(ctrl: ctrl),
+    ).then((_) => ctrl.dispose());
+  }
+
+  // ── Toggle ────────────────────────────────────────────────────────────
+  void _toggleAuthMode() {
+    setState(() {
+      _isLogin = !_isLogin;
+      _errorMessage = null;
+      _successMessage = null;
+      _showResendButton = false;
+      _formKey.currentState?.reset();
+    });
+  }
+
+  void _togglePasswordVisibility() =>
+      setState(() => _obscurePassword = !_obscurePassword);
+
+  // ── Build ─────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    if (_emailSent) {
-      return _EmailSentScreen(
-        email: _emailCtrl.text,
+    // ✅ EmailSentScreen — tampil setelah register berhasil
+    if (_showEmailSent) {
+      return EmailSentScreen(
+        email: _registeredEmail,
         onResend: _resendVerification,
-        onBack: () => setState(() {
-          _emailSent = false;
-          _isLogin = true;
-        }),
+        onBackToLogin: _handleBackToLogin,
+        isRegistration: true,
       );
     }
 
-    final w = MediaQuery.sizeOf(context).width;
-    final desktop = w >= 1024;
-
+    final desktop = MediaQuery.sizeOf(context).width >= 1024;
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: desktop ? _desktopLayout() : _mobileLayout(),
+      body: desktop ? _buildDesktopLayout() : _buildMobileLayout(),
     );
   }
 
-  // ── DESKTOP: split screen ──────────────────────────────────────────
-  Widget _desktopLayout() => Row(
-    children: [
-      // Left — dark hero panel
-      Expanded(
-        child: Container(
-          decoration: const BoxDecoration(gradient: AppGradient.navy),
-          child: Stack(
-            children: [
-              // Gold glow
-              Positioned(
-                top: -80,
-                right: -80,
-                child: Container(
-                  width: 300,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        AppColors.gold.withOpacity(0.12),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: -60,
-                left: -60,
-                child: Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        AppColors.gold.withOpacity(0.08),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Content
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(48),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _LogoMark(size: 56),
-                      const SizedBox(height: 32),
-                      Text(
-                        'LULUZZZ',
-                        style: AppText.display.copyWith(
-                          color: AppColors.white,
-                          fontSize: 40,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      AppSpacing.vsm,
-                      Text(
-                        'Platform Latihan Ujian Nasional',
-                        style: AppText.bodyLg.copyWith(
-                          color: AppColors.white.withOpacity(0.6),
-                        ),
-                      ),
-                      const SizedBox(height: 48),
-                      // Feature bullets
-                      ...[
-                        ('Ribuan soal latihan', Icons.quiz_outlined),
-                        (
-                          'Analisis progres real-time',
-                          Icons.analytics_outlined,
-                        ),
-                        ('Semua jenis ujian nasional', Icons.school_outlined),
-                      ].map(
-                        (f) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: AppColors.gold.withOpacity(0.15),
-                                  borderRadius: AppRadius.bSm,
-                                  border: Border.all(
-                                    color: AppColors.gold.withOpacity(0.3),
-                                  ),
-                                ),
-                                child: Icon(
-                                  f.$2,
-                                  color: AppColors.gold,
-                                  size: 16,
-                                ),
-                              ),
-                              AppSpacing.hmd,
-                              Text(
-                                f.$1,
-                                style: AppText.bodyLg.copyWith(
-                                  color: AppColors.white.withOpacity(0.85),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      // Right — form panel
-      SizedBox(
-        width: 480,
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(48),
-            child: _FormCard(
-              isLogin: _isLogin,
-              loading: _loading,
-              obscure: _obscure,
-              error: _error,
-              formKey: _formKey,
-              emailCtrl: _emailCtrl,
-              passwordCtrl: _passwordCtrl,
-              onToggleMode: () => setState(() {
-                _isLogin = !_isLogin;
-                _error = null;
-                _showResendBtn = false;
-              }),
-              onToggleObscure: () => setState(() => _obscure = !_obscure),
-              onSubmit: _handleAuth,
-              onForgot: _showForgotDialog,
-              onResend: _resendVerification,
-              showResendBtn: _showResendBtn,
+  Widget _buildDesktopLayout() {
+    return Row(
+      children: [
+        Expanded(child: _HeroPanel()),
+        SizedBox(
+          width: 520,
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(48),
+              child: _buildFormCard(),
             ),
           ),
-        ),
-      ),
-    ],
-  );
-
-  // ── MOBILE: centered card ──────────────────────────────────────────
-  Widget _mobileLayout() => SingleChildScrollView(
-    padding: const EdgeInsets.all(24),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(height: 60),
-        _LogoMark(size: 48),
-        AppSpacing.vmd,
-        Text('LULUZZZ', style: AppText.display.copyWith(letterSpacing: 1)),
-        AppSpacing.vxs,
-        Text(
-          'Platform Latihan Ujian Nasional',
-          style: AppText.bodySm,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 32),
-        _FormCard(
-          isLogin: _isLogin,
-          loading: _loading,
-          obscure: _obscure,
-          error: _error,
-          formKey: _formKey,
-          emailCtrl: _emailCtrl,
-          passwordCtrl: _passwordCtrl,
-          onToggleMode: () => setState(() {
-            _isLogin = !_isLogin;
-            _error = null;
-            _showResendBtn = false;
-          }),
-          onToggleObscure: () => setState(() => _obscure = !_obscure),
-          onSubmit: _handleAuth,
-          onForgot: _showForgotDialog,
-          onResend: _resendVerification,
-          showResendBtn: _showResendBtn,
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Dengan melanjutkan, Anda menyetujui Syarat & Ketentuan kami.',
-          textAlign: TextAlign.center,
-          style: AppText.caption,
         ),
       ],
-    ),
-  );
+    );
+  }
 
-  // ── forgot password dialog ─────────────────────────────────────────
-  void _showForgotDialog() {
-    final ctrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.bXl),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400, minWidth: 300),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: AppColors.softBg(AppColors.primary),
-                    borderRadius: AppRadius.bMd,
-                  ),
-                  child: const Icon(
-                    Icons.lock_reset_rounded,
-                    color: AppColors.primary,
-                    size: 26,
-                  ),
-                ),
-                AppSpacing.vmd,
-                Text('Reset Password', style: AppText.h2),
-                AppSpacing.vxs,
-                Text(
-                  'Masukkan email untuk menerima link reset',
-                  style: AppText.bodySm,
-                  textAlign: TextAlign.center,
-                ),
-                AppSpacing.vmd,
-                TextField(
-                  controller: ctrl,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.mail_outline_rounded),
-                  ),
-                ),
-                AppSpacing.vmd,
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Batal'),
-                      ),
-                    ),
-                    AppSpacing.hmd,
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          try {
-                            await FirebaseAuth.instance.sendPasswordResetEmail(
-                              email: ctrl.text.trim(),
-                            );
-                            if (ctx.mounted) Navigator.pop(ctx);
-                            _showSnack('Link reset dikirim!', success: true);
-                          } catch (e) {
-                            _showSnack('Error: $e');
-                          }
-                        },
-                        child: const Text('Kirim'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+  Widget _buildMobileLayout() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 60),
+          _LogoMark(size: 48),
+          AppSpacing.vmd,
+          Text('LULUZZZ', style: AppText.display.copyWith(letterSpacing: 1)),
+          AppSpacing.vxs,
+          Text(
+            'Platform Latihan Ujian Nasional',
+            style: AppText.bodySm,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          _buildFormCard(),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Dengan melanjutkan, Anda menyetujui Syarat & Ketentuan kami.',
+              textAlign: TextAlign.center,
+              style: AppText.caption,
             ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildFormCard() {
+    return _FormCard(
+      isLogin: _isLogin,
+      loading: _loading,
+      obscurePassword: _obscurePassword,
+      errorMessage: _errorMessage,
+      successMessage: _successMessage,
+      showResendButton: _showResendButton,
+      formKey: _formKey,
+      emailCtrl: _emailCtrl,
+      passwordCtrl: _passwordCtrl,
+      onToggleMode: _toggleAuthMode,
+      onToggleObscure: _togglePasswordVisibility,
+      onSubmit: _handleAuth,
+      onForgotPassword: _showForgotPasswordDialog,
+      onResendVerification: _resendVerification,
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FORM CARD  (shared mobile & desktop)
-// ─────────────────────────────────────────────────────────────────────────────
+// ============================================================================
+// FORM CARD WIDGET
+// ============================================================================
 class _FormCard extends StatelessWidget {
-  final bool isLogin, loading, obscure;
-  final String? error;
+  final bool isLogin;
+  final bool loading;
+  final bool obscurePassword;
+  final bool showResendButton;
+  final String? errorMessage;
+  final String? successMessage;
   final GlobalKey<FormState> formKey;
-  final TextEditingController emailCtrl, passwordCtrl;
-  final VoidCallback onToggleMode,
-      onToggleObscure,
-      onSubmit,
-      onForgot,
-      onResend;
-  final bool showResendBtn;
+  final TextEditingController emailCtrl;
+  final TextEditingController passwordCtrl;
+  final VoidCallback onToggleMode;
+  final VoidCallback onToggleObscure;
+  final VoidCallback onSubmit;
+  final VoidCallback onForgotPassword;
+  final VoidCallback onResendVerification;
 
   const _FormCard({
     required this.isLogin,
     required this.loading,
-    required this.obscure,
-    required this.error,
+    required this.obscurePassword,
+    required this.showResendButton,
+    required this.errorMessage,
+    required this.successMessage,
     required this.formKey,
     required this.emailCtrl,
     required this.passwordCtrl,
     required this.onToggleMode,
     required this.onToggleObscure,
     required this.onSubmit,
-    required this.onForgot,
-    required this.onResend,
-    required this.showResendBtn,
+    required this.onForgotPassword,
+    required this.onResendVerification,
   });
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(28),
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: AppRadius.bXl,
-      border: Border.all(color: AppColors.border),
-      boxShadow: AppShadow.md,
-    ),
-    child: Form(
-      key: formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Mode toggle ──
-          Container(
-            height: 44,
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceAlt,
-              borderRadius: AppRadius.bMd,
-            ),
-            child: Row(
-              children: [
-                _ToggleBtn('Masuk', isLogin, onToggleMode),
-                _ToggleBtn('Daftar', !isLogin, onToggleMode),
-              ],
-            ),
-          ),
-
-          AppSpacing.vmd,
-
-          // ── Email ──
-          TextFormField(
-            controller: emailCtrl,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              hintText: 'nama@example.com',
-              prefixIcon: Icon(Icons.mail_outline_rounded),
-            ),
-            validator: Validators.email,
-          ),
-
-          AppSpacing.vsm,
-
-          // ── Password ──
-          TextFormField(
-            controller: passwordCtrl,
-            obscureText: obscure,
-            decoration: InputDecoration(
-              labelText: 'Password',
-              hintText: 'Minimal 6 karakter',
-              prefixIcon: const Icon(Icons.lock_outline_rounded),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  obscure
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                  size: 20,
-                ),
-                onPressed: onToggleObscure,
-              ),
-            ),
-            validator: Validators.password,
-          ),
-
-          AppSpacing.vmd,
-
-          // ── Submit ──
-          SizedBox(
-            height: 52,
-            child: ElevatedButton(
-              onPressed: loading ? null : onSubmit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.white,
-                disabledBackgroundColor: AppColors.surfaceAlt,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
-              ),
-              child: loading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: AppColors.white,
-                      ),
-                    )
-                  : Text(isLogin ? 'Masuk' : 'Buat Akun', style: AppText.btnLg),
-            ),
-          ),
-
-          // ── Error ──
-          if (error != null) ...[
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.bXl,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.md,
+      ),
+      child: Form(
+        key: formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildModeToggle(),
+            AppSpacing.vmd,
+            _buildEmailField(),
             AppSpacing.vsm,
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.softBg(AppColors.error),
-                borderRadius: AppRadius.bMd,
-                border: Border.all(color: AppColors.error.withOpacity(0.2)),
-              ),
-              child: Row(
+            _buildPasswordField(),
+            AppSpacing.vmd,
+            _buildSubmitButton(),
+            if (errorMessage != null) ...[
+              AppSpacing.vsm,
+              _ErrorBox(message: errorMessage!),
+            ],
+            if (successMessage != null) ...[
+              AppSpacing.vsm,
+              _SuccessBox(message: successMessage!),
+            ],
+            if (showResendButton) ...[AppSpacing.vsm, _buildResendButton()],
+            if (isLogin) ...[AppSpacing.vsm, _buildForgotPasswordButton()],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeToggle() {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceAlt,
+        borderRadius: AppRadius.bMd,
+      ),
+      child: Row(
+        children: [
+          _ToggleBtn('Masuk', isLogin, onToggleMode),
+          _ToggleBtn('Daftar', !isLogin, onToggleMode),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmailField() {
+    return TextFormField(
+      controller: emailCtrl,
+      keyboardType: TextInputType.emailAddress,
+      textInputAction: TextInputAction.next,
+      decoration: const InputDecoration(
+        labelText: 'Email',
+        hintText: 'nama@example.com',
+        prefixIcon: Icon(Icons.mail_outline_rounded),
+      ),
+      validator: Validators.email,
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: passwordCtrl,
+      obscureText: obscurePassword,
+      textInputAction: TextInputAction.done,
+      decoration: InputDecoration(
+        labelText: isLogin ? 'Password' : 'Password (min. 8 karakter)',
+        hintText: isLogin ? 'Masukkan password' : 'Minimal 8 karakter',
+        prefixIcon: const Icon(Icons.lock_outline_rounded),
+        suffixIcon: IconButton(
+          icon: Icon(
+            obscurePassword
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
+            size: 20,
+          ),
+          onPressed: onToggleObscure,
+        ),
+      ),
+      validator: isLogin ? Validators.passwordLogin : Validators.password,
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      height: 52,
+      child: ElevatedButton(
+        onPressed: loading ? null : onSubmit,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.white,
+          disabledBackgroundColor: AppColors.surfaceAlt,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+        ),
+        child: loading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppColors.white,
+                ),
+              )
+            : Text(isLogin ? 'Masuk' : 'Buat Akun', style: AppText.btnLg),
+      ),
+    );
+  }
+
+  Widget _buildResendButton() {
+    return OutlinedButton.icon(
+      onPressed: onResendVerification,
+      icon: const Icon(Icons.refresh_rounded, size: 16),
+      label: const Text('Kirim Ulang Email Verifikasi'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.warning,
+        side: const BorderSide(color: AppColors.warning),
+        minimumSize: const Size.fromHeight(44),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
+      ),
+    );
+  }
+
+  Widget _buildForgotPasswordButton() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton(
+        onPressed: onForgotPassword,
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.textSecondary,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          minimumSize: const Size(0, 32),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: const Text('Lupa password?', style: TextStyle(fontSize: 13)),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// ERROR & SUCCESS BOXES
+// ============================================================================
+class _ErrorBox extends StatelessWidget {
+  final String message;
+  const _ErrorBox({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.softBg(AppColors.error),
+        borderRadius: AppRadius.bMd,
+        border: Border.all(color: AppColors.error.withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.error_outline_rounded,
+              color: AppColors.error,
+              size: 18,
+            ),
+          ),
+          AppSpacing.hsm,
+          Expanded(
+            child: Text(
+              message,
+              style: AppText.bodySm.copyWith(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SuccessBox extends StatelessWidget {
+  final String message;
+  const _SuccessBox({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.softBg(AppColors.success),
+        borderRadius: AppRadius.bMd,
+        border: Border.all(color: AppColors.success.withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.check_circle_outline_rounded,
+              color: AppColors.success,
+              size: 18,
+            ),
+          ),
+          AppSpacing.hsm,
+          Expanded(
+            child: Text(
+              message,
+              style: AppText.bodySm.copyWith(color: AppColors.success),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// TOGGLE BUTTON
+// ============================================================================
+class _ToggleBtn extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _ToggleBtn(this.label, this.active, this.onTap);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: double.infinity,
+          decoration: BoxDecoration(
+            color: active ? AppColors.primary : Colors.transparent,
+            borderRadius: AppRadius.bSm,
+            boxShadow: active ? AppShadow.sm : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: AppText.label.copyWith(
+              color: active ? AppColors.white : AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// HERO PANEL (Desktop)
+// ============================================================================
+class _HeroPanel extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(gradient: AppGradient.navy),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -80,
+            right: -80,
+            child: _glowCircle(300, AppColors.gold.withOpacity(0.12)),
+          ),
+          Positioned(
+            bottom: -60,
+            left: -60,
+            child: _glowCircle(200, AppColors.gold.withOpacity(0.08)),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(48),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.error_outline_rounded,
-                    color: AppColors.error,
-                    size: 18,
-                  ),
-                  AppSpacing.hsm,
-                  Expanded(
-                    child: Text(
-                      error!,
-                      style: AppText.bodySm.copyWith(color: AppColors.error),
+                  const _LogoMark(size: 56),
+                  const SizedBox(height: 32),
+                  Text(
+                    'LULUZZZ',
+                    style: AppText.display.copyWith(
+                      color: AppColors.white,
+                      fontSize: 40,
+                      letterSpacing: 2,
                     ),
                   ),
-                ],
-              ),
-            ),
-          ],
-
-          // ── Forgot password ──
-          if (showResendBtn) ...[
-            AppSpacing.vsm,
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onResend,
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Kirim Ulang Email Verifikasi'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.warning,
-                  side: const BorderSide(color: AppColors.warning),
-                  minimumSize: const Size.fromHeight(44),
-                  shape: RoundedRectangleBorder(borderRadius: AppRadius.bMd),
-                ),
-              ),
-            ),
-          ],
-
-          // ── Forgot password ──
-          AppSpacing.vsm,
-          Visibility(
-            visible: isLogin,
-            maintainSize: true,
-            maintainAnimation: true,
-            maintainState: true,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: onForgot,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.textSecondary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 4,
+                  AppSpacing.vsm,
+                  Text(
+                    'Platform Latihan Ujian Nasional',
+                    style: AppText.bodyLg.copyWith(
+                      color: AppColors.white.withOpacity(0.6),
+                    ),
                   ),
-                  minimumSize: const Size(0, 32),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text('Lupa password?', style: AppText.bodySm),
+                  const SizedBox(height: 48),
+                  const _FeatureItem(
+                    text: 'Ribuan soal latihan',
+                    icon: Icons.quiz_outlined,
+                  ),
+                  const _FeatureItem(
+                    text: 'Analisis progres real-time',
+                    icon: Icons.analytics_outlined,
+                  ),
+                  const _FeatureItem(
+                    text: 'Semua jenis ujian nasional',
+                    icon: Icons.school_outlined,
+                  ),
+                ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _glowCircle(double size, Color color) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: RadialGradient(colors: [color, Colors.transparent]),
     ),
   );
 }
 
-class _ToggleBtn extends StatelessWidget {
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  const _ToggleBtn(this.label, this.active, this.onTap);
+class _FeatureItem extends StatelessWidget {
+  final String text;
+  final IconData icon;
+  const _FeatureItem({required this.text, required this.icon});
 
   @override
-  Widget build(BuildContext context) => Expanded(
-    child: GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: double.infinity,
-        decoration: BoxDecoration(
-          color: active ? AppColors.primary : Colors.transparent,
-          borderRadius: AppRadius.bSm,
-          boxShadow: active ? AppShadow.sm : null,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: AppText.label.copyWith(
-            color: active ? AppColors.white : AppColors.textSecondary,
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppColors.gold.withOpacity(0.15),
+              borderRadius: AppRadius.bSm,
+              border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+            ),
+            child: Icon(icon, color: AppColors.gold, size: 16),
           ),
-        ),
+          AppSpacing.hmd,
+          Text(
+            text,
+            style: AppText.bodyLg.copyWith(
+              color: AppColors.white.withOpacity(0.85),
+            ),
+          ),
+        ],
       ),
-    ),
-  );
+    );
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ============================================================================
 // LOGO MARK
-// ─────────────────────────────────────────────────────────────────────────────
+// ============================================================================
 class _LogoMark extends StatelessWidget {
   final double size;
   const _LogoMark({required this.size});
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      gradient: AppGradient.navy,
-      borderRadius: AppRadius.bMd,
-      border: Border.all(color: AppColors.gold, width: 1.5),
-      boxShadow: [
-        BoxShadow(
-          color: AppColors.primary.withOpacity(0.3),
-          blurRadius: 16,
-          offset: const Offset(0, 6),
-        ),
-      ],
-    ),
-    child: Center(
-      child: Text(
-        'L',
-        style: AppText.h1.copyWith(
-          color: AppColors.gold,
-          fontSize: size * 0.45,
-        ),
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: AppGradient.navy,
+        borderRadius: AppRadius.bMd,
+        border: Border.all(color: AppColors.gold, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-    ),
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// EMAIL SENT SCREEN
-// ─────────────────────────────────────────────────────────────────────────────
-class _EmailSentScreen extends StatelessWidget {
-  final String email;
-  final VoidCallback onResend, onBack;
-  const _EmailSentScreen({
-    required this.email,
-    required this.onResend,
-    required this.onBack,
-  });
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.bg,
-    body: Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: AppRadius.bXl,
-              border: Border.all(color: AppColors.border),
-              boxShadow: AppShadow.md,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Icon
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: AppColors.softBg(AppColors.success),
-                    borderRadius: AppRadius.bLg,
-                  ),
-                  child: const Icon(
-                    Icons.mark_email_read_outlined,
-                    color: AppColors.success,
-                    size: 32,
-                  ),
-                ),
-                AppSpacing.vmd,
-                Text('Cek Email Anda!', style: AppText.h1),
-                AppSpacing.vsm,
-                Text(
-                  'Verifikasi dikirim ke:',
-                  style: AppText.bodySm,
-                  textAlign: TextAlign.center,
-                ),
-                AppSpacing.vxs,
-                Text(
-                  email,
-                  style: AppText.bodyLg.copyWith(fontWeight: FontWeight.w700),
-                  textAlign: TextAlign.center,
-                ),
-                AppSpacing.vmd,
-
-                // Steps box
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.softBg(AppColors.gold),
-                    borderRadius: AppRadius.bMd,
-                    border: Border.all(color: AppColors.gold.withOpacity(0.2)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Langkah selanjutnya:',
-                        style: AppText.label.copyWith(color: AppColors.primary),
-                      ),
-                      AppSpacing.vsm,
-                      ...[
-                        'Buka inbox email Anda',
-                        'Klik link verifikasi',
-                        'Kembali & login',
-                      ].asMap().entries.map(
-                        (e) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 20,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: AppRadius.bFull,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${e.key + 1}',
-                                    style: AppText.caption.copyWith(
-                                      color: AppColors.white,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              AppSpacing.hsm,
-                              Text(e.value, style: AppText.body),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                AppSpacing.vmd,
-
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: onResend,
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Kirim Ulang Email'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.bMd,
-                      ),
-                      minimumSize: const Size.fromHeight(48),
-                    ),
-                  ),
-                ),
-                AppSpacing.vsm,
-                TextButton(
-                  onPressed: onBack,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary,
-                  ),
-                  child: Text('← Kembali ke Login', style: AppText.label),
-                ),
-                AppSpacing.vsm,
-                Text(
-                  'Tidak menerima email? Cek folder Spam/Junk',
-                  style: AppText.caption,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+      child: Center(
+        child: Text(
+          'L',
+          style: AppText.h1.copyWith(
+            color: AppColors.gold,
+            fontSize: size * 0.45,
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+// ============================================================================
+// FORGOT PASSWORD DIALOG
+// ============================================================================
+class _ForgotPasswordDialog extends StatelessWidget {
+  final TextEditingController ctrl;
+  const _ForgotPasswordDialog({required this.ctrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.bXl),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400, minWidth: 300),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.softBg(AppColors.primary),
+                  borderRadius: AppRadius.bMd,
+                ),
+                child: const Icon(
+                  Icons.lock_reset_rounded,
+                  color: AppColors.primary,
+                  size: 26,
+                ),
+              ),
+              AppSpacing.vmd,
+              const Text(
+                'Reset Password',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              AppSpacing.vxs,
+              Text(
+                'Masukkan email untuk menerima link reset',
+                style: AppText.bodySm,
+                textAlign: TextAlign.center,
+              ),
+              AppSpacing.vmd,
+              TextField(
+                controller: ctrl,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.mail_outline_rounded),
+                ),
+              ),
+              AppSpacing.vmd,
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Batal'),
+                    ),
+                  ),
+                  AppSpacing.hmd,
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final email = ctrl.text.trim();
+                        if (email.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Email tidak boleh kosong'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                          return;
+                        }
+                        try {
+                          await FirebaseAuth.instance.sendPasswordResetEmail(
+                            email: email,
+                          );
+                          if (context.mounted) Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text(
+                                'Link reset berhasil dikirim! Cek inbox email Anda.',
+                              ),
+                              backgroundColor: AppColors.success,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: AppRadius.bMd,
+                              ),
+                            ),
+                          );
+                        } on FirebaseAuthException catch (e) {
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(AuthErrorMessage.get(e.code)),
+                                backgroundColor: AppColors.error,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: AppRadius.bMd,
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Gagal mengirim link reset'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: const Text('Kirim'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// AUTH ERROR MESSAGE HELPER
+// ============================================================================
+abstract class AuthErrorMessage {
+  AuthErrorMessage._();
+
+  static String get(String code) {
+    return switch (code) {
+      'invalid-email' =>
+        'Format email tidak valid. Contoh yang benar: nama@email.com',
+      'network-request-failed' =>
+        'Tidak dapat terhubung ke server.\nPeriksa koneksi internet Anda dan coba lagi.',
+      'too-many-requests' =>
+        'Terlalu banyak percobaan gagal dalam waktu singkat.\n'
+            'Mohon tunggu beberapa menit, atau gunakan fitur "Lupa password".',
+      'operation-not-allowed' =>
+        'Metode login ini tidak diaktifkan. Hubungi administrator aplikasi.',
+      'user-disabled' =>
+        'Akun ini telah dinonaktifkan.\nHubungi tim dukungan kami untuk informasi lebih lanjut.',
+      'user-not-found' =>
+        'Email tidak terdaftar.\nPeriksa kembali email Anda atau daftar akun baru.',
+      'wrong-password' =>
+        'Password salah. Silakan coba lagi.\nGunakan "Lupa password?" jika tidak ingat password.',
+      'invalid-credential' =>
+        'Email atau password tidak sesuai.\nPeriksa kembali atau gunakan "Lupa password?"',
+      'invalid-login-credentials' =>
+        'Email atau password salah.\nPastikan Anda menggunakan kredensial yang benar.',
+      'user-mismatch' =>
+        'Data pengguna tidak cocok. Silakan login ulang dari awal.',
+      'account-exists-with-different-credential' =>
+        'Akun sudah ada dengan metode login berbeda. Gunakan metode yang saat pendaftaran.',
+      'email-already-in-use' =>
+        'Email ini sudah terdaftar.\nSilakan login, atau gunakan "Lupa password?" jika lupa password.',
+      'weak-password' =>
+        'Password terlalu lemah.\nGunakan minimal 8 karakter dengan kombinasi huruf besar, huruf kecil, angka, dan simbol.',
+      'requires-recent-login' =>
+        'Sesi Anda telah kedaluwarsa.\nSilakan login ulang untuk melanjutkan.',
+      _ =>
+        'Terjadi kesalahan (Kode: $code).\nSilakan coba lagi atau hubungi dukungan jika masalah berlanjut.',
+    };
+  }
 }
