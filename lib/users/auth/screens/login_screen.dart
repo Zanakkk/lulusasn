@@ -743,7 +743,6 @@ class _LogoMark extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: AppGradient.navy,
         borderRadius: AppRadius.bMd,
         border: Border.all(color: AppColors.gold, width: 1.5),
         boxShadow: [
@@ -754,14 +753,10 @@ class _LogoMark extends StatelessWidget {
           ),
         ],
       ),
-      child: Center(
-        child: Text(
-          'L',
-          style: AppText.h1.copyWith(
-            color: AppColors.gold,
-            fontSize: size * 0.45,
-          ),
-        ),
+      child: ClipRRect(
+        // ← Clipping yang benar
+        borderRadius: AppRadius.bMd,
+        child: Image.asset('assets/Logo.png', fit: BoxFit.cover),
       ),
     );
   }

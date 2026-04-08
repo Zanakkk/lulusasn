@@ -14,7 +14,7 @@ const db = admin.firestore();
 const FLIP_API_KEY          = defineString("FLIP_API_KEY");
 const FLIP_VALIDATION_TOKEN = defineString("FLIP_VALIDATION_TOKEN");
 const FLIP_BASE_URL         = "https://bigflip.id/big_sandbox_api/v2"; // ganti ke https://bigflip.id/api/v2 saat production
-const APP_BASE_URL          = "https://lulusasn-e15a3.web.app";
+const APP_BASE_URL          = "https://luluzzz.id";
 
 // ────────────────────────────────────────────────
 // 1. CREATE BILL

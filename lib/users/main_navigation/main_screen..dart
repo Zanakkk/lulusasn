@@ -345,10 +345,11 @@ class _Sidebar extends StatelessWidget {
                         border: Border.all(color: AppColors.gold, width: 1.5),
                         borderRadius: AppRadius.bSm,
                       ),
-                      child: Center(
-                        child: Text(
-                          'L',
-                          style: AppText.h3.copyWith(color: AppColors.gold),
+                      child: ClipRRect(
+                        borderRadius: AppRadius.bSm,
+                        child: Image.asset(
+                          'assets/Logo.png',
+                          fit: BoxFit.cover,
                         ),
                       ),
                     ),
