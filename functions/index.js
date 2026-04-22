@@ -1,33 +1,39 @@
 const functions = require("firebase-functions");
+const { onRequest } = require("firebase-functions/v2/https");
 const { defineString } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const axios = require("axios");
-const qs = require("querystring");
 const { getTransactions, refundPayment } = require("./admin");
 
 exports.getTransactions = getTransactions;
-exports.refundPayment = refundPayment;
+exports.refundPayment   = refundPayment;
 
 admin.initializeApp();
 const db = admin.firestore();
 
 const FLIP_API_KEY          = defineString("FLIP_API_KEY");
 const FLIP_VALIDATION_TOKEN = defineString("FLIP_VALIDATION_TOKEN");
-const FLIP_BASE_URL         = "https://bigflip.id/big_sandbox_api/v2"; // ganti ke https://bigflip.id/api/v2 saat production
+const FLIP_BASE_URL         = "https://bigflip.id/api/v3";
 const APP_BASE_URL          = "https://luluzzz.id";
+
+const vpcConfig = {
+  region: "us-central1",
+  vpcConnector: "projects/lulusasn-e15a3/locations/us-central1/connectors/my-connector",
+  vpcConnectorEgressSettings: "ALL_TRAFFIC",
+};
 
 // ────────────────────────────────────────────────
 // 1. CREATE BILL
 // ────────────────────────────────────────────────
-exports.createBill = functions.https.onRequest(async (req, res) => {
+exports.createBill = onRequest(vpcConfig, async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(204).send("");
   if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
+  // ── Auth ──────────────────────────────────────
   const authHeader = req.headers.authorization || "";
-  const idToken = authHeader.startsWith("Bearer ") ? authHeader.split("Bearer ")[1] : null;
-
+  const idToken    = authHeader.startsWith("Bearer ") ? authHeader.split("Bearer ")[1] : null;
   if (!idToken) {
     console.error("❌ No token provided");
     return res.status(401).json({ error: "Unauthorized" });
@@ -44,6 +50,7 @@ exports.createBill = functions.https.onRequest(async (req, res) => {
     return res.status(401).json({ error: "Token tidak valid." });
   }
 
+  // ── Body ──────────────────────────────────────
   let { amount, tryoutId, tryoutTitle } = req.body;
   if (typeof amount === "string") amount = parseInt(amount, 10);
   if (!amount || isNaN(amount)) amount = 50000;
@@ -52,49 +59,54 @@ exports.createBill = functions.https.onRequest(async (req, res) => {
 
   console.log("📝 createBill:", { userId, userEmail, amount, tryoutId, tryoutTitle });
 
+  const encoded = Buffer.from(`${FLIP_API_KEY.value()}:`).toString("base64");
+  console.log("🔑 FLIP_API_KEY:", FLIP_API_KEY.value());
+  console.log("🔑 string before encode:", `${FLIP_API_KEY.value()}:`);
+  console.log("🔑 final encoded:", encoded);
+  const flipHeaders = {
+    "Authorization": `Basic ${encoded}`,
+    "Content-Type": "application/json",
+  };
+
   try {
-    // ✅ Step 1: Buat bill TANPA redirect_url dulu (karena linkId belum ada)
+    // ── Step 1: Buat bill ──────────────────────
     const response = await axios.post(
       `${FLIP_BASE_URL}/pwf/bill`,
-      qs.stringify({
-        title:               "Akses Try Out",
-        amount:              amount,
-        type:                "SINGLE",
-        is_address_required: 0,
-        sender_name:         userEmail.split("@")[0] || "User",
-        sender_email:        userEmail || "user@example.com",
-      }),
       {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        auth: { username: FLIP_API_KEY.value(), password: "" },
-      }
+        title:                    "Akses Try Out",
+        amount:                   amount,
+        type:                     "SINGLE",
+        step:                     "checkout",
+        is_address_required:      false,
+        is_phone_number_required: false,
+        sender_name:              userEmail.split("@")[0] || "User",
+        sender_email:             userEmail || "user@example.com",
+      },
+      { headers: flipHeaders }
     );
 
-    const bill    = response.data;
-    const linkId  = String(bill.link_id);   // ✅ linkId sudah ada di sini
-    const rawUrl  = bill.link_url || "";
+    const bill   = response.data;
+    const linkId = String(bill.link_id);
+    const rawUrl = bill.link_url || "";
     const linkUrl = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
 
     console.log("✅ Flip bill created - linkId:", linkId);
 
-    // ✅ Step 2: Patch redirect_url sekarang linkId sudah ada
+    // ── Step 2: Patch redirect_url ─────────────
     try {
       await axios.put(
         `${FLIP_BASE_URL}/pwf/bill/${linkId}`,
-        qs.stringify({
-          redirect_url: `${APP_BASE_URL}/#/payment/status/${linkId}`,
-        }),
         {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          auth: { username: FLIP_API_KEY.value(), password: "" },
-        }
+          redirect_url: `${APP_BASE_URL}/#/payment/status/${linkId}`,
+        },
+        { headers: flipHeaders }
       );
       console.log("✅ redirect_url patched - linkId:", linkId);
     } catch (patchErr) {
       console.warn("⚠️ Patch redirect_url gagal:", patchErr.message);
     }
 
-    // ✅ Step 3: Simpan ke Firestore
+    // ── Step 3: Simpan ke Firestore ────────────
     await db.collection("transactions").doc(linkId).set({
       userId,
       userEmail,
@@ -132,17 +144,15 @@ exports.createBill = functions.https.onRequest(async (req, res) => {
 // ────────────────────────────────────────────────
 // 2. FLIP CALLBACK (Webhook)
 // ────────────────────────────────────────────────
-exports.flipCallback = functions.https.onRequest(async (req, res) => {
+exports.flipCallback = onRequest(vpcConfig, async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
-  // ✅ Log semua request masuk untuk debugging
   console.log("📩 flipCallback hit - method:", req.method);
   console.log("📩 flipCallback body:", JSON.stringify(req.body));
 
   const bodyToken  = req.body?.token;
   const savedToken = FLIP_VALIDATION_TOKEN.value();
 
-  // ✅ Log detail token mismatch (tanpa expose token asli)
   if (!bodyToken || bodyToken !== savedToken) {
     console.warn("❌ Token tidak valid. Received:", bodyToken ? "[ada tapi salah]" : "[kosong]");
     return res.status(403).send("Forbidden");
@@ -173,7 +183,7 @@ exports.flipCallback = functions.https.onRequest(async (req, res) => {
     const { userId, tryoutId } = txDoc.data();
     console.log(`ℹ️ Processing status: ${status} for linkId: ${linkId}`);
 
-    // ── SUCCESSFUL ───────────────────────────────────────────────────────────
+    // ── SUCCESSFUL ────────────────────────────
     if (status === "SUCCESSFUL") {
       await txRef.update({
         status: "success",
@@ -204,19 +214,17 @@ exports.flipCallback = functions.https.onRequest(async (req, res) => {
         },
         { merge: true }
       );
-    }
 
-    // ── FAILED / CANCELLED / EXPIRED ─────────────────────────────────────────
-    else if (["FAILED", "CANCELLED", "EXPIRED"].includes(status)) {
+    // ── FAILED / CANCELLED / EXPIRED ─────────
+    } else if (["FAILED", "CANCELLED", "EXPIRED"].includes(status)) {
       await txRef.update({
         status:        "failed",
         failedAt:      admin.firestore.FieldValue.serverTimestamp(),
         failureReason: status,
       });
       console.log(`❌ Pembayaran gagal - linkId: ${linkId}, reason: ${status}`);
-    }
 
-    else {
+    } else {
       console.log(`ℹ️ Status webhook diabaikan: ${status} - linkId: ${linkId}`);
     }
 
@@ -224,6 +232,19 @@ exports.flipCallback = functions.https.onRequest(async (req, res) => {
 
   } catch (err) {
     console.error("flipCallback error:", err.message, err.stack);
-    return res.status(200).send("OK"); // selalu 200 agar Flip tidak retry terus
+    return res.status(200).send("OK");
+  }
+});
+
+// ────────────────────────────────────────────────
+// 3. CHECK IP
+// ────────────────────────────────────────────────
+exports.checkIp = onRequest(vpcConfig, async (req, res) => {
+  try {
+    const response = await axios.get("https://api.ipify.org?format=json");
+    console.log("🌐 Egress IP:", response.data.ip);
+    return res.status(200).json({ ip: response.data.ip });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });

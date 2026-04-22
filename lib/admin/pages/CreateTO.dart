@@ -1,4 +1,4 @@
-// ignore_for_file: file_names, deprecated_member_use, avoid_web_libraries_in_flutter
+// ignore_for_file: curly_braces_in_flow_control_structures, file_names, deprecated_member_use, avoid_web_libraries_in_flutter
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -299,9 +299,15 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _priceCtrl.dispose();
-    for (final c in _nameCtrl.values) c.dispose();
-    for (final c in _descCtrl2.values) c.dispose();
-    for (final c in _timeCtrl.values) c.dispose();
+    for (final c in _nameCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _descCtrl2.values) {
+      c.dispose();
+    }
+    for (final c in _timeCtrl.values) {
+      c.dispose();
+    }
     _toast.dispose();
     super.dispose();
   }
@@ -317,9 +323,15 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
   // ─────────────────────────────────────────────────────────────
 
   void _applyTemplate(_TryoutTemplate tpl) {
-    for (final c in _nameCtrl.values) c.dispose();
-    for (final c in _descCtrl2.values) c.dispose();
-    for (final c in _timeCtrl.values) c.dispose();
+    for (final c in _nameCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _descCtrl2.values) {
+      c.dispose();
+    }
+    for (final c in _timeCtrl.values) {
+      c.dispose();
+    }
     _nameCtrl.clear();
     _descCtrl2.clear();
     _timeCtrl.clear();
@@ -522,9 +534,15 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
   }
 
   void _reset() {
-    for (final c in _nameCtrl.values) c.dispose();
-    for (final c in _descCtrl2.values) c.dispose();
-    for (final c in _timeCtrl.values) c.dispose();
+    for (final c in _nameCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _descCtrl2.values) {
+      c.dispose();
+    }
+    for (final c in _timeCtrl.values) {
+      c.dispose();
+    }
     _nameCtrl.clear();
     _descCtrl2.clear();
     _timeCtrl.clear();
@@ -772,8 +790,9 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
         }
       }
 
-      if (questions.isEmpty)
+      if (questions.isEmpty) {
         throw Exception('Tidak ada soal valid di file CSV');
+      }
 
       setState(() {
         sub.questions = questions;
@@ -807,15 +826,15 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
         // lanjutan field yang dikutip (ada newline di dalam field)
         inQuoteBuffer = '$inQuoteBuffer\n$line';
         // hitung jumlah tanda kutip
-        final quoteCount = '"'.allMatches(inQuoteBuffer!).length;
+        final quoteCount = '"'.allMatches(inQuoteBuffer).length;
         if (quoteCount % 2 == 0) {
           // kutip sudah tertutup → selesaikan field
-          final cleaned = inQuoteBuffer!
+          final cleaned = inQuoteBuffer
               .replaceAll(RegExp(r'^"|"$'), '')
               .replaceAll('""', '"');
           currentRow!.add(cleaned);
           inQuoteBuffer = null;
-          rows.add(currentRow!);
+          rows.add(currentRow);
           currentRow = null;
         }
         continue;
@@ -895,9 +914,9 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
       final v = row[i]?.value;
       if (v == null) return '';
       String raw;
-      if (v is TextCellValue)
+      if (v is TextCellValue) {
         raw = v.value.toString();
-      else if (v is IntCellValue)
+      } else if (v is IntCellValue)
         raw = v.value.toString();
       else if (v is DoubleCellValue)
         raw = v.value.toString();
@@ -1938,9 +1957,9 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
                               setState(() {
                                 questions.removeAt(i);
                                 sub.questionCount = questions.length;
-                                if (_editingQuestionIndex == i)
+                                if (_editingQuestionIndex == i) {
                                   _editingQuestionIndex = null;
-                                else if (_editingQuestionIndex != null &&
+                                } else if (_editingQuestionIndex != null &&
                                     _editingQuestionIndex! > i) {
                                   _editingQuestionIndex =
                                       _editingQuestionIndex! - 1;
@@ -1987,7 +2006,9 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
                             final imgs = List<dynamic>.from(
                               q['optionImages'] as List? ?? [],
                             );
-                            while (imgs.length <= optIdx) imgs.add(null);
+                            while (imgs.length <= optIdx) {
+                              imgs.add(null);
+                            }
                             imgs[optIdx] = url;
                             q['optionImages'] = imgs;
                           });
@@ -2065,10 +2086,11 @@ class _CreateTryoutScreenState extends State<CreateTryoutScreen> {
           onPressed: _isSaving
               ? null
               : () {
-                  if (isLast)
+                  if (isLast) {
                     _save();
-                  else
+                  } else {
                     setState(() => _currentStep++);
+                  }
                 },
           icon: _isSaving
               ? const SizedBox(
@@ -2179,8 +2201,12 @@ class _QuestionEditFormState extends State<_QuestionEditForm> {
     _exFullCtrl.dispose();
     _tagsCtrl.dispose();
     _pkgCtrl.dispose();
-    for (final c in _optCtrl) c.dispose();
-    for (final c in _scoreCtrl) c.dispose();
+    for (final c in _optCtrl) {
+      c.dispose();
+    }
+    for (final c in _scoreCtrl) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -2333,7 +2359,9 @@ class _QuestionEditFormState extends State<_QuestionEditForm> {
                     final imgs = List<dynamic>.from(
                       q['optionImages'] as List? ?? List.filled(5, null),
                     );
-                    while (imgs.length <= i) imgs.add(null);
+                    while (imgs.length <= i) {
+                      imgs.add(null);
+                    }
                     imgs[i] = null;
                     q['optionImages'] = imgs;
                   });
@@ -3532,10 +3560,11 @@ class _DownloadTemplateMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       onSelected: (v) {
-        if (v == 'xlsx')
+        if (v == 'xlsx') {
           onXlsx();
-        else
+        } else {
           onCsv();
+        }
       },
       itemBuilder: (_) => [
         PopupMenuItem(

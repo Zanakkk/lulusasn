@@ -3,7 +3,8 @@
     "allow": [
       "Bash(flutter *)",
       "Bash(type *)",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(icacls *)"
     ]
   },
   "$version": 3

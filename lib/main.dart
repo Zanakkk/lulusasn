@@ -49,14 +49,55 @@ class LulusASNApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
 
-      // ✅ Deep link → pakai initialRoute (payment flow)
-      // ✅ Normal → home: LoginScreen langsung, AuthGate dipakai
-      //    HANYA untuk redirect setelah login sukses (dipanggil dari _navigateAfterLogin)
-      home: _isDeepLink ? null : const LoginScreen(),
+      // ✅ Deep link → splash screen saat Flutter Web boot
+      // ✅ Normal → home: LoginScreen langsung
+      home: _isDeepLink
+          ? const _DeepLinkSplashScreen() // ✅ SPLASH UNTUK DEEP LINK FLOW
+          : const LoginScreen(),
       initialRoute: _isDeepLink ? _initialRoute : null,
 
       onGenerateRoute: AppRouter.generateRoute,
       onUnknownRoute: AppRouter.onUnknownRoute,
+    );
+  }
+}
+
+// ✅ SPLASH SCREEN: Ditampilkan saat Flutter Web boot dari deep link
+// Memberi feedback visual sementara Flutter loading
+class _DeepLinkSplashScreen extends StatelessWidget {
+  const _DeepLinkSplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Logo/Brand
+            Text(
+              'LULUZZZ',
+              style: AppText.display.copyWith(
+                letterSpacing: 2,
+                color: AppColors.gold,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const CircularProgressIndicator(color: AppColors.gold),
+            const SizedBox(height: 24),
+            Text(
+              'Memuat halaman pembayaran...',
+              style: AppText.body.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Mohon tunggu sebentar',
+              style: AppText.bodySm.copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -12,7 +12,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lulusasn/app/routes.dart';
-import 'package:lulusasn/users/TO/payment/payment_status_screen.dart';
+import 'package:lulusasn/users/TO/payment/proof_submitted_screen.dart';
 import '../../app/theme.dart';
 
 final _currencyFmt = NumberFormat.currency(symbol: 'Rp ', decimalDigits: 0);
@@ -55,11 +55,12 @@ class _TryoutMarketplaceScreenState extends State<TryoutMarketplaceScreen> {
         .where('isActive', isEqualTo: true) // ← tambah filter ini
         .get();
     final owned = {for (final d in snap.docs) d['tryoutId'] as String: true};
-    if (mounted)
+    if (mounted) {
       setState(() {
         _ownershipCache.clear(); // ← clear dulu agar tidak stale
         _ownershipCache.addAll(owned);
       });
+    }
   }
 
   @override
@@ -813,31 +814,30 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
 
   final _uploadState = ValueNotifier(const UploadState());
   String _selectedOption = 'free';
-
   late final List<ProofSlot> _slots = [
     ProofSlot(
       type: 'follow',
-      title: 'Follow Instagram',
-      description: 'Follow @luluzzz lalu screenshot',
+      title: 'Follow Instagram Kami',
+      description: 'Follow @luluzzz dan screenshot halaman profil kami',
       icon: Icons.person_add_rounded,
       color: AppColors.error,
     ),
     ProofSlot(
       type: 'story',
-      title: 'Share di Story',
-      description: 'Share & screenshot story-mu',
+      title: 'Bagikan ke Story Instagram',
+      description: 'Share postingan yang kami pin, lalu screenshot story kamu',
       icon: Icons.auto_stories_rounded,
       color: AppColors.info,
     ),
     ProofSlot(
       type: 'tag',
-      title: 'Tag 3 Teman',
-      description: 'Tag di komentar & screenshot',
+      title: 'Sebar ke 3 Grup Belajar',
+      description:
+          'Kirim postingan yang kami pin ke 3 grup belajar kamu dan screenshot buktinya',
       icon: Icons.alternate_email_rounded,
       color: AppColors.warning,
     ),
   ];
-
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
   bool get _allUploaded => _slots.every((s) => s.hasFile);
 
@@ -1558,7 +1558,7 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
       final data = jsonDecode(response.body) as Map<String, dynamic>;
 
       if (response.statusCode != 200) {
-        newTab?.close();
+        newTab.close();
         throw Exception(data['error'] ?? 'Gagal membuat tagihan.');
       }
 
@@ -1566,16 +1566,16 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
       final billLinkId = data['billLinkId'] as String?;
 
       if (linkUrl == null || linkUrl.isEmpty) {
-        newTab?.close();
+        newTab.close();
         throw Exception('Link URL kosong dari server.');
       }
       if (billLinkId == null || billLinkId.isEmpty) {
-        newTab?.close();
+        newTab.close();
         throw Exception('Bill ID kosong dari server.');
       }
 
       // Arahkan tab yang sudah terbuka ke Flip
-      newTab?.location.href = linkUrl;
+      newTab.location.href = linkUrl;
 
       _uploadState.value = const UploadState(
         stage: UploadStage.done,
@@ -1724,8 +1724,16 @@ class _TryoutPurchaseScreenState extends State<TryoutPurchaseScreen>
         message: 'Berhasil! Sedang menunggu review admin.',
         progress: 1.0,
       );
-      await Future.delayed(const Duration(seconds: 2));
-      if (mounted) Navigator.pop(context);
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                ProofSubmittedScreen(tryoutTitle: widget.tryoutTitle),
+          ),
+        );
+      }
     } catch (e) {
       _uploadState.value = UploadState(
         stage: UploadStage.error,

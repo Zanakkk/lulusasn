@@ -236,10 +236,11 @@ class PromotionVerificationScreen extends StatelessWidget {
         .orderBy('createdAt', descending: true)
         .snapshots(),
     builder: (_, snap) {
-      if (!snap.hasData)
+      if (!snap.hasData) {
         return const SliverToBoxAdapter(
           child: Center(child: CircularProgressIndicator()),
         );
+      }
       final docs = snap.data!.docs;
       return SliverPadding(
         padding: const EdgeInsets.fromLTRB(32, 0, 32, 0),
@@ -678,10 +679,11 @@ class _SubmissionListScreenState extends State<SubmissionListScreen>
       stream: stream,
       builder: (_, snap) {
         if (snap.hasError) return _IndexErrorWidget(snap.error.toString());
-        if (!snap.hasData)
+        if (!snap.hasData) {
           return const Center(
             child: CircularProgressIndicator(color: AppColors.gold),
           );
+        }
 
         // Filter di client: free = tidak ada paymentMethod
         var docs = snap.data!.docs.where((d) {
@@ -714,10 +716,11 @@ class _SubmissionListScreenState extends State<SubmissionListScreen>
       stream: stream,
       builder: (_, snap) {
         if (snap.hasError) return _IndexErrorWidget(snap.error.toString());
-        if (!snap.hasData)
+        if (!snap.hasData) {
           return const Center(
             child: CircularProgressIndicator(color: AppColors.gold),
           );
+        }
 
         // Filter di client: paid = ada paymentMethod
         final docs = snap.data!.docs.where((d) {
@@ -730,21 +733,12 @@ class _SubmissionListScreenState extends State<SubmissionListScreen>
     );
   }
 
-  // ── Generic List View ───────────────────────────────────────────────────────
-  Widget _buildList(AsyncSnapshot<QuerySnapshot> snap, {required bool isFree}) {
-    if (snap.hasError) return _IndexErrorWidget(snap.error.toString());
-    if (!snap.hasData)
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.gold),
-      );
-    return _buildListView(snap.data!.docs, isFree: isFree);
-  }
 
   Widget _buildListView(
     List<QueryDocumentSnapshot> docs, {
     required bool isFree,
   }) {
-    if (docs.isEmpty)
+    if (docs.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -755,6 +749,7 @@ class _SubmissionListScreenState extends State<SubmissionListScreen>
           ],
         ),
       );
+    }
 
     return ListView.separated(
       padding: const EdgeInsets.all(14),
@@ -1143,7 +1138,7 @@ class _FreeReviewPanelState extends State<_FreeReviewPanel> {
             'isActive': s == 'approved',
             'updatedAt': FieldValue.serverTimestamp(),
           });
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -1157,6 +1152,7 @@ class _FreeReviewPanelState extends State<_FreeReviewPanel> {
             margin: const EdgeInsets.all(16),
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _processing = false);
     }

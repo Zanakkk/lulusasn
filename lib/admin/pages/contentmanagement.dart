@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: curly_braces_in_flow_control_structures, deprecated_member_use
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
@@ -73,11 +73,12 @@ class _ContentManagementScreenState extends State<ContentManagementScreen> {
     try {
       await FirebaseFirestore.instance.collection('tryouts').doc(id).delete();
       _invalidateCache(id);
-      if (mounted && _selectedTryoutId == id)
+      if (mounted && _selectedTryoutId == id) {
         setState(() {
           _selectedTryoutId = null;
           _panelMode = _RightPanelMode.empty;
         });
+      }
       _showSnack('Tryout "$title" berhasil dihapus', isError: false);
     } catch (e) {
       _showSnack('Gagal menghapus: $e', isError: true);
@@ -344,25 +345,27 @@ class _ContentManagementScreenState extends State<ContentManagementScreen> {
           .snapshots(),
       builder: (_, snap) {
         if (snap.hasError) return _ErrorState(error: snap.error.toString());
-        if (!snap.hasData)
+        if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator());
+        }
         var docs = snap.data!.docs;
-        if (_filterStatus == 'active')
+        if (_filterStatus == 'active') {
           docs = docs
               .where((d) => (d.data() as Map)['isActive'] == true)
               .toList();
-        else if (_filterStatus == 'inactive')
+        } else if (_filterStatus == 'inactive')
           docs = docs
               .where((d) => (d.data() as Map)['isActive'] != true)
               .toList();
-        if (_searchQuery.isNotEmpty)
+        if (_searchQuery.isNotEmpty) {
           docs = docs.where((d) {
             final t = ((d.data() as Map)['title'] ?? '')
                 .toString()
                 .toLowerCase();
             return t.contains(_searchQuery);
           }).toList();
-        if (docs.isEmpty)
+        }
+        if (docs.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -377,6 +380,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen> {
               ],
             ),
           );
+        }
         return ListView.separated(
           padding: const EdgeInsets.all(10),
           itemCount: docs.length,
@@ -407,8 +411,9 @@ class _ContentManagementScreenState extends State<ContentManagementScreen> {
   // ── RIGHT PANEL ────────────────────────────────────────────────────────────
   Widget _buildRightPanel() {
     if (_selectedTryoutId == null) return _buildEmptyRight();
-    if (_isPanelLoading)
+    if (_isPanelLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
     final fullDoc = _fullDocCache[_selectedTryoutId];
     if (fullDoc == null) return _buildEmptyRight();
 
@@ -728,13 +733,14 @@ class _EditQuestionsPanelState extends State<_EditQuestionsPanel> {
       widget.onSaved();
     } catch (e) {
       setState(() => _isSaving = false);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Gagal menyimpan: $e'),
             backgroundColor: AppColors.error,
           ),
         );
+      }
     }
   }
 
@@ -753,13 +759,14 @@ class _EditQuestionsPanelState extends State<_EditQuestionsPanel> {
       final snap = await ref.putData(f.bytes!);
       return await snap.ref.getDownloadURL();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Upload gagal: $e'),
             backgroundColor: AppColors.error,
           ),
         );
+      }
       return null;
     }
   }
@@ -796,9 +803,9 @@ class _EditQuestionsPanelState extends State<_EditQuestionsPanel> {
     qs.removeAt(i);
     setState(() {
       _subtests[_activeSubtest]['questions'] = qs;
-      if (_editingIdx == i)
+      if (_editingIdx == i) {
         _editingIdx = null;
-      else if (_editingIdx != null && _editingIdx! > i)
+      } else if (_editingIdx != null && _editingIdx! > i)
         _editingIdx = _editingIdx! - 1;
       _isDirty = true;
     });
@@ -1060,11 +1067,12 @@ class _EditQuestionsPanelState extends State<_EditQuestionsPanel> {
                       onChanged: _markDirty,
                       onUploadQuestionImage: () async {
                         final url = await _uploadImage();
-                        if (url != null)
+                        if (url != null) {
                           setState(() {
                             q['questionImage'] = url;
                             _isDirty = true;
                           });
+                        }
                       },
                       onRemoveQuestionImage: () => setState(() {
                         q['questionImage'] = null;
@@ -1072,23 +1080,28 @@ class _EditQuestionsPanelState extends State<_EditQuestionsPanel> {
                       }),
                       onUploadOptionImage: (optIdx) async {
                         final url = await _uploadImage();
-                        if (url != null)
+                        if (url != null) {
                           setState(() {
                             final imgs = List<dynamic>.from(
                               q['optionImages'] as List? ??
                                   List.filled(5, null),
                             );
-                            while (imgs.length <= optIdx) imgs.add(null);
+                            while (imgs.length <= optIdx) {
+                              imgs.add(null);
+                            }
                             imgs[optIdx] = url;
                             q['optionImages'] = imgs;
                             _isDirty = true;
                           });
+                        }
                       },
                       onRemoveOptionImage: (optIdx) => setState(() {
                         final imgs = List<dynamic>.from(
                           q['optionImages'] as List? ?? List.filled(5, null),
                         );
-                        while (imgs.length <= optIdx) imgs.add(null);
+                        while (imgs.length <= optIdx) {
+                          imgs.add(null);
+                        }
                         imgs[optIdx] = null;
                         q['optionImages'] = imgs;
                         _isDirty = true;
@@ -1179,8 +1192,12 @@ class _QuestionRowState extends State<_QuestionRow> {
     _exFullCtrl.dispose();
     _tagsCtrl.dispose();
     _pkgCtrl.dispose();
-    for (final c in _optCtrl) c.dispose();
-    for (final c in _scoreCtrl) c.dispose();
+    for (final c in _optCtrl) {
+      c.dispose();
+    }
+    for (final c in _scoreCtrl) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -2068,13 +2085,14 @@ class _EditPanelState extends State<_EditPanel> {
           });
       widget.onSaved();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Gagal menyimpan: $e'),
             backgroundColor: AppColors.error,
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -2356,8 +2374,9 @@ class _QuestionPreviewArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (questions.isEmpty || currentIndex >= questions.length)
+    if (questions.isEmpty || currentIndex >= questions.length) {
       return const Center(child: Text('Tidak ada soal'));
+    }
     final q = questions[currentIndex];
     if (q is! Map) return const Center(child: Text('Format soal tidak valid'));
     final qData = q as Map<String, dynamic>;

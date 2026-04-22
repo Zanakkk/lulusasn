@@ -5,7 +5,11 @@ const admin = require("firebase-admin");
 const axios = require("axios");
 
 const FLIP_API_KEY = defineString("FLIP_API_KEY");
-const FLIP_BASE_URL = "https://bigflip.id/big_sandbox_api/v3";
+// SANDBOX (testing)
+//const FLIP_BASE_URL = "https://bigflip.id/big_sandbox_api/v2";
+
+// PRODUCTION
+const FLIP_BASE_URL = "https://bigflip.id/api/v2";
 
 // db dipanggil di dalam function, bukan di level atas
 // agar tidak error sebelum initializeApp() di index.js

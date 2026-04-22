@@ -155,6 +155,10 @@ class AppRouter {
       case AppRoutes.adminVerificationTO:
         return _page(s, const PromotionVerificationScreen());
 
+      // ✅ paymentFailed tidak punya screen khusus — redirect ke 404 dengan pesan
+      case AppRoutes.paymentFailed:
+        return _page(s, const NotFoundScreen());
+
       case AppRoutes.notFound:
       default:
         return _page(s, const NotFoundScreen());
